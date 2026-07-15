@@ -1,0 +1,187 @@
+import type {
+  ApiErrorBody,
+  BackgroundJobListResponse,
+  Category,
+  ComponentCard,
+  ComponentDraftInput,
+  ComponentListResponse,
+  ComponentStatus,
+  ComponentUpdateInput,
+  CreateUserInput,
+  LoginInput,
+  LoginResponse,
+  LogoutResponse,
+  MutationResponse,
+  JobMutationResponse,
+  JobStatus,
+  Role,
+  User,
+} from "./contracts";
+
+const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "/api/v1";
+
+if (!configuredBaseUrl.startsWith("/") || configuredBaseUrl.startsWith("//")) {
+  throw new Error("VITE_API_BASE_URL must be a same-origin absolute path");
+}
+
+const API_BASE_URL = configuredBaseUrl.replace(/\/$/, "");
+const CSRF_COOKIE = "ackb_csrf";
+
+export class ApiError extends Error {
+  constructor(
+    public readonly status: number,
+    public readonly code: string,
+    public readonly details?: Readonly<Record<string, unknown>>,
+    message = "API request failed",
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
+function readCookie(name: string): string | undefined {
+  const prefix = `${encodeURIComponent(name)}=`;
+  const pair = document.cookie
+    .split(";")
+    .map((value) => value.trim())
+    .find((value) => value.startsWith(prefix));
+  if (pair === undefined) {
+    return undefined;
+  }
+  try {
+    return decodeURIComponent(pair.slice(prefix.length));
+  } catch {
+    return undefined;
+  }
+}
+
+async function responseBody(response: Response): Promise<unknown> {
+  if (response.status === 204) {
+    return undefined;
+  }
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) {
+    return undefined;
+  }
+  return response.json() as Promise<unknown>;
+}
+
+function errorCode(body: unknown): string {
+  if (typeof body !== "object" || body === null) {
+    return "request_failed";
+  }
+  const candidate = body as ApiErrorBody;
+  return typeof candidate.detail?.code === "string"
+    ? candidate.detail.code
+    : "request_failed";
+}
+
+function errorDetails(body: unknown): Readonly<Record<string, unknown>> | undefined {
+  if (typeof body !== "object" || body === null) {
+    return undefined;
+  }
+  const detail = (body as ApiErrorBody).detail;
+  return detail;
+}
+
+interface RequestOptions extends RequestInit {
+  csrf?: boolean;
+}
+
+export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const headers = new Headers(options.headers);
+  headers.set("Accept", "application/json");
+  if (options.body !== undefined) {
+    headers.set("Content-Type", "application/json");
+  }
+  if (options.csrf === true) {
+    const csrf = readCookie(CSRF_COOKIE);
+    if (csrf === undefined) {
+      throw new ApiError(403, "csrf_token_missing", undefined, "CSRF token is missing");
+    }
+    headers.set("X-CSRF-Token", csrf);
+  }
+
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...options,
+    headers,
+    credentials: "include",
+  });
+  const body = await responseBody(response);
+  if (!response.ok) {
+    throw new ApiError(response.status, errorCode(body), errorDetails(body));
+  }
+  return body as T;
+}
+
+export const api = {
+  currentUser: (): Promise<User> => apiRequest<User>("/auth/me"),
+  login: (input: LoginInput): Promise<LoginResponse> =>
+    apiRequest<LoginResponse>("/auth/login", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  logout: (): Promise<LogoutResponse> =>
+    apiRequest<LogoutResponse>("/auth/logout", { method: "POST", csrf: true }),
+  createUser: (input: CreateUserInput): Promise<User> =>
+    apiRequest<User>("/admin/users", {
+      method: "POST",
+      body: JSON.stringify(input),
+      csrf: true,
+    }),
+  setRoles: (userId: string, roles: Role[]): Promise<MutationResponse> =>
+    apiRequest<MutationResponse>(`/admin/users/${encodeURIComponent(userId)}/roles`, {
+      method: "PUT",
+      body: JSON.stringify({ roles }),
+      csrf: true,
+    }),
+  disableUser: (userId: string): Promise<MutationResponse> =>
+    apiRequest<MutationResponse>(`/admin/users/${encodeURIComponent(userId)}/disable`, {
+      method: "POST",
+      csrf: true,
+    }),
+  listJobs: (status?: JobStatus): Promise<BackgroundJobListResponse> => {
+    const query = status === undefined ? "" : `?status=${encodeURIComponent(status)}`;
+    return apiRequest<BackgroundJobListResponse>(`/admin/jobs${query}`);
+  },
+  retryJob: (jobId: string): Promise<JobMutationResponse> =>
+    apiRequest<JobMutationResponse>(`/admin/jobs/${encodeURIComponent(jobId)}/retry`, {
+      method: "POST",
+      csrf: true,
+    }),
+  listWorkspaceComponents: (status?: ComponentStatus): Promise<ComponentListResponse> => {
+    const query = status === undefined ? "" : `?status=${encodeURIComponent(status)}`;
+    return apiRequest<ComponentListResponse>(`/workspace/components${query}`);
+  },
+  listWorkspaceCategories: (): Promise<Category[]> =>
+    apiRequest<Category[]>("/workspace/categories"),
+  getWorkspaceComponent: (componentId: string): Promise<ComponentCard> =>
+    apiRequest<ComponentCard>(`/workspace/components/${encodeURIComponent(componentId)}`),
+  createComponentDraft: (input: ComponentDraftInput): Promise<ComponentCard> =>
+    apiRequest<ComponentCard>("/workspace/components", {
+      method: "POST",
+      body: JSON.stringify(input),
+      csrf: true,
+    }),
+  updateComponentDraft: (
+    componentId: string,
+    input: ComponentUpdateInput,
+  ): Promise<ComponentCard> =>
+    apiRequest<ComponentCard>(`/workspace/components/${encodeURIComponent(componentId)}`, {
+      method: "PUT",
+      body: JSON.stringify(input),
+      csrf: true,
+    }),
+  publishComponent: (componentId: string, revision: number): Promise<ComponentCard> =>
+    apiRequest<ComponentCard>(`/workspace/components/${encodeURIComponent(componentId)}/publish`, {
+      method: "POST",
+      body: JSON.stringify({ revision }),
+      csrf: true,
+    }),
+  archiveComponent: (componentId: string, revision: number): Promise<ComponentCard> =>
+    apiRequest<ComponentCard>(`/workspace/components/${encodeURIComponent(componentId)}/archive`, {
+      method: "POST",
+      body: JSON.stringify({ revision }),
+      csrf: true,
+    }),
+};

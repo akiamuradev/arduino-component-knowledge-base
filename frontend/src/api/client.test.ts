@@ -1,0 +1,87 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { api, apiRequest } from "./client";
+
+afterEach(() => {
+  document.cookie = "ackb_csrf=; Max-Age=0; Path=/";
+  vi.unstubAllGlobals();
+});
+
+describe("apiRequest", () => {
+  it("uses same-origin cookies and attaches the CSRF token to mutations", async () => {
+    document.cookie = "ackb_csrf=csrf-value; Path=/";
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ status: "ok" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await apiRequest<{ status: string }>("/admin/users/user-id/disable", {
+      method: "POST",
+      csrf: true,
+    });
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, options] = fetchMock.mock.calls[0] ?? [];
+    expect(url).toBe("/api/v1/admin/users/user-id/disable");
+    expect(options?.credentials).toBe("include");
+    expect(new Headers(options?.headers).get("X-CSRF-Token")).toBe("csrf-value");
+  });
+
+  it("preserves backend status and typed error code", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>().mockResolvedValue(
+        new Response(JSON.stringify({ detail: { code: "permission_denied" } }), {
+          status: 403,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+
+    await expect(apiRequest("/admin/users")).rejects.toEqual(
+      expect.objectContaining({ status: 403, code: "permission_denied" }),
+    );
+  });
+
+  it("fails closed before a mutation without a CSRF cookie", async () => {
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(apiRequest("/auth/logout", { method: "POST", csrf: true })).rejects.toEqual(
+      expect.objectContaining({ status: 403, code: "csrf_token_missing" }),
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("fails closed for a malformed encoded CSRF cookie", async () => {
+    document.cookie = "ackb_csrf=%E0%A4%A; Path=/";
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(apiRequest("/auth/logout", { method: "POST", csrf: true })).rejects.toEqual(
+      expect.objectContaining({ code: "csrf_token_missing" }),
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("protects manual job retry with CSRF", async () => {
+    document.cookie = "ackb_csrf=job-csrf; Path=/";
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ id: "job-id", status: "queued" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.retryJob("job-id");
+
+    const [url, options] = fetchMock.mock.calls[0] ?? [];
+    expect(url).toBe("/api/v1/admin/jobs/job-id/retry");
+    expect(options?.method).toBe("POST");
+    expect(new Headers(options?.headers).get("X-CSRF-Token")).toBe("job-csrf");
+  });
+});
