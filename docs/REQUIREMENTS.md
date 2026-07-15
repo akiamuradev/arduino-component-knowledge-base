@@ -36,6 +36,25 @@ REQ-SRC-004. Успешный parser job всегда создаёт или об
 REQ-SRC-005. Для каждой импортированной карточки сохраняются source URL, canonical URL,
 время получения, adapter/version, source identifier при наличии, content hash и атрибуция.
 
+REQ-SRC-006. Первым реализован `arduino-tex.ru` adapter для `/news/{id}/{slug}.html`.
+Его versioned fixture проверяет DOM contract; результат содержит только metadata/plain text,
+имеет `status=draft` и `source_policy=metadata_only`. До появления catalog/import schema этот
+результат остаётся parser boundary value и не считается сохранённой карточкой.
+
+REQ-SRC-007. Fetcher повторно разрешает все A/AAAA для initial URL и каждого redirect,
+отклоняет запрос, если хотя бы один адрес non-global, и подключается к выбранному проверенному
+IP с исходными Host/SNI и TLS verification. System proxy, cookies, credentials и automatic
+redirects запрещены; decoded HTML ограничен 2 MiB, headers — 32 KiB, redirects — тремя.
+
+REQ-SRC-008. `portal-pk.ru` использует отдельный adapter v1 для `/news/{id}-{slug}.html`,
+а `alexgyver.ru` — отдельный adapter v1 для detail page `/{project}/`; индекс
+`/ardu-proj/` не считается карточкой компонента. Оба возвращают тот же metadata-only draft
+contract и не импортируют article body, downloads, scripts или media.
+
+REQ-SRC-009. Parser drift возвращает bounded diagnostic с typed code, source host,
+parser name/version и logical field. Raw HTML, URL query, remote text и внутренний traceback
+в diagnostic не включаются; отсутствие и неоднозначность обязательных metadata различаются.
+
 ## Роли и авторизация
 
 Роли являются backend enum и назначаются администратором. Frontend скрывает недоступные

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from pytest import MonkeyPatch
 
@@ -15,3 +17,9 @@ def isolated_auth_settings(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setenv("ACKB_MINIO_ACCESS_KEY", "test-access")
     monkeypatch.setenv("ACKB_MINIO_SECRET_KEY", "test-secret-placeholder")
     monkeypatch.setenv("ACKB_MINIO_SECURE", "false")
+
+
+@pytest.fixture
+def fixture_html() -> bytes:
+    """Return the versioned first-source fixture without network access."""
+    return (Path(__file__).parent / "fixtures" / "arduino_tex" / "ky_023.html").read_bytes()
