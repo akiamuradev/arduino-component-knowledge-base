@@ -58,6 +58,14 @@ def test_compose_has_migrations_private_media_and_health_gates() -> None:
     assert "condition: service_healthy" in compose
 
 
+def test_nginx_healthchecks_use_explicit_ipv4_loopback() -> None:
+    compose = (ROOT / "compose.yaml").read_text(encoding="utf-8")
+    assert "http://127.0.0.1:8080/container-health" in compose
+    assert "http://127.0.0.1:8080/health" in compose
+    assert "http://localhost:8080" not in compose
+    assert compose.count("start_period: 10s") == 2
+
+
 def test_images_are_versioned_and_env_example_contains_only_placeholders() -> None:
     combined = "\n".join(
         path.read_text(encoding="utf-8")
