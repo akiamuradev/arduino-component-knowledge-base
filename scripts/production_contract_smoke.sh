@@ -34,6 +34,8 @@ docker compose \
 
 docker run --rm \
   --env ACKB_INTERNAL_HOSTNAME=kb.test.internal \
+  --add-host backend:127.0.0.1 \
+  --add-host frontend:127.0.0.1 \
   --volume "$ROOT_DIR/deploy/reverse-proxy/internal-https.conf.template:/etc/nginx/templates/default.conf.template:ro" \
   --volume "$temporary_dir/tls.crt:/etc/nginx/tls/tls.crt:ro" \
   --volume "$temporary_dir/tls.key:/etc/nginx/tls/tls.key:ro" \

@@ -49,6 +49,9 @@ def test_production_templates_contain_no_private_material_or_insecure_smoke_flag
     assert "openssl x509" in preflight
     assert "--insecure" not in smoke
     assert "CERT_NONE" not in smoke
+    contract_smoke = (ROOT / "scripts/production_contract_smoke.sh").read_text(encoding="utf-8")
+    assert "--add-host backend:127.0.0.1" in contract_smoke
+    assert "--add-host frontend:127.0.0.1" in contract_smoke
 
 
 @pytest.mark.parametrize(
