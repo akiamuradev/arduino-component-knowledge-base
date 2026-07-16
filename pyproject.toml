@@ -49,6 +49,7 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 asyncio_mode = "auto"
 markers = [
   "integration: requires explicitly configured PostgreSQL and MinIO test services",
