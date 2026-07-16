@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import type { JobStatus } from "../api/contracts";
 import { ErrorState, LoadingState } from "../components/AsyncStates";
+import { SplatEmptyState } from "../components/SplatEmptyState";
 import { useAdminJobs, useRetryJob } from "../jobs/queries";
 
 const statuses: { value: JobStatus | "all"; label: string }[] = [
@@ -60,7 +61,7 @@ export function AdminJobsPage() {
       </p>
       {retry.isError ? <p className="form-error" role="alert">Не удалось поставить задачу повторно.</p> : null}
       {jobs.data.items.length === 0 ? (
-        <p className="empty-panel">Задач с выбранным статусом нет.</p>
+        <SplatEmptyState icon="↻" title="Задач пока нет" description="Для выбранного статуса фоновые задачи отсутствуют." />
       ) : (
         <div className="job-table" aria-label="Фоновые задачи">
           {jobs.data.items.map((job) => (

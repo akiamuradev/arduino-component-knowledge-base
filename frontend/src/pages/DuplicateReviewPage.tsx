@@ -7,6 +7,7 @@ import type {
   DuplicateDecision,
 } from "../api/contracts";
 import { ErrorState, LoadingState } from "../components/AsyncStates";
+import { SplatEmptyState } from "../components/SplatEmptyState";
 import {
   useDuplicateCandidate,
   useDuplicateCandidates,
@@ -152,7 +153,7 @@ export function DuplicateReviewPage() {
     <section>
       <p className="eyebrow">Только administrator</p><h2>Проверка дубликатов</h2>
       <p className="lede">Очередь отсортирована по score. Ни один кандидат не объединяется автоматически.</p>
-      {list.data.items.length === 0 ? <p className="empty-panel">Открытых кандидатов нет.</p> : (
+      {list.data.items.length === 0 ? <SplatEmptyState icon="✓" title="Дубликатов не найдено" description="Открытых кандидатов для проверки сейчас нет." /> : (
         <div className="duplicate-queue">
           {list.data.items.map((item) => (
             <Link key={item.id} to={`/admin/duplicates/${item.id}`}>

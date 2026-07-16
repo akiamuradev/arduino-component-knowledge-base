@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 
 import type { CatalogComponent, Difficulty } from "../api/contracts";
+import { BrandSplat } from "./BrandSplat";
 
 const difficultyLabels: Record<Difficulty, string> = {
   beginner: "Начальный",
@@ -37,7 +38,7 @@ export function ComponentCard({ component }: { component: CatalogComponent }) {
   return (
     <Link className="catalog-card" to={`/components/${component.slug}`}>
       <div className="catalog-card__media">
-        {image === undefined ? <span className="catalog-card__fallback" role="img" aria-label={`Изображение для ${component.title} пока не добавлено`}>{component.title.charAt(0).toUpperCase()}</span> : <img alt={component.media?.find((item) => item.kind === "image")?.alt ?? component.title} loading="lazy" src={image} />}
+        {image === undefined ? <span className="catalog-card__fallback" role="img" aria-label={`Изображение для ${component.title} пока не добавлено`}><BrandSplat size="8.5rem" opacity={0.62} rotation={-6} variant="muted" /><b aria-hidden="true">{component.title.charAt(0).toUpperCase()}</b></span> : <img alt={component.media?.find((item) => item.kind === "image")?.alt ?? component.title} loading="lazy" src={image} />}
         <span className="status-badge">{component.primary_category.name}</span>
       </div>
       <div className="catalog-card__body">

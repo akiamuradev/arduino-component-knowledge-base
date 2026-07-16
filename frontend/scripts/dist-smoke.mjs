@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { stdout } from "node:process";
 
@@ -29,6 +29,10 @@ for (const match of assetMatches) {
   if (asset === undefined || !existsSync(resolve(root, "dist", asset.slice(1)))) {
     throw new Error(`missing bundled asset: ${asset ?? "unknown"}`);
   }
+}
+const bundledAssets = readdirSync(resolve(root, "dist", "assets"));
+if (!bundledAssets.some((asset) => asset.startsWith("green-splat-") && asset.endsWith(".svg"))) {
+  throw new Error("frontend build is missing the standalone green splat brand asset");
 }
 if (/AKIA[0-9A-Z]{16}|BEGIN (?:RSA|OPENSSH|EC) PRIVATE KEY/.test(html)) {
   throw new Error("secret-like material found in frontend entry point");

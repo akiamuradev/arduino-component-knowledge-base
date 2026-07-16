@@ -71,7 +71,7 @@ function renderRoute(path: string, user: User) {
 describe("application routes", () => {
   it("renders the student layout and empty search result", async () => {
     renderRoute("/", student);
-    expect(await screen.findByRole("heading", { name: "Собирайте проекты с пониманием" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Исследуйте мир Arduino-компонентов" })).toBeVisible();
     expect(screen.getByText("Ничего не найдено")).toBeVisible();
     expect(screen.queryByRole("link", { name: /Добавить компонент/ })).not.toBeInTheDocument();
   });
@@ -112,7 +112,7 @@ describe("application routes", () => {
   it("renders duplicate review only for an administrator", async () => {
     renderRoute("/admin/duplicates", { ...student, roles: ["administrator"] });
     expect(await screen.findByRole("heading", { name: "Проверка дубликатов" })).toBeVisible();
-    expect(screen.getByText("Открытых кандидатов нет.")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Дубликатов не найдено" })).toBeVisible();
   });
 
   it("does not expose duplicate decisions to a teacher", async () => {

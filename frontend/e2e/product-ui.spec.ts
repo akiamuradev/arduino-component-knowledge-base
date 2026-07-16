@@ -77,7 +77,8 @@ test("student browses the catalog, switches theme and opens sourced learning con
   });
   await mockCatalog(page);
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Собирайте проекты с пониманием" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Исследуйте мир Arduino-компонентов" })).toBeVisible();
+  await expect(page.locator(".hero__splat")).toHaveAttribute("aria-hidden", "true");
   await expect(page.getByText("Источник: arduino-tex.ru")).toBeVisible();
   await expect(page.getByRole("link", { name: /Добавить компонент/ })).toHaveCount(0);
   await page.keyboard.press("Tab");
@@ -100,6 +101,9 @@ test("student browses the catalog, switches theme and opens sourced learning con
     );
     expect(overflows, `horizontal overflow at ${String(width)}px`).toBe(false);
   }
+  await page.goto("/");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(page.locator(".brand-splat--animated").first()).toHaveCSS("animation-name", "none");
   expect(consoleErrors).toEqual([]);
 });
 

@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 
 import type { ComponentStatus } from "../api/contracts";
 import { ErrorState, LoadingState } from "../components/AsyncStates";
+import { SplatEmptyState } from "../components/SplatEmptyState";
 import { useWorkspaceComponents } from "../workspace/queries";
 
 const statusLabels: Record<ComponentStatus, string> = {
@@ -37,7 +38,7 @@ export function ComponentListPage() {
         <Link className="button button--primary" to="/admin/components/new">Новая карточка</Link>
       </div>
       {components.data.items.length === 0 ? (
-        <div className="empty-panel"><h3>Карточек пока нет</h3><p>Создайте первый ручной draft.</p></div>
+        <SplatEmptyState icon="▤" title="Карточек пока нет" description="Создайте первый ручной draft." action={<Link className="button button--primary" to="/admin/components/new">Новая карточка</Link>} />
       ) : (
         <div className="component-table" role="list">
           <div className="component-table__head" aria-hidden="true"><span>Название</span><span>Категория</span><span>Статус</span><span>Версия</span></div>

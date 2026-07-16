@@ -64,13 +64,13 @@ describe("OLED login display", () => {
     expect(requestFrame).not.toHaveBeenCalled();
   });
 
-  it("keeps the deterministic lime blob behind the board", () => {
+  it("keeps the decorative brand splat behind the board", () => {
     const view = render(<OledLoginDisplay state="idle" />);
-    const blob = view.getByTestId("graffiti-blob");
-    const dots = view.getByTestId("graffiti-dots");
+    const splat = view.container.querySelector<HTMLElement>(".oled-brand-splat");
     const board = view.getByTestId("oled-board");
-    expect(blob.compareDocumentPosition(board) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(dots.querySelectorAll("circle")).toHaveLength(40);
-    expect(blob).toHaveClass("graffiti-blob");
+    if (splat === null) throw new Error("OLED brand splat is missing");
+    expect(splat).toHaveAttribute("alt", "");
+    expect(splat).toHaveAttribute("aria-hidden", "true");
+    expect(splat.compareDocumentPosition(board) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });

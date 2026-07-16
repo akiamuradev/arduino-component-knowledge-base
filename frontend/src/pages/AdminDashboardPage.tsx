@@ -1,6 +1,8 @@
 import { Link } from "react-router-dom";
 
 import { ErrorState, LoadingState } from "../components/AsyncStates";
+import { BrandSplat } from "../components/BrandSplat";
+import { SplatEmptyState } from "../components/SplatEmptyState";
 import { useWorkspaceComponents } from "../workspace/queries";
 
 export function AdminDashboardPage() {
@@ -24,12 +26,13 @@ export function AdminDashboardPage() {
 
   return (
     <section>
-      <div className="section-heading">
+      <div className="section-heading admin-dashboard-heading">
         <div>
           <p className="eyebrow">Сегодня в редакции</p>
           <h2>Обзор материалов</h2>
         </div>
         <Link className="button button--primary" to="/admin/components/new">Новая карточка</Link>
+        <BrandSplat className="admin-dashboard-splat" opacity={0.62} rotation={-8} size="7rem" variant="muted" />
       </div>
       <p className="lede">
         Управляйте карточками компонентов: готовьте черновики, проверяйте содержание и
@@ -46,7 +49,7 @@ export function AdminDashboardPage() {
           <Link className="text-link" to="/admin/components">Все карточки →</Link>
         </div>
         {components.data.items.length === 0 ? (
-          <p className="muted">Карточек пока нет.</p>
+          <SplatEmptyState icon="▤" title="Карточек пока нет" description="Создайте первый draft и подготовьте его к публикации." />
         ) : components.data.items.slice(0, 5).map((component) => (
           <Link className="component-row" key={component.id} to={`/admin/components/${component.id}/edit`}>
             <span><strong>{component.title}</strong><small>{component.primary_category.name}</small></span>

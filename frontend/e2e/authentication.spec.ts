@@ -60,7 +60,7 @@ test("an administrator signs in and reaches the protected dashboard", async ({ p
 
   await expect(page).toHaveURL(/\/admin$/);
   await expect(page.getByRole("heading", { name: "Обзор материалов" })).toBeVisible();
-  await expect(page.getByText("Карточек пока нет.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Карточек пока нет" })).toBeVisible();
   await expect(page.getByText("Права проверяются сервером")).toBeVisible();
   expect(submittedLogin).toBe("administrator");
 });

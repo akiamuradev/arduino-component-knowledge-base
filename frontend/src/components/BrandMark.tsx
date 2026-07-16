@@ -1,10 +1,10 @@
+import { BrandSplat } from "./BrandSplat";
+
 export function BrandMark() {
   return (
     <span className="brand-mark" aria-hidden="true">
-      <span className="brand-mark__loop brand-mark__loop--left" />
-      <span className="brand-mark__loop brand-mark__loop--right" />
-      <span className="brand-mark__minus" />
-      <span className="brand-mark__plus">+</span>
+      <BrandSplat loading="eager" rotation={-6} size="100%" />
+      <span className="brand-mark__core">A</span>
     </span>
   );
 }
