@@ -36,7 +36,8 @@ MinIO. `backend` выдаёт presigned media URL лишь после object-lev
 host port mappings; migration и media provisioning выполняются одноразовыми jobs до старта
 backend/worker. HTTP допустим только для local stage-1 contour. `compose.production.yaml`
 публикует заданный static IP только на 80/443, включает edge и MinIO TLS, secure cookies и
-read-only CA bundle. Сети `edge`/`data` остаются internal, а `parser-egress` отделён. Реальные
+read-only CA bundle. Сети `edge`/`data` остаются internal, reverse proxy дополнительно подключён
+к host-facing `ingress`, а `parser-egress` отделён. Реальные
 static IP, internal DNS, CA trust и host/perimeter firewall проверяются по deployment runbook.
 
 ## Модули

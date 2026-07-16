@@ -16,7 +16,8 @@ untrusted URL/HTML -> parser worker -> exact allowlist + pinned HTTPS -> draft o
 untrusted binary -> private quarantine -> media worker without egress -> safe variants
 ```
 
-Только reverse proxy публикует host port. `edge` и `data` являются internal Compose networks.
+Только reverse proxy публикует host port и подключён к host-facing сети `ingress`.
+`edge` и `data` являются internal Compose networks.
 PostgreSQL, Redis, MinIO, backend и media worker не имеют внешнего egress. Отдельный
 `parser-worker` подключён к `parser-egress`, но его URL policy разрешает только HTTPS exact
 hosts, проверяет все DNS answers и каждый redirect.

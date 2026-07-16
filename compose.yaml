@@ -199,6 +199,7 @@ services:
     restart: unless-stopped
     networks:
       - edge
+      - ingress
 
 volumes:
   postgres-data:
@@ -206,6 +207,7 @@ volumes:
   minio-data:
 
 networks:
+  ingress:
   edge:
     internal: true
   data:

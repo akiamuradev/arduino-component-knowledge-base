@@ -260,7 +260,8 @@ REQ-JOB-003. Только administrator видит общий monitor и вру�
   opener и permissions headers; CSP допускает production assets только same-origin.
 - REQ-SEC-004: parser сохраняет exact HTTPS allowlist, all-address DNS validation, connection
   pinning, redirect revalidation и decoded response limits; результат всегда draft.
-- REQ-SEC-005: media processing отделён от parser egress. `edge` и `data` — internal networks,
+- REQ-SEC-005: media processing отделён от parser egress. `edge` и `data` — internal networks;
+  только reverse proxy дополнительно подключён к host-facing `ingress`,
   наружу опубликован только reverse proxy, отдельный parser worker обслуживает `imports`.
 
 ## Нефункциональные требования
