@@ -15,6 +15,8 @@ PostgreSQL, Redis и MinIO доступны только внутри deployment
 - Backend является источником истины: route dependency проверяет authentication, application
   service — action permission, repository query — object visibility.
 - Default deny. Student видит только published revision и student-visible examples.
+- `/api/v1/catalog/*` требует active session, не сериализует `teacher_notes` и не возвращает
+  карточку без published snapshot либо после archive; frontend route guard не заменяет эту проверку.
 - Teacher управляет draft и публикацией без merge-конфликта. Только administrator управляет
   ролями/source policy и подтверждает duplicate merge.
 - MVP использует локальные Argon2id credentials и opaque server-side sessions. PostgreSQL

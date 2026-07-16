@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from arduino_component_kb.api.catalog import DraftRequest, UpdateRequest, editor
 from arduino_component_kb.auth.domain import Principal, Role
 from arduino_component_kb.catalog.domain import ComponentStatus, RevisionConflictError
-from arduino_component_kb.catalog.models import Component
+from arduino_component_kb.catalog.models import Category, Component, ComponentRevision
 from arduino_component_kb.catalog.service import CatalogService
 
 
@@ -66,3 +66,45 @@ async def test_stale_revision_is_rejected_before_mutation() -> None:
     service = CatalogService(cast(AsyncSession, session))
     with pytest.raises(RevisionConflictError):
         await service.transition(uuid4(), 2, target=ComponentStatus.PUBLISHED, actor_id=uuid4())
+
+
+async def test_student_card_uses_published_snapshot_and_hides_teacher_notes() -> None:
+    component_id = uuid4()
+    category_id = uuid4()
+    published_at = datetime.now(UTC)
+    component = Component(id=component_id, slug="stable-slug", status="draft")
+    snapshot = ComponentRevision(
+        id=uuid4(),
+        component_id=component_id,
+        revision=4,
+        status="published",
+        content_json={
+            "slug": "stable-slug",
+            "title": "Published title",
+            "aliases": ["Alias"],
+            "manufacturer": None,
+            "model": None,
+            "primary_category_id": str(category_id),
+            "tags": ["sensor"],
+            "summary": "Published summary with enough content",
+            "description": "Published description",
+            "purpose": None,
+            "usage_notes": None,
+            "safety_notes": None,
+            "difficulty": "beginner",
+            "teacher_notes": "must not leak",
+            "manual_original": True,
+        },
+        actor_id=uuid4(),
+        created_at=published_at,
+    )
+    category = Category(id=category_id, key="sensors", name="Датчики", is_active=True, position=1)
+    session = Mock(spec=AsyncSession)
+    session.scalar = AsyncMock(side_effect=[component, snapshot])
+    session.get = AsyncMock(return_value=category)
+
+    card = await CatalogService(cast(AsyncSession, session)).get_published("stable-slug")
+
+    assert card.data.title == "Published title"
+    assert card.data.teacher_notes is None
+    assert card.published_at == published_at

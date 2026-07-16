@@ -16,6 +16,7 @@ from arduino_component_kb.catalog.domain import (
     CategoryItem,
     ComponentNotFoundError,
     ComponentStatus,
+    Difficulty,
     DraftData,
     RevisionConflictError,
 )
@@ -33,6 +34,12 @@ _SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
 def _normalized(value: str) -> str:
     return unicodedata.normalize("NFKC", value).strip().casefold()
+
+
+def _snapshot_strings(value: object) -> tuple[str, ...]:
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise CatalogValidationError
+    return tuple(value)
 
 
 class CatalogService:
@@ -95,6 +102,50 @@ class CatalogService:
             query = query.where(Component.status == status.value)
         return [await self._card(row) for row in await self.session.scalars(query)]
 
+    async def list_published(
+        self,
+        query: str | None,
+        category_id: UUID | None,
+        difficulty: Difficulty | None,
+        limit: int,
+    ) -> tuple[list[CatalogCard], int]:
+        rows = await self.session.scalars(
+            select(Component)
+            .where(Component.status != ComponentStatus.ARCHIVED.value)
+            .order_by(Component.updated_at.desc())
+        )
+        needle = _normalized(query) if query else None
+        cards: list[CatalogCard] = []
+        for row in rows:
+            card = await self._published_card(row)
+            if card is None:
+                continue
+            haystack = _normalized(
+                " ".join((card.data.title, card.data.summary, *card.data.aliases, *card.data.tags))
+            )
+            if needle and needle not in haystack:
+                continue
+            if category_id is not None and card.data.primary_category_id != category_id:
+                continue
+            if difficulty is not None and card.data.difficulty is not difficulty:
+                continue
+            cards.append(card)
+        return cards[:limit], len(cards)
+
+    async def get_published(self, slug: str) -> CatalogCard:
+        row = await self.session.scalar(
+            select(Component).where(
+                Component.slug == slug,
+                Component.status != ComponentStatus.ARCHIVED.value,
+            )
+        )
+        if row is None:
+            raise ComponentNotFoundError
+        card = await self._published_card(row)
+        if card is None:
+            raise ComponentNotFoundError
+        return card
+
     async def get_card(self, component_id: UUID) -> CatalogCard:
         row = await self.session.get(Component, component_id)
         if row is None:
@@ -127,6 +178,8 @@ class CatalogService:
         row = await self._locked(component_id)
         if row.revision != expected_revision:
             raise RevisionConflictError
+        if row.published_at is not None and data.slug != row.slug:
+            raise CatalogValidationError
         await self._validate(data)
         for key, value in self._columns(data).items():
             setattr(row, key, value)
@@ -312,4 +365,48 @@ class CatalogService:
                 actor_id=actor_id,
                 created_at=now,
             )
+        )
+
+    async def _published_card(self, row: Component) -> CatalogCard | None:
+        snapshot = await self.session.scalar(
+            select(ComponentRevision)
+            .where(
+                ComponentRevision.component_id == row.id,
+                ComponentRevision.status == ComponentStatus.PUBLISHED.value,
+            )
+            .order_by(ComponentRevision.revision.desc())
+            .limit(1)
+        )
+        if snapshot is None:
+            return None
+        content = snapshot.content_json
+        category_id = UUID(str(content["primary_category_id"]))
+        category = await self.session.get(Category, category_id)
+        if category is None or not category.is_active:
+            return None
+        data = DraftData(
+            slug=str(content["slug"]),
+            title=str(content["title"]),
+            aliases=_snapshot_strings(content["aliases"]),
+            manufacturer=str(content["manufacturer"]) if content.get("manufacturer") else None,
+            model=str(content["model"]) if content.get("model") else None,
+            primary_category_id=category_id,
+            tags=_snapshot_strings(content["tags"]),
+            summary=str(content["summary"]),
+            description=str(content["description"]),
+            purpose=str(content["purpose"]) if content.get("purpose") else None,
+            usage_notes=str(content["usage_notes"]) if content.get("usage_notes") else None,
+            safety_notes=str(content["safety_notes"]) if content.get("safety_notes") else None,
+            difficulty=Difficulty(str(content["difficulty"])),
+            teacher_notes=None,
+            manual_original=bool(content["manual_original"]),
+        )
+        return CatalogCard(
+            row.id,
+            ComponentStatus.PUBLISHED,
+            data,
+            CategoryItem(category.id, category.key, category.name),
+            snapshot.revision,
+            snapshot.created_at,
+            snapshot.created_at,
         )

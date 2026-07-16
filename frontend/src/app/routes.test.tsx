@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import type { User } from "../api/contracts";
 import { currentUserQueryKey } from "../auth/queries";
+import { catalogKeys } from "../catalog/queries";
 import { jobKeys } from "../jobs/queries";
 import { workspaceKeys } from "../workspace/queries";
 import { createQueryClient } from "./query-client";
@@ -22,6 +23,11 @@ function renderRoute(path: string, user: User) {
   queryClient.setDefaultOptions({ queries: { retry: false, staleTime: Infinity } });
   queryClient.setQueryData(currentUserQueryKey, user);
   queryClient.setQueryData(workspaceKeys.components(), { items: [], total: 0 });
+  queryClient.setQueryData(catalogKeys.categories, []);
+  queryClient.setQueryData(
+    catalogKeys.list({ query: "", categoryId: "", difficulty: "" }),
+    { items: [], total: 0 },
+  );
   queryClient.setQueryData(jobKeys.list(), {
     items: [
       {
@@ -60,10 +66,10 @@ function renderRoute(path: string, user: User) {
 }
 
 describe("application routes", () => {
-  it("renders the student layout and honest empty catalog state", async () => {
+  it("renders the student layout and empty search result", async () => {
     renderRoute("/", student);
     expect(await screen.findByRole("heading", { name: /Компоненты Arduino/ })).toBeVisible();
-    expect(screen.getByText("Карточки ещё не подключены")).toBeVisible();
+    expect(screen.getByText("Ничего не найдено")).toBeVisible();
   });
 
   it("does not expose the admin layout to a student", async () => {

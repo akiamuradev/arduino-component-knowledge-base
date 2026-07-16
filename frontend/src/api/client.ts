@@ -1,6 +1,8 @@
 import type {
   ApiErrorBody,
   BackgroundJobListResponse,
+  CatalogComponent,
+  CatalogComponentListResponse,
   Category,
   ComponentCard,
   ComponentDraftInput,
@@ -184,4 +186,19 @@ export const api = {
       body: JSON.stringify({ revision }),
       csrf: true,
     }),
+  listCatalogCategories: (): Promise<Category[]> => apiRequest<Category[]>("/catalog/categories"),
+  listCatalogComponents: (filters: {
+    query?: string;
+    categoryId?: string;
+    difficulty?: string;
+  }): Promise<CatalogComponentListResponse> => {
+    const query = new URLSearchParams();
+    if (filters.query !== undefined && filters.query.trim() !== "") query.set("q", filters.query.trim());
+    if (filters.categoryId !== undefined && filters.categoryId !== "") query.set("category_id", filters.categoryId);
+    if (filters.difficulty !== undefined && filters.difficulty !== "") query.set("difficulty", filters.difficulty);
+    const suffix = query.size === 0 ? "" : `?${query.toString()}`;
+    return apiRequest<CatalogComponentListResponse>(`/catalog/components${suffix}`);
+  },
+  getCatalogComponent: (slug: string): Promise<CatalogComponent> =>
+    apiRequest<CatalogComponent>(`/catalog/components/${encodeURIComponent(slug)}`),
 };

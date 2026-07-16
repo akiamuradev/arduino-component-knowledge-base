@@ -143,3 +143,26 @@ export interface ComponentUpdateInput extends ComponentDraftInput {
 export interface LifecycleInput {
   revision: number;
 }
+
+export interface CatalogComponent {
+  id: string;
+  slug: string;
+  title: string;
+  summary: string;
+  primary_category: Category;
+  aliases: string[];
+  manufacturer: string | null;
+  model: string | null;
+  tags: string[];
+  description: string;
+  purpose: string | null;
+  usage_notes: string | null;
+  safety_notes: string | null;
+  difficulty: Difficulty;
+  published_at: string;
+}
+
+export interface CatalogComponentListResponse {
+  items: CatalogComponent[];
+  total: number;
+}

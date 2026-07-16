@@ -93,6 +93,8 @@ allowlist и network-address policy, `transport` выполняет DNS validati
 2. Backend проверяет `student|teacher|administrator` и status карточки.
 3. PostgreSQL возвращает только разрешённую revision; teacher-only fields фильтруются на
    уровне response schema.
+   Реализация выбирает последний immutable snapshot со status `published`, исключает archived
+   component и применяет bounded search/category/difficulty filters на backend.
 4. Для media backend формирует краткоживущий presigned URL после проверки связи asset с
    доступной revision.
 

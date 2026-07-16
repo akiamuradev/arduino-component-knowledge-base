@@ -64,6 +64,9 @@ def main() -> int:
             "/api/v1/workspace/components/{component_id}/archive",
             "/api/v1/admin/catalog/categories",
             "/api/v1/admin/catalog/categories/{category_id}/deactivate",
+            "/api/v1/catalog/categories",
+            "/api/v1/catalog/components",
+            "/api/v1/catalog/components/{slug}",
         }.issubset(openapi.json()["paths"])
     assert database.disposed is True
     print("Backend HTTP smoke test passed.")

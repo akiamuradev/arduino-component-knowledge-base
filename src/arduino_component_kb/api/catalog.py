@@ -11,7 +11,12 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from arduino_component_kb.api.dependencies import csrf_principal, database_session, require_roles
+from arduino_component_kb.api.dependencies import (
+    csrf_principal,
+    current_principal,
+    database_session,
+    require_roles,
+)
 from arduino_component_kb.auth.domain import Principal, Role
 from arduino_component_kb.auth.repository import AuthRepository
 from arduino_component_kb.catalog.domain import (
@@ -27,6 +32,7 @@ from arduino_component_kb.logging import current_request_id
 
 router = APIRouter(prefix="/api/v1/workspace", tags=["catalog-workspace"])
 admin_router = APIRouter(prefix="/api/v1/admin/catalog", tags=["catalog-administration"])
+public_router = APIRouter(prefix="/api/v1/catalog", tags=["student-catalog"])
 editor = require_roles(Role.TEACHER, Role.ADMINISTRATOR)
 administrator = require_roles(Role.ADMINISTRATOR)
 
@@ -110,6 +116,29 @@ class ComponentListResponse(BaseModel):
     total: int
 
 
+class PublicComponentResponse(BaseModel):
+    id: str
+    slug: str
+    title: str
+    summary: str
+    primary_category: CategoryResponse
+    aliases: list[str]
+    manufacturer: str | None
+    model: str | None
+    tags: list[str]
+    description: str
+    purpose: str | None
+    usage_notes: str | None
+    safety_notes: str | None
+    difficulty: Difficulty
+    published_at: datetime
+
+
+class PublicComponentListResponse(BaseModel):
+    items: list[PublicComponentResponse]
+    total: int
+
+
 def response(card: CatalogCard) -> ComponentResponse:
     data = card.data
     return ComponentResponse(
@@ -142,6 +171,69 @@ def response(card: CatalogCard) -> ComponentResponse:
             )
         },
     )
+
+
+def public_response(card: CatalogCard) -> PublicComponentResponse:
+    data = card.data
+    if card.published_at is None:
+        raise ValueError("published card requires published_at")
+    return PublicComponentResponse(
+        id=str(card.id),
+        slug=data.slug,
+        title=data.title,
+        summary=data.summary,
+        primary_category=CategoryResponse(
+            id=str(card.category.id), slug=card.category.slug, name=card.category.name
+        ),
+        aliases=list(data.aliases),
+        manufacturer=data.manufacturer,
+        model=data.model,
+        tags=list(data.tags),
+        description=data.description,
+        purpose=data.purpose,
+        usage_notes=data.usage_notes,
+        safety_notes=data.safety_notes,
+        difficulty=data.difficulty,
+        published_at=card.published_at,
+    )
+
+
+@public_router.get("/categories", response_model=list[CategoryResponse])
+async def public_categories(
+    _: Annotated[Principal, Depends(current_principal)],
+    session: Annotated[AsyncSession, Depends(database_session)],
+) -> list[CategoryResponse]:
+    return [
+        CategoryResponse(id=str(x.id), slug=x.slug, name=x.name)
+        for x in await CatalogService(session).categories()
+    ]
+
+
+@public_router.get("/components", response_model=PublicComponentListResponse)
+async def public_components(
+    _: Annotated[Principal, Depends(current_principal)],
+    session: Annotated[AsyncSession, Depends(database_session)],
+    query: Annotated[str | None, Query(alias="q", min_length=1, max_length=100)] = None,
+    category_id: UUID | None = None,
+    difficulty: Difficulty | None = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+) -> PublicComponentListResponse:
+    cards, total = await CatalogService(session).list_published(
+        query, category_id, difficulty, limit
+    )
+    return PublicComponentListResponse(items=[public_response(card) for card in cards], total=total)
+
+
+@public_router.get("/components/{slug}", response_model=PublicComponentResponse)
+async def public_component(
+    slug: str,
+    _: Annotated[Principal, Depends(current_principal)],
+    session: Annotated[AsyncSession, Depends(database_session)],
+) -> PublicComponentResponse:
+    try:
+        return public_response(await CatalogService(session).get_published(slug))
+    except CatalogError as error:
+        raise HTTPException(404, detail={"code": "component_not_found"}) from error
 
 
 async def _commit(session: AsyncSession, action: str, actor: Principal, card: CatalogCard) -> None:
