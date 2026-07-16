@@ -45,6 +45,75 @@ jobs:
       - run: npm run build
       - run: npm run smoke
 
+  integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193
+        env:
+          POSTGRES_DB: ackb
+          POSTGRES_USER: ackb
+          POSTGRES_PASSWORD: integration-db-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ackb -d ackb"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      ACKB_RUN_INTEGRATION: "1"
+      ACKB_DATABASE_URL: postgresql+asyncpg://ackb:integration-db-password@127.0.0.1:5432/ackb
+      ACKB_AUTH_THROTTLE_PEPPER: integration-only-pepper-value-000000000000
+      ACKB_REDIS_URL: redis://127.0.0.1:6379/15
+      ACKB_MINIO_ENDPOINT: 127.0.0.1:9000
+      ACKB_MINIO_ACCESS_KEY: test-access
+      ACKB_MINIO_SECRET_KEY: test-secret-placeholder
+      ACKB_MINIO_SECURE: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e ".[dev]"
+      - name: Start isolated MinIO
+        run: >-
+          docker run --detach --name ackb-test-minio --publish 9000:9000
+          --env MINIO_ROOT_USER=test-access
+          --env MINIO_ROOT_PASSWORD=test-secret-placeholder
+          quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z.hotfix.7aa24e772@sha256:cf3dadcfa1fb0324f43958bad1abba986d53c4ecc04d4d50b46c7dcda28bd3cd
+          server /data
+      - name: Wait for MinIO
+        run: |
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:9000/minio/health/ready >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs ackb-test-minio
+          exit 1
+      - run: alembic upgrade head
+      - run: pytest -m integration --strict-markers
+
+  e2e:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+
   containers:
     runs-on: ubuntu-latest
     steps:

@@ -38,4 +38,13 @@ export default tseslint.config(
       },
     },
   },
+  {
+    files: ["playwright.config.ts", "e2e/**/*.ts"],
+    languageOptions: {
+      parserOptions: {
+        project: "./tsconfig.e2e.json",
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+  },
 );

@@ -16,21 +16,21 @@ export function LoginPage() {
   const location = useLocation();
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
+  const state = location.state as LoginLocationState | null;
+  const target =
+    state?.from?.startsWith("/") === true && !state.from.startsWith("//")
+      ? state.from
+      : "/";
   const mutation = useMutation({
     mutationFn: api.login,
     onSuccess: async ({ user }) => {
       queryClient.setQueryData(currentUserQueryKey, user);
-      const state = location.state as LoginLocationState | null;
-      const target =
-        state?.from?.startsWith("/") === true && !state.from.startsWith("//")
-          ? state.from
-          : "/";
       await navigate(target, { replace: true });
     },
   });
 
   if (currentUser.isSuccess) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={target} replace />;
   }
 
   const submit = (event: SyntheticEvent<HTMLFormElement, SubmitEvent>) => {
