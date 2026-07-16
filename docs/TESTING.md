@@ -34,8 +34,13 @@ npm run test:e2e
 
 Playwright запускает собранный frontend через Vite preview. Тест перехватывает HTTP API на
 границе браузера, проверяет redirect на login, отправку credentials и переход administrator в
-защищённый dashboard. Реальная backend-авторизация отдельно проверяется integration-контуром.
-Тестовые ответы отсутствуют в production bundle.
+защищённый dashboard. Дополнительный student flow проверяет catalog, смену темы, detail,
+безопасную source attribution, подсказку и скрытое решение. Реальная backend-авторизация отдельно
+проверяется integration-контуром. Тестовые ответы отсутствуют в production bundle.
+
+Четыре утверждённых visual artifacts для light/dark и desktop/mobile воспроизводятся только при
+`ACKB_UPDATE_SCREENSHOTS=1`. Обычный CI не перезаписывает файлы и отображает visual-update test
+как явный skip.
 
 ## PostgreSQL и MinIO integration
 

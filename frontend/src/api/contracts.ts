@@ -136,6 +136,7 @@ export interface ComponentSummary {
   primary_category: Category;
   revision: number;
   updated_at: string;
+  origin?: ContentOrigin;
 }
 
 export interface ComponentListResponse {
@@ -160,6 +161,9 @@ export interface ComponentCard extends ComponentSummary {
   specifications: TechnicalSpecification[];
   compatibility: ComponentCompatibility[];
   code_examples: CodeExample[];
+  origin?: ContentOrigin;
+  provenance?: ContentProvenance[];
+  media?: CatalogMedia[];
 }
 
 export interface ComponentDraftInput {
@@ -210,11 +214,65 @@ export interface CatalogComponent {
   specifications: TechnicalSpecification[];
   compatibility: ComponentCompatibility[];
   code_examples: CodeExample[];
+  origin?: ContentOrigin;
+  provenance?: ContentProvenance[];
+  media?: CatalogMedia[];
 }
 
 export interface CatalogComponentListResponse {
   items: CatalogComponent[];
   total: number;
+}
+
+export type ContentOrigin = "manual" | "imported" | "mixed";
+
+export interface SourceAttribution {
+  sourceName: string;
+  sourceUrl: string;
+  sourceDomain: string;
+  originalTitle?: string;
+  originalAuthor?: string;
+  originalPublishedAt?: string;
+  importedAt: string;
+  lastCheckedAt?: string;
+  sourceLanguage?: string;
+  contentLicense?: string;
+  attributionText?: string;
+}
+
+export interface ContentProvenance {
+  id: string;
+  contentType:
+    | "description"
+    | "specification"
+    | "image"
+    | "diagram"
+    | "code"
+    | "video"
+    | "document";
+  source: SourceAttribution;
+  fieldName?: string;
+  mediaId?: string;
+}
+
+export interface MediaSource {
+  sourceName: string;
+  sourceUrl: string;
+  originalMediaUrl?: string;
+  originalAuthor?: string;
+  contentLicense?: string;
+  importedAt: string;
+}
+
+export interface CatalogMedia {
+  id: string;
+  kind: "image" | "video";
+  alt: string;
+  thumbnailUrl?: string;
+  processedUrl?: string;
+  originalUrl?: string;
+  posterUrl?: string;
+  source?: MediaSource;
 }
 
 export type DuplicateDecision = "merge" | "attach" | "create" | "reject";

@@ -4,6 +4,7 @@ import { AdminLayout } from "../layouts/AdminLayout";
 import { StudentLayout } from "../layouts/StudentLayout";
 import { AdminDashboardPage } from "../pages/AdminDashboardPage";
 import { AdminJobsPage } from "../pages/AdminJobsPage";
+import { AboutPage } from "../pages/AboutPage";
 import { CatalogPage } from "../pages/CatalogPage";
 import { CatalogComponentPage } from "../pages/CatalogComponentPage";
 import { ComponentEditorPage } from "../pages/ComponentEditorPage";
@@ -28,6 +29,7 @@ export const routes: RouteObject[] = [
         children: [
           { index: true, element: <CatalogPage /> },
           { path: "/components/:slug", element: <CatalogComponentPage /> },
+          { path: "/about", element: <AboutPage /> },
         ],
       },
       {

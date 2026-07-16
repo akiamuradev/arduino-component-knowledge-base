@@ -26,6 +26,11 @@ const card: CatalogComponent = {
     hints: ["Используйте pinMode."], body: "void setup() { pinMode(13, OUTPUT); }", libraries: [],
     explanation: "Пин переводится в режим выхода.", visibility: "student", position: 0,
   }],
+  origin: "imported",
+  provenance: [{
+    id: "source-1", contentType: "description",
+    source: { sourceName: "Arduino Tex", sourceUrl: "https://arduino-tex.ru/news/229/item.html", sourceDomain: "arduino-tex.ru", importedAt: "2026-07-15T10:00:00Z", contentLicense: "Unknown" },
+  }],
 };
 
 function renderCatalog(path = "/") {
@@ -42,6 +47,7 @@ describe("student catalog", () => {
     expect(await screen.findByRole("link", { name: /Датчик температуры/ })).toHaveAttribute("href", "/components/temperature-sensor");
     expect(screen.getByRole("searchbox", { name: "Поиск" })).toBeVisible();
     expect(screen.getAllByRole("combobox")).toHaveLength(2);
+    expect(screen.getByText("Источник: arduino-tex.ru")).toBeVisible();
   });
 
   it("renders component details and safety notes", async () => {
@@ -52,7 +58,9 @@ describe("student catalog", () => {
     expect(screen.getByText("Питание")).toBeVisible();
     expect(screen.getByText("5 В")).toBeVisible();
     expect(screen.getByText(/Плата: Arduino Uno/)).toBeVisible();
-    expect(screen.getByRole("link", { name: /К каталогу/ })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("heading", { name: "Источник материала" })).toBeVisible();
+    expect(screen.getByRole("link", { name: /Arduino Tex/ })).toHaveAttribute("rel", "noopener noreferrer");
+    expect(screen.getByRole("link", { name: /Каталог компонентов/ })).toHaveAttribute("href", "/");
     expect(view.container.querySelector(".learning-code")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Показать подсказку 1" }));
     expect(screen.getByText("Используйте pinMode.")).toBeVisible();

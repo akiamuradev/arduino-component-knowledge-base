@@ -46,6 +46,10 @@ Frontend организован по маршрутам и server-state boundary
 - `api`: типизированные request/response contracts, same-origin client, CSRF и typed errors;
 - `auth`: единственный TanStack Query principal, получаемый из backend `/auth/me`;
 - `routing`: React Router tree и UX guards для anonymous/student/administrator;
+- `theme` и `config`: light/dark/system preference, неизменяемая product identity и безопасные
+  build metadata без auth/session данных;
+- `components`: общий header/footer, OLED login feedback, catalog cards и optional
+  media/provenance presentation; эти компоненты не расширяют backend permissions;
 - `layouts`: student shell и вложенный administrator workspace;
 - `pages/components`: route screens и общие loading/error/forbidden states.
 - `workspace`: dashboard/list/detail queries и mutations редактора с optimistic revision.

@@ -1,7 +1,7 @@
 {
   "name": "arduino-component-kb-frontend",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.20.0",
   "type": "module",
   "packageManager": "npm@11.13.0",
   "engines": {

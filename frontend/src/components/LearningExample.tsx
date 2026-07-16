@@ -29,6 +29,11 @@ export function SyntaxHighlightedCode({ body, language }: { body: string; langua
 export function LearningExample({ example }: { example: CodeExample }) {
   const [visibleHints, setVisibleHints] = useState(0);
   const [solutionVisible, setSolutionVisible] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const copyCode = async () => {
+    await navigator.clipboard.writeText(example.body);
+    setCopied(true);
+  };
   return (
     <article className="learning-example">
       <header>
@@ -50,7 +55,7 @@ export function LearningExample({ example }: { example: CodeExample }) {
       {!solutionVisible ? (
         <button className="button button--primary" type="button" onClick={() => { setSolutionVisible(true); }}>Показать решение</button>
       ) : (
-        <section><h4>Решение</h4><SyntaxHighlightedCode body={example.body} language={example.language} />
+        <section className="learning-solution"><div className="learning-code__toolbar"><span>{example.language}{example.libraries.length > 0 ? ` · ${example.libraries.join(", ")}` : ""}</span><button aria-live="polite" className="code-copy" onClick={() => { void copyCode(); }} type="button">{copied ? "Скопировано" : "Копировать"}</button></div><SyntaxHighlightedCode body={example.body} language={example.language} />
           {example.explanation ? <p className="preserve-lines">{example.explanation}</p> : null}
         </section>
       )}

@@ -1,0 +1,10 @@
+{
+  "name": "Arduino Component Knowledge Base",
+  "short_name": "Arduino Base",
+  "description": "Учебная база знаний об Arduino-совместимых компонентах.",
+  "lang": "ru",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F4EEE4",
+  "theme_color": "#F4EEE4"
+}

@@ -6,7 +6,14 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY index.html tsconfig.json tsconfig.app.json tsconfig.node.json vite.config.ts ./
+COPY public ./public
 COPY src ./src
+ARG VITE_APP_VERSION=0.20.0
+ARG VITE_COMMIT_SHA=unknown
+ARG VITE_BUILD_DATE=unknown
+ENV VITE_APP_VERSION=${VITE_APP_VERSION} \
+    VITE_COMMIT_SHA=${VITE_COMMIT_SHA} \
+    VITE_BUILD_DATE=${VITE_BUILD_DATE}
 RUN npm run build
 
 FROM nginx:1.28-alpine@sha256:a8b39bd9cf0f83869a2162827a0caf6137ddf759d50a171451b335cecc87d236 AS runtime

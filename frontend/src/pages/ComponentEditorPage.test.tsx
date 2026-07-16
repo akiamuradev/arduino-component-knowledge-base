@@ -9,6 +9,7 @@ import { currentUserQueryKey } from "../auth/queries";
 import { createQueryClient } from "../app/query-client";
 import { routes } from "../app/routes";
 import { workspaceKeys } from "../workspace/queries";
+import { ThemeProvider } from "../theme/ThemeProvider";
 
 const teacher: User = {
   id: "00000000-0000-0000-0000-000000000010",
@@ -64,9 +65,9 @@ function renderEditor(component: ComponentCard = card) {
     initialEntries: [`/admin/components/${component.id}/edit`],
   });
   render(
-    <QueryClientProvider client={queryClient}>
+    <ThemeProvider><QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
-    </QueryClientProvider>,
+    </QueryClientProvider></ThemeProvider>,
   );
 }
 
@@ -83,6 +84,26 @@ afterEach(() => {
 });
 
 describe("component editor", () => {
+  it("warns an editor when imported content has an unknown license", async () => {
+    renderEditor({
+      ...card,
+      manual_original: false,
+      origin: "imported",
+      provenance: [{
+        id: "source-1",
+        contentType: "description",
+        source: {
+          sourceName: "Arduino Tex",
+          sourceUrl: "https://arduino-tex.ru/news/229/item.html",
+          sourceDomain: "arduino-tex.ru",
+          importedAt: "2026-07-15T10:00:00Z",
+          contentLicense: "Unknown",
+        },
+      }],
+    });
+    expect(await screen.findByText(/Условия использования материала не определены/)).toBeVisible();
+  });
+
   it("renders a safe preview without interpreting raw HTML", async () => {
     renderEditor({ ...card, description: "<img src=x onerror=alert(1)>" });
     await userEvent.click(screen.getByRole("button", { name: "Preview" }));

@@ -9,6 +9,7 @@ import { catalogKeys } from "../catalog/queries";
 import { duplicateKeys } from "../duplicates/queries";
 import { jobKeys } from "../jobs/queries";
 import { workspaceKeys } from "../workspace/queries";
+import { ThemeProvider } from "../theme/ThemeProvider";
 import { createQueryClient } from "./query-client";
 import { routes } from "./routes";
 
@@ -61,17 +62,18 @@ function renderRoute(path: string, user: User) {
   queryClient.setQueryData(duplicateKeys.all, { items: [], total: 0 });
   const router = createMemoryRouter(routes, { initialEntries: [path] });
   return render(
-    <QueryClientProvider client={queryClient}>
+    <ThemeProvider><QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
-    </QueryClientProvider>,
+    </QueryClientProvider></ThemeProvider>,
   );
 }
 
 describe("application routes", () => {
   it("renders the student layout and empty search result", async () => {
     renderRoute("/", student);
-    expect(await screen.findByRole("heading", { name: /Компоненты Arduino/ })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Собирайте проекты с пониманием" })).toBeVisible();
     expect(screen.getByText("Ничего не найдено")).toBeVisible();
+    expect(screen.queryByRole("link", { name: /Добавить компонент/ })).not.toBeInTheDocument();
   });
 
   it("does not expose the admin layout to a student", async () => {
@@ -83,7 +85,9 @@ describe("application routes", () => {
   it("renders the workspace for a backend-provided administrator role", async () => {
     renderRoute("/admin", { ...student, roles: ["administrator"] });
     expect(await screen.findByRole("heading", { name: "Редакция" })).toBeVisible();
-    expect(screen.getByRole("heading", { name: "Редакционный dashboard" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Обзор материалов" })).toBeVisible();
+    expect(screen.getByText("Права проверяются сервером")).toBeVisible();
+    expect(screen.getAllByRole("link", { name: "Новая карточка" })[0]).toHaveAttribute("href", "/admin/components/new");
   });
 
   it("allows a teacher into the editorial workspace", async () => {

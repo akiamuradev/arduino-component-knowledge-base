@@ -8,6 +8,7 @@ import { createQueryClient } from "../app/query-client";
 import { routes } from "../app/routes";
 import { currentUserQueryKey } from "../auth/queries";
 import { duplicateKeys } from "../duplicates/queries";
+import { ThemeProvider } from "../theme/ThemeProvider";
 
 const admin: User = {
   id: "00000000-0000-0000-0000-000000000001",
@@ -72,9 +73,9 @@ describe("duplicate review page", () => {
       initialEntries: [`/admin/duplicates/${candidate.id}`],
     });
     render(
-      <QueryClientProvider client={queryClient}>
+      <ThemeProvider><QueryClientProvider client={queryClient}>
         <RouterProvider router={router} />
-      </QueryClientProvider>,
+      </QueryClientProvider></ThemeProvider>,
     );
 
     expect(await screen.findByRole("heading", { name: "Проверка дубликата" })).toBeVisible();

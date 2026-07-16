@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type { CodeExample } from "../api/contracts";
 import { LearningExample } from "./LearningExample";
@@ -37,5 +37,10 @@ describe("learning example", () => {
     expect(view.container.querySelector(".learning-code")).toHaveTextContent("<img src=x");
     expect(view.container.querySelector(".code-token--keyword")).toHaveTextContent("void");
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
+    const writeText = vi.fn<(value: string) => Promise<void>>().mockResolvedValue();
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    await user.click(screen.getByRole("button", { name: "Копировать" }));
+    expect(writeText).toHaveBeenCalledWith(example.body);
+    expect(screen.getByRole("button", { name: "Скопировано" })).toBeVisible();
   });
 });

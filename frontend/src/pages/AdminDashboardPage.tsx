@@ -26,24 +26,24 @@ export function AdminDashboardPage() {
     <section>
       <div className="section-heading">
         <div>
-          <p className="eyebrow">Рабочее место преподавателя</p>
-          <h2>Редакционный dashboard</h2>
+          <p className="eyebrow">Сегодня в редакции</p>
+          <h2>Обзор материалов</h2>
         </div>
         <Link className="button button--primary" to="/admin/components/new">Новая карточка</Link>
       </div>
       <p className="lede">
-        Статусы получены из backend. Публикация требует валидной revision, а merge дубликатов
-        остаётся отдельным действием administrator.
+        Управляйте карточками компонентов: готовьте черновики, проверяйте содержание и
+        публикуйте материалы для студентов.
       </p>
       <div className="status-grid">
-        <article><strong>{count("draft")}</strong><span>Черновики</span></article>
-        <article><strong>{count("published")}</strong><span>Опубликовано</span></article>
-        <article><strong>{count("archived")}</strong><span>В архиве</span></article>
+        <article className="status-card status-card--draft"><span className="status-card__icon" aria-hidden="true">✎</span><strong>{count("draft")}</strong><span>Черновики</span><small>Требуют подготовки</small></article>
+        <article className="status-card status-card--published"><span className="status-card__icon" aria-hidden="true">✓</span><strong>{count("published")}</strong><span>Опубликовано</span><small>Доступны студентам</small></article>
+        <article className="status-card status-card--archived"><span className="status-card__icon" aria-hidden="true">□</span><strong>{count("archived")}</strong><span>В архиве</span><small>Скрыты из каталога</small></article>
       </div>
       <div className="recent-list">
         <div className="section-heading section-heading--compact">
-          <h3>Недавние карточки</h3>
-          <Link to="/admin/components">Все карточки</Link>
+          <div><p className="eyebrow">Последние изменения</p><h3>Недавние карточки</h3></div>
+          <Link className="text-link" to="/admin/components">Все карточки →</Link>
         </div>
         {components.data.items.length === 0 ? (
           <p className="muted">Карточек пока нет.</p>

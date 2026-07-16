@@ -254,6 +254,9 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
     (error) => error !== null && error !== conflict,
   );
   const problems = publicationProblems(state);
+  const hasUnknownLicense = card?.provenance?.some(
+    (item) => item.source.contentLicense === undefined || item.source.contentLicense === "Unknown",
+  ) === true;
   const update = <K extends keyof EditorState>(key: K, value: EditorState[K]) => {
     setState((current) => ({ ...current, [key]: value }));
   };
@@ -310,6 +313,7 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
         </div>
       )}
       {otherError === undefined ? null : <div className="inline-error" role="alert">Операция не выполнена. Backend вернул ошибку; изменения остаются в редакторе.</div>}
+      {hasUnknownLicense ? <div className="license-warning" role="alert"><strong>Лицензия источника не подтверждена</strong><span>Условия использования материала не определены. Перед публикацией проверьте правила исходного ресурса.</span></div> : null}
 
       {view === "preview" ? (
         <ComponentPreview state={state} categories={categories} status={card?.status ?? "draft"} />

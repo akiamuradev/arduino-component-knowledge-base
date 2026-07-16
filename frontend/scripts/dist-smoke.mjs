@@ -9,6 +9,17 @@ if (!existsSync(indexPath)) {
 }
 
 const html = readFileSync(indexPath, "utf8");
+for (const publicAsset of ["theme-init.js", "manifest.webmanifest"]) {
+  if (!existsSync(resolve(root, "dist", publicAsset))) {
+    throw new Error(`frontend public asset is missing: ${publicAsset}`);
+  }
+}
+if (!html.includes("theme-init.js") || !html.includes("manifest.webmanifest")) {
+  throw new Error("frontend entry point is missing theme bootstrap or manifest");
+}
+if (!html.includes('content="akiamuradev"')) {
+  throw new Error("frontend entry point is missing product authorship");
+}
 const assetMatches = [...html.matchAll(/(?:src|href)="(\/assets\/[^"]+)"/g)];
 if (assetMatches.length === 0) {
   throw new Error("frontend build does not reference any bundled assets");
