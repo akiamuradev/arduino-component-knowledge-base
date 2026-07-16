@@ -13,6 +13,7 @@ REQUIRED_SERVICES = {
     "media-init",
     "backend",
     "worker",
+    "parser-worker",
     "frontend",
     "reverse-proxy",
 }
@@ -56,6 +57,22 @@ def test_compose_has_migrations_private_media_and_health_gates() -> None:
     assert compose.count("healthcheck:") >= 7
     assert "condition: service_completed_successfully" in compose
     assert "condition: service_healthy" in compose
+
+
+def test_compose_isolates_data_and_media_processing_from_parser_egress() -> None:
+    compose = (ROOT / "compose.yaml").read_text(encoding="utf-8")
+    assert "edge:\n    internal: true" in compose
+    assert "data:\n    internal: true" in compose
+    assert "parser-egress:" in compose
+    assert (
+        'command: ["dramatiq", "arduino_component_kb.worker", "--queues", "images", "videos"]'
+        in compose
+    )
+    assert 'command: ["dramatiq", "arduino_component_kb.worker", "--queues", "imports"]' in compose
+    parser_worker = compose.split("  parser-worker:", 1)[1].split("\n  frontend:", 1)[0]
+    media_worker = compose.split("  worker:", 1)[1].split("\n  parser-worker:", 1)[0]
+    assert "- parser-egress" in parser_worker
+    assert "- parser-egress" not in media_worker
 
 
 def test_nginx_healthchecks_use_explicit_ipv4_loopback() -> None:

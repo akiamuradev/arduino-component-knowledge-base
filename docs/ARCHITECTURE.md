@@ -21,9 +21,11 @@ Browser
             -> PostgreSQL (data, metadata, jobs, audit)
             -> Redis (Dramatiq broker, locks, rate limits)
             -> MinIO (private binary objects)
-       -> worker (Dramatiq actors, parser adapters, Pillow, FFmpeg)
-            -> approved HTTPS sources
+       -> media worker (Dramatiq images/videos, Pillow, FFmpeg; no external egress)
             -> PostgreSQL / Redis / MinIO
+       -> parser worker (Dramatiq imports; dedicated egress)
+            -> approved HTTPS sources
+            -> PostgreSQL / Redis
 ```
 
 `frontend` получает только `/api/v1` contracts и не подключается к PostgreSQL, Redis или
@@ -33,7 +35,8 @@ MinIO. `backend` выдаёт presigned media URL лишь после object-lev
 Локальный `compose.yaml` публикует только reverse proxy. PostgreSQL, Redis и MinIO не имеют
 host port mappings; migration и media provisioning выполняются одноразовыми jobs до старта
 backend/worker. HTTP допустим только для local stage-1 contour. Internal TLS и production
-network policy добавляются на этапе корпоративного развёртывания.
+network policy разделяет internal `edge`/`data` и отдельный `parser-egress`; production TLS,
+host firewall и credential separation проверяются при корпоративном развёртывании.
 
 ## Модули
 
@@ -193,9 +196,10 @@ Frontend раскрывает подсказки последовательно 
 
 ## Deployment boundaries
 
-Reverse proxy — единственная опубликованная точка входа. PostgreSQL, Redis, MinIO admin API
-и worker остаются во внутренней container network. Internal TLS, firewall, backups,
-monitoring и restore drill обязательны перед production. Production credentials поступают
+Reverse proxy — единственная опубликованная точка входа. PostgreSQL, Redis, MinIO admin API,
+backend и media worker остаются в internal container networks без внешнего egress. Только
+parser worker подключён к отдельной egress network для allowlisted HTTPS fetch. Internal TLS,
+firewall, backups, monitoring и restore drill обязательны перед production. Credentials поступают
 через secrets/environment mechanism и не хранятся в Git.
 
 ## Решения, отложенные до следующих этапов

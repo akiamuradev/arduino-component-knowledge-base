@@ -130,6 +130,9 @@ async def test_transcode_requests_h264_aac_and_creates_validated_artifacts(
         arguments for executable, arguments, _ in runner.calls if executable == "ffmpeg-test"
     ]
     rendition_arguments = ffmpeg_calls[0]
+    for _, arguments, _ in runner.calls:
+        whitelist = arguments.index("-protocol_whitelist")
+        assert arguments[whitelist + 1] == "file,pipe"
     assert ("-c:v", "libx264") == (
         rendition_arguments[rendition_arguments.index("-c:v")],
         rendition_arguments[rendition_arguments.index("-c:v") + 1],

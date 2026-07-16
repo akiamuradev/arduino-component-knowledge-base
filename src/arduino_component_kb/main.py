@@ -26,6 +26,7 @@ from arduino_component_kb.logging import RequestContextMiddleware, configure_log
 from arduino_component_kb.media.queue import DramatiqMediaQueue
 from arduino_component_kb.media.service import MediaQueue
 from arduino_component_kb.media.storage import MediaStorage, MinioStorage
+from arduino_component_kb.security import BrowserSecurityMiddleware
 
 logger = logging.getLogger("arduino_component_kb.lifecycle")
 
@@ -68,6 +69,7 @@ def create_app(
     app.state.media_storage = resolved_media_storage
     app.state.media_queue = resolved_media_queue
     app.state.import_queue = resolved_import_queue
+    app.add_middleware(BrowserSecurityMiddleware)
     app.add_middleware(RequestContextMiddleware)
     app.include_router(health_router)
     app.include_router(auth_router)

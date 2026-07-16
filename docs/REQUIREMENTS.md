@@ -249,6 +249,20 @@ REQ-JOB-002. Actor идемпотентен по стабильному job UUID
 REQ-JOB-003. Только administrator видит общий monitor и вручную возвращает `failed` job в
 очередь. Mutation требует CSRF и создаёт audit event; teacher и student получают `403`.
 
+## Комплексная безопасность
+
+- REQ-SEC-001: каждый sensitive route имеет backend role dependency; object ID не расширяет
+  видимость. Foreign media/import object возвращается как not found, administrator scope
+  задаётся явно.
+- REQ-SEC-002: все authenticated mutations, кроме первичного login, требуют session-bound
+  double-submit CSRF. Cross-origin Origin/preflight отклоняется, permissive CORS не включается.
+- REQ-SEC-003: FastAPI и reverse proxy возвращают CSP, clickjacking, MIME-sniffing, referrer,
+  opener и permissions headers; CSP допускает production assets только same-origin.
+- REQ-SEC-004: parser сохраняет exact HTTPS allowlist, all-address DNS validation, connection
+  pinning, redirect revalidation и decoded response limits; результат всегда draft.
+- REQ-SEC-005: media processing отделён от parser egress. `edge` и `data` — internal networks,
+  наружу опубликован только reverse proxy, отдельный parser worker обслуживает `imports`.
+
 ## Нефункциональные требования
 
 - REQ-NFR-001: frontend — React + TypeScript + Vite; backend — FastAPI + PostgreSQL.

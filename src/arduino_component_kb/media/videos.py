@@ -160,6 +160,8 @@ class VideoProcessor:
             "stream=codec_type,codec_name,width,height,avg_frame_rate,r_frame_rate,duration",
             "-of",
             "json",
+            "-protocol_whitelist",
+            "file,pipe",
             str(path),
         )
         result = await self.runner.run(
@@ -183,6 +185,8 @@ class VideoProcessor:
                 "-loglevel",
                 "error",
                 "-nostdin",
+                "-protocol_whitelist",
+                "file,pipe",
                 "-i",
                 str(original),
                 "-map",
@@ -231,6 +235,8 @@ class VideoProcessor:
                 "-nostdin",
                 "-ss",
                 f"{midpoint:.3f}",
+                "-protocol_whitelist",
+                "file,pipe",
                 "-i",
                 str(original),
                 "-frames:v",

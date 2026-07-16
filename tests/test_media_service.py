@@ -11,7 +11,12 @@ import pytest
 from arduino_component_kb.auth.domain import Principal, Role
 from arduino_component_kb.auth.repository import AuthRepository
 from arduino_component_kb.config import Settings
-from arduino_component_kb.media.domain import MediaKind, MediaValidationError, UploadReservation
+from arduino_component_kb.media.domain import (
+    MediaKind,
+    MediaNotFoundError,
+    MediaValidationError,
+    UploadReservation,
+)
 from arduino_component_kb.media.models import MediaAsset
 from arduino_component_kb.media.repository import MediaRepository
 from arduino_component_kb.media.service import MediaService
@@ -144,3 +149,16 @@ async def test_video_reservation_uses_video_limits_and_prefix() -> None:
     )
 
     assert result.reservation.object_key.startswith(f"videos/{actor.user_id}/")
+
+
+async def test_asset_id_does_not_bypass_owner_authorization() -> None:
+    actor = teacher()
+    foreign_asset = MediaAsset(id=uuid4(), owner_user_id=uuid4(), kind="image")
+    repository = Mock(spec=MediaRepository)
+    repository.get_asset = AsyncMock(return_value=foreign_asset)
+    audit = Mock(spec=AuthRepository)
+    storage = Mock(spec=MediaStorage)
+    service = MediaService(repository, audit, storage, settings())
+
+    with pytest.raises(MediaNotFoundError):
+        await service.visible_asset(actor, foreign_asset.id, MediaKind.IMAGE)

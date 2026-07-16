@@ -86,6 +86,13 @@ def test_processing_rejects_animated_webp() -> None:
     assert captured.value.code == "animated_image_not_allowed"
 
 
+def test_processing_rejects_dimensions_before_full_decode() -> None:
+    oversized = image_bytes(width=10_001, height=1)
+    with pytest.raises(MediaValidationError) as captured:
+        process_image(oversized, "image/png")
+    assert captured.value.code == "image_dimensions_not_allowed"
+
+
 def test_hashes_are_deterministic() -> None:
     original = image_bytes()
     first = process_image(original, "image/png")

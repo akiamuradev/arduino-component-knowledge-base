@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gzip
 from collections.abc import Callable
 
 import httpx2
@@ -116,4 +117,38 @@ async def test_non_html_response_is_rejected() -> None:
         transport=transport(handler),
     )
     with pytest.raises(SourcePolicyError, match="source_content_type_not_allowed"):
+        await fetcher.fetch("https://arduino-tex.ru/news/1/item.html")
+
+
+async def test_decoded_compressed_body_cannot_bypass_limit() -> None:
+    def handler(_: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(
+            200,
+            headers={"Content-Type": "text/html", "Content-Encoding": "gzip"},
+            content=gzip.compress(b"x" * 64),
+        )
+
+    fetcher = SafeHttpFetcher(
+        resolver=StaticResolver("93.184.216.34"),
+        policy=ParserHttpPolicy(max_body_bytes=32),
+        transport=transport(handler),
+    )
+    with pytest.raises(SourcePolicyError, match="source_body_too_large"):
+        await fetcher.fetch("https://arduino-tex.ru/news/1/item.html")
+
+
+async def test_response_header_limit_is_enforced_before_body_read() -> None:
+    def handler(_: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(
+            200,
+            headers={"Content-Type": "text/html", "X-Oversized": "x" * 64},
+            content=b"safe",
+        )
+
+    fetcher = SafeHttpFetcher(
+        resolver=StaticResolver("93.184.216.34"),
+        policy=ParserHttpPolicy(max_header_bytes=32),
+        transport=transport(handler),
+    )
+    with pytest.raises(SourcePolicyError, match="source_headers_too_large"):
         await fetcher.fetch("https://arduino-tex.ru/news/1/item.html")

@@ -17,6 +17,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 
 from arduino_component_kb.config import LogLevel
+from arduino_component_kb.security import SECURITY_HEADERS
 
 REQUEST_ID_HEADER: Final = "X-Request-ID"
 _REQUEST_ID_PATTERN = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
@@ -77,6 +78,8 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
         try:
             response = await call_next(request)
             response.headers[REQUEST_ID_HEADER] = request_id
+            for name, value in SECURITY_HEADERS.items():
+                response.headers[name] = value
             return response
         except Exception as error:
             logging.getLogger("arduino_component_kb.http").error(
@@ -92,7 +95,7 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
                         "request_id": request_id,
                     }
                 },
-                headers={REQUEST_ID_HEADER: request_id},
+                headers={REQUEST_ID_HEADER: request_id, **SECURITY_HEADERS},
             )
             return response
         finally:

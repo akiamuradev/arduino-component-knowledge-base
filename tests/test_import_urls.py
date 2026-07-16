@@ -28,6 +28,9 @@ def test_exact_allowlist_and_canonical_fragment_removal() -> None:
         "https://user@arduino-tex.ru/news/1/item.html",
         "https://arduino-tex.ru:8443/news/1/item.html",
         "https://127.0.0.1/news/1/item.html",
+        "file://arduino-tex.ru/etc/passwd",
+        "gopher://arduino-tex.ru/news/1/item.html",
+        "https://user:password@arduino-tex.ru/news/1/item.html",
     ],
 )
 def test_source_url_policy_fails_closed(value: str) -> None:

@@ -27,7 +27,7 @@ x-app-image: &app-image
   build:
     context: .
     dockerfile: Dockerfile
-  image: arduino-component-kb/backend:0.17.0
+  image: arduino-component-kb/backend:0.18.0
   environment: *app-environment
   restart: unless-stopped
   networks:
@@ -122,7 +122,7 @@ services:
 
   worker:
     <<: *app-image
-    command: ["dramatiq", "arduino_component_kb.worker"]
+    command: ["dramatiq", "arduino_component_kb.worker", "--queues", "images", "videos"]
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -140,11 +140,30 @@ services:
       timeout: 5s
       retries: 3
 
+  parser-worker:
+    <<: *app-image
+    command: ["dramatiq", "arduino_component_kb.worker", "--queues", "imports"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os; os.kill(1, 0)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - data
+      - parser-egress
+
   frontend:
     build:
       context: frontend
       dockerfile: Dockerfile
-    image: arduino-component-kb/frontend:0.17.0
+    image: arduino-component-kb/frontend:0.18.0
     healthcheck:
       test: ["CMD-SHELL", "wget --quiet --tries=1 --output-document=- http://127.0.0.1:8080/container-health | grep -q ok"]
       interval: 10s
@@ -159,7 +178,7 @@ services:
     build:
       context: deploy/reverse-proxy
       dockerfile: Dockerfile
-    image: arduino-component-kb/reverse-proxy:0.17.0
+    image: arduino-component-kb/reverse-proxy:0.18.0
     ports:
       - "${ACKB_HTTP_PORT:-8080}:8080"
     depends_on:
@@ -184,5 +203,7 @@ volumes:
 
 networks:
   edge:
+    internal: true
   data:
-    internal: false
+    internal: true
+  parser-egress:
