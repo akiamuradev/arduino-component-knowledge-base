@@ -25,9 +25,7 @@ from arduino_component_kb.db import Base
 class Source(Base):
     __tablename__ = "sources"
     __table_args__ = (
-        CheckConstraint(
-            "policy IN ('metadata_only','licensed_content')", name="ck_sources_policy"
-        ),
+        CheckConstraint("policy IN ('metadata_only','licensed_content')", name="ck_sources_policy"),
     )
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)

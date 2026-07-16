@@ -217,6 +217,11 @@ REQ-DEDUP-001. Exact keys: `(source_id, source_item_id)`, canonical source URL, 
 REQ-DEDUP-002. Fuzzy score использует нормализованные title/model/manufacturer,
 характеристики и perceptual image hash. Candidate хранит score, algorithm version и evidence.
 
+Для baseline `fuzzy-v1` PostgreSQL `pg_trgm` выполняет bounded preselection, после чего
+application scorer учитывает token similarity, spec fingerprint, text/media hashes и явные
+manufacturer/model/spec conflict penalties. Evidence содержит только числовой breakdown и
+версии, без raw content; score `>=0.70` считается unresolved high candidate.
+
 REQ-DEDUP-003. Merge никогда не выполняется автоматически. Только administrator создаёт
 merge decision, явно выбирает survivor и значения конфликтующих полей. Решение и before/after
 snapshot попадают в audit log.

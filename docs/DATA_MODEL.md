@@ -203,6 +203,12 @@ heartbeat, validation failure терминален, transient storage failure п
 Canonical pair хранится в упорядоченном виде, unique для открытой пары и версии алгоритма.
 `score` ограничен `0..1`; evidence не содержит raw HTML или секретов.
 
+Таблица добавлена revision `20260716_09`. `fuzzy-v1` сохраняет breakdown для title trigram,
+tokens, manufacturer/model identity, spec fingerprint, нормализованных text hashes, media
+SHA-256/pHash и отдельные penalties конфликтов. Предварительная выборка ограничена 50 строками;
+candidate сохраняется при `score >= 0.35`, а open candidate с `score >= 0.70` блокирует
+publication до отдельного административного решения этапа review.
+
 ### `merge_decisions`
 
 `id`, `candidate_id`, `decision(merge|reject)`, `survivor_component_id?`,

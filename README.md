@@ -158,6 +158,12 @@ Revision `20260716_08` добавляет `sources`, `component_sources`, `impor
 ключи. Teacher/administrator запускает импорт через `POST /api/v1/import-jobs`; повторный
 exact import возвращает существующий component ID и не создаёт вторую карточку.
 
+Revision `20260716_09` включает PostgreSQL `pg_trgm`, GIN preselection indexes и
+`duplicate_candidates`. Для каждого нового import draft bounded detector `fuzzy-v1` считает
+title trigram, token/identity similarity, fingerprint характеристик, text/media hashes и
+явные conflict penalties. Candidate сохраняется с versioned evidence; detector не выполняет
+merge, attach, reject или publication.
+
 ## Рабочее место преподавателя
 
 - dashboard показывает реальные backend counts и последние карточки;
@@ -322,6 +328,7 @@ python scripts/media_smoke.py
 python scripts/video_smoke.py
 python scripts/jobs_smoke.py
 python scripts/parser_smoke.py
+python scripts/dedup_smoke.py
 alembic upgrade head --sql
 cd frontend
 npm run lint
@@ -341,6 +348,7 @@ gateway. Offline Alembic smoke компилирует PostgreSQL DDL, но не 
 воспроизводимый Docker Compose/CI каркас, authentication/RBAC, frontend-каркас, безопасные image/video pipelines, durable
 Redis/Dramatiq jobs и SSRF-safe parser boundary с тремя pilot adapters.
 Предметные таблицы каталога, workspace/student API и durable exact import реализованы.
-Fuzzy duplicate candidates и административное решение merge остаются следующими этапами.
+Fuzzy detector `fuzzy-v1` создаёт объяснимые candidates, не изменяя карточки. Экран
+административного решения merge остаётся следующим этапом.
 Открытые продуктовые вопросы перечислены в конце
 [требований](docs/REQUIREMENTS.md#открытые-вопросы-перед-production-импортом).

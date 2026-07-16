@@ -41,6 +41,7 @@ def test_metadata_contains_authentication_catalog_and_media_tables() -> None:
         "component_tags",
         "component_sources",
         "components",
+        "duplicate_candidates",
         "import_jobs",
         "media_assets",
         "media_jobs",

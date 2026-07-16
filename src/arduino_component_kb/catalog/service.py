@@ -9,7 +9,7 @@ from decimal import Decimal, InvalidOperation
 from hashlib import sha256
 from uuid import UUID, uuid4
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from arduino_component_kb.catalog.domain import (
@@ -216,6 +216,8 @@ class CatalogService:
         if row.revision != expected_revision:
             raise RevisionConflictError
         if target is ComponentStatus.PUBLISHED:
+            from arduino_component_kb.deduplication.models import DuplicateCandidate
+            from arduino_component_kb.deduplication.scoring import HIGH_SCORE_THRESHOLD
             from arduino_component_kb.imports.models import ComponentSource
 
             source_count = await self.session.scalar(
@@ -223,9 +225,22 @@ class CatalogService:
                 .select_from(ComponentSource)
                 .where(ComponentSource.component_id == row.id)
             )
+            high_duplicates = await self.session.scalar(
+                select(func.count())
+                .select_from(DuplicateCandidate)
+                .where(
+                    DuplicateCandidate.status == "open",
+                    DuplicateCandidate.score >= HIGH_SCORE_THRESHOLD,
+                    or_(
+                        DuplicateCandidate.left_component_id == row.id,
+                        DuplicateCandidate.right_component_id == row.id,
+                    ),
+                )
+            )
             if (
                 row.status != ComponentStatus.DRAFT.value
                 or (not row.manual_original and source_count == 0)
+                or high_duplicates != 0
                 or not row.description.strip()
             ):
                 raise CatalogValidationError

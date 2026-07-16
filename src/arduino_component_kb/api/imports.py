@@ -104,9 +104,7 @@ async def get_import(
     session: Annotated[AsyncSession, Depends(database_session)],
 ) -> ImportJobResponse:
     job = await ImportRepository(session).get_job(job_id)
-    if job is None or (
-        Role.ADMINISTRATOR not in actor.roles and job.requested_by != actor.user_id
-    ):
+    if job is None or (Role.ADMINISTRATOR not in actor.roles and job.requested_by != actor.user_id):
         raise HTTPException(404, detail={"code": "import_job_not_found"})
     response.headers["Cache-Control"] = "no-store"
     return _response(job)

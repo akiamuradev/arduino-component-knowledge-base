@@ -133,6 +133,10 @@ Parser flow реализует URL policy, safe fetch и все три pilot ada
 содержит уникальную пару host/parser name и semver parser version; detail URL выбирает ровно
 один adapter. Revision `20260716_08` сохраняет durable job, provenance и draft. Exact recheck
 выполняется по canonical URL, source item ID и нормализованной manufacturer/model паре.
+Revision `20260716_09` запускает bounded fuzzy detector только для нового draft. PostgreSQL
+`pg_trgm` ограничивает выборку 50 карточками, затем application scorer `fuzzy-v1` объединяет
+token/identity similarity, spec fingerprint, text/media hashes и conflict penalties. Он
+записывает только open candidate и evidence; карточки и lifecycle не изменяются.
 
 ### Публикация и merge
 
@@ -186,4 +190,4 @@ monitoring и restore drill обязательны перед production. Produc
 
 Локальные opaque server-side sessions утверждены как MVP baseline. Возможная интеграция с
 колледжным SSO не должна менять backend RBAC, отзыв сессий и audit invariants. Outbox
-implementation, fuzzy matching, merge UI, search engine, backup tooling и orchestrator остаются отложенными.
+implementation, merge/review UI, search engine, backup tooling и orchestrator остаются отложенными.

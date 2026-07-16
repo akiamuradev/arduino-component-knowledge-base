@@ -19,7 +19,7 @@ def alembic_config() -> Config:
 
 def test_alembic_has_one_backend_head() -> None:
     scripts = ScriptDirectory.from_config(alembic_config())
-    assert scripts.get_heads() == ["20260716_08"]
+    assert scripts.get_heads() == ["20260716_09"]
 
 
 def test_alembic_upgrade_renders_offline_postgresql_sql(
@@ -59,6 +59,10 @@ def test_alembic_upgrade_renders_offline_postgresql_sql(
     assert "CREATE TABLE import_jobs" in sql
     assert "uq_components_manufacturer_model_exact" in sql
     assert "20260716_08" in sql
+    assert "CREATE EXTENSION IF NOT EXISTS pg_trgm" in sql
+    assert "CREATE TABLE duplicate_candidates" in sql
+    assert "gin_trgm_ops" in sql
+    assert "20260716_09" in sql
 
 
 def test_runtime_has_no_create_all_escape_hatch() -> None:

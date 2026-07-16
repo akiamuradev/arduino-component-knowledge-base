@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from arduino_component_kb.catalog.domain import Difficulty, DraftData
 from arduino_component_kb.catalog.models import Category, Component
 from arduino_component_kb.catalog.service import CatalogService
+from arduino_component_kb.deduplication.service import FuzzyCandidateService
 from arduino_component_kb.imports.domain import ParsedComponent
 from arduino_component_kb.imports.exact import ExactKeys
 from arduino_component_kb.imports.models import ComponentSource, ImportJob, Source
@@ -137,6 +138,8 @@ class ImportRepository:
                 job.requested_by,
             )
             component_id = card.id
+            await self.session.flush()
+            await FuzzyCandidateService(self.session).generate(component_id)
         existing_source = await self.session.scalar(
             select(ComponentSource.id).where(
                 ComponentSource.source_id == job.source_id,

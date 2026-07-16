@@ -119,6 +119,8 @@ manufacturer/model в PostgreSQL transaction; UNIQUE indexes окончател�
 ## Duplicate merge
 
 - Exact/fuzzy detector создаёт candidate, но не изменяет компоненты.
+- `fuzzy-v1` сохраняет только числовой breakdown и conflict counts: raw source text, media
+  hashes и parser body в evidence не включаются. Algorithm version обязателен.
 - Merge endpoint требует fresh administrator authorization и optimistic revision values.
 - Backend блокирует обе записи и повторяет invariant checks в PostgreSQL transaction.
 - Administrator выбирает survivor и каждое конфликтующее поле. Before/after snapshots,

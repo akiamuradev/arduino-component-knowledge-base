@@ -35,9 +35,8 @@ async def process_import_job(job_id: UUID, settings: Settings) -> None:
                 if job is None or job.status == "succeeded" or job.attempts >= job.max_attempts:
                     return
                 now = datetime.now(UTC)
-                if (
-                    job.status == "running"
-                    and job.updated_at > now - timedelta(seconds=settings.import_lock_ttl_seconds)
+                if job.status == "running" and job.updated_at > now - timedelta(
+                    seconds=settings.import_lock_ttl_seconds
                 ):
                     return
                 job.status = "running"
