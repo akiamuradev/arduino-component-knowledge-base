@@ -119,6 +119,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: bash -n scripts/linux_bootstrap.sh
+      - run: bash -n scripts/production_preflight.sh scripts/production_contract_smoke.sh
       - run: cp .env.example .env
       - run: docker compose config --quiet
+      - run: bash scripts/production_contract_smoke.sh
       - run: docker compose build backend frontend reverse-proxy

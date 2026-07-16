@@ -1,0 +1,49 @@
+x-production-environment: &production-environment
+  ACKB_ENVIRONMENT: production
+  ACKB_SESSION_COOKIE_SECURE: "true"
+  ACKB_MINIO_ENDPOINT: minio:9000
+  ACKB_MINIO_SECURE: "true"
+  SSL_CERT_FILE: /etc/ackb/ca/ca-bundle.crt
+
+x-production-app: &production-app
+  environment: *production-environment
+  volumes:
+    - ${ACKB_CA_BUNDLE_FILE:?set ACKB_CA_BUNDLE_FILE}:/etc/ackb/ca/ca-bundle.crt:ro
+
+services:
+  minio:
+    volumes:
+      - minio-data:/data
+      - ${ACKB_MINIO_TLS_CERT_FILE:?set ACKB_MINIO_TLS_CERT_FILE}:/root/.minio/certs/public.crt:ro
+      - ${ACKB_MINIO_TLS_KEY_FILE:?set ACKB_MINIO_TLS_KEY_FILE}:/root/.minio/certs/private.key:ro
+      - ${ACKB_CA_BUNDLE_FILE:?set ACKB_CA_BUNDLE_FILE}:/root/.minio/certs/CAs/ca-bundle.crt:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mc alias set ackb-health https://minio:9000 \"$${MINIO_ROOT_USER}\" \"$${MINIO_ROOT_PASSWORD}\" >/dev/null && mc ready ackb-health"]
+
+  migrate:
+    <<: *production-app
+
+  media-init:
+    <<: *production-app
+
+  backend:
+    <<: *production-app
+
+  worker:
+    <<: *production-app
+
+  parser-worker:
+    <<: *production-app
+
+  reverse-proxy:
+    environment:
+      ACKB_INTERNAL_HOSTNAME: ${ACKB_INTERNAL_HOSTNAME:?set ACKB_INTERNAL_HOSTNAME}
+    ports: !override
+      - ${ACKB_BIND_ADDRESS:?set ACKB_BIND_ADDRESS}:80:8080
+      - ${ACKB_BIND_ADDRESS:?set ACKB_BIND_ADDRESS}:443:8443
+    volumes:
+      - ./deploy/reverse-proxy/internal-https.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ${ACKB_EDGE_TLS_CERT_FILE:?set ACKB_EDGE_TLS_CERT_FILE}:/etc/nginx/tls/tls.crt:ro
+      - ${ACKB_EDGE_TLS_KEY_FILE:?set ACKB_EDGE_TLS_KEY_FILE}:/etc/nginx/tls/tls.key:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --output-document=- http://127.0.0.1:8080/container-health | grep -q ok"]

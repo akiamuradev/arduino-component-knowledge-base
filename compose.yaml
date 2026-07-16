@@ -27,7 +27,7 @@ x-app-image: &app-image
   build:
     context: .
     dockerfile: Dockerfile
-  image: arduino-component-kb/backend:0.19.0
+  image: arduino-component-kb/backend:0.20.0
   environment: *app-environment
   restart: unless-stopped
   networks:
@@ -163,7 +163,7 @@ services:
     build:
       context: frontend
       dockerfile: Dockerfile
-    image: arduino-component-kb/frontend:0.19.0
+    image: arduino-component-kb/frontend:0.20.0
     healthcheck:
       test: ["CMD-SHELL", "wget --quiet --tries=1 --output-document=- http://127.0.0.1:8080/container-health | grep -q ok"]
       interval: 10s
@@ -178,7 +178,7 @@ services:
     build:
       context: deploy/reverse-proxy
       dockerfile: Dockerfile
-    image: arduino-component-kb/reverse-proxy:0.19.0
+    image: arduino-component-kb/reverse-proxy:0.20.0
     ports:
       - "${ACKB_HTTP_PORT:-8080}:8080"
     depends_on:

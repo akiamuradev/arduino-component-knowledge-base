@@ -28,6 +28,7 @@ URL проверены как доступные тематические стр
 - [Безопасность](docs/SECURITY.md)
 - [Модель угроз](docs/THREAT_MODEL.md)
 - [Автоматизированное тестирование](docs/TESTING.md)
+- [Корпоративное развёртывание](docs/DEPLOYMENT.md)
 
 Вместе эти документы утверждают роли, карточку компонента, категории, медиа-лимиты,
 потоки импорта и дедупликации, а также обязательные security controls.
@@ -222,9 +223,27 @@ docker compose run --rm backend ackb-bootstrap-admin \
   --login admin --display-name "Initial Administrator"
 ```
 
-Локальный Compose использует HTTP и общие локальные MinIO credentials из `.env`. Internal
-HTTPS, production credential separation, firewall и DNS относятся к этапу корпоративного
-развёртывания и не имитируются в этапе 1.
+Локальный Compose использует HTTP и общие локальные MinIO credentials из `.env`. Production
+override, internal HTTPS, static IP/DNS и firewall описаны отдельно в
+[корпоративном runbook](docs/DEPLOYMENT.md); они не имитируются в локальном контуре.
+
+### Корпоративная Ubuntu Server VM
+
+Этап 20 добавляет `compose.production.yaml`, nginx TLS template, read-only preflight и HTTPS
+smoke. Production публикует только заданный static IP на портах 80/443, включает secure session
+cookies, TLS для MinIO и CA bundle без отключения certificate verification. Реальные IP, DNS,
+сертификаты внутреннего CA и firewall CIDR выбирает администратор колледжа и не хранит в Git.
+
+```bash
+cp .env.production.example .env.production
+chmod 600 .env.production
+./scripts/production_preflight.sh .env.production
+docker compose --env-file .env.production \
+  -f compose.yaml -f compose.production.yaml up --build -d
+ACKB_SMOKE_BASE_URL=https://components.college.internal/ \
+ACKB_SMOKE_CA_FILE=/etc/ackb/tls/ca-bundle.crt \
+python scripts/production_smoke.py
+```
 
 ### Чистая Linux VM
 

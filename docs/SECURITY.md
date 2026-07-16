@@ -158,6 +158,10 @@ manufacturer/model в PostgreSQL transaction; UNIQUE indexes окончател�
 - Отдельные least-privilege credentials используются backend, worker, migration job и backup.
 - PostgreSQL, Redis и MinIO не публикуют host ports; MinIO console доступна только admin network.
 - Reverse proxy завершает internal TLS, задаёт body/time limits и security headers.
+- Production preflight fail-closed проверяет static IP, exact internal DNS, certificate SAN,
+  цепочку CA, срок действия и mode private keys, но не изменяет сеть или firewall удалённой VM.
+- HTTPS smoke не имеет insecure mode: edge hostname и CA обязательны; MinIO использует TLS и
+  тот же read-only CA bundle, дополненный public roots для разрешённых внешних parser sources.
 - Production images non-root, read-only filesystem где возможно, pinned dependencies и
   vulnerability scan. Debug mode и interactive docs ограничены административной сетью.
 - Alembic — единственный DDL path; runtime account не имеет CREATE/ALTER/DROP.

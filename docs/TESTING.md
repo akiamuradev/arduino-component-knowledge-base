@@ -72,3 +72,8 @@ pytest -m integration --strict-markers
 Не покрываются этим этапом: производительные нагрузки, реальные внешние сайты, полный browser
 flow через Docker Compose reverse proxy и FFmpeg на Windows. Эти проверки относятся к этапам
 стабилизации и приёмки, а не расширяют функциональный scope.
+
+Этап 20 добавляет `scripts/production_contract_smoke.sh`: Linux CI проверяет объединённый
+production Compose и выполняет `nginx -t` с одноразовым тестовым сертификатом. Реальный
+корпоративный hostname/CA проверяются после развёртывания командой
+`python scripts/production_smoke.py`; insecure TLS fallback отсутствует.
