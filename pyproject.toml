@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "arduino-component-knowledge-base"
-version = "0.16.0"
+version = "0.17.0"
 description = "Backend for the Arduino Component Knowledge Base"
 readme = "README.md"
 license = "PolyForm-Noncommercial-1.0.0"
@@ -27,6 +27,7 @@ dependencies = [
 [project.scripts]
 ackb-bootstrap-admin = "arduino_component_kb.bootstrap:main"
 ackb-provision-media = "arduino_component_kb.media.provision:main"
+ackb-explain-search = "arduino_component_kb.catalog.explain:main"
 
 [project.optional-dependencies]
 dev = [

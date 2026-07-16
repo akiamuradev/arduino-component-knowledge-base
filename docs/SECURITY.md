@@ -175,6 +175,17 @@ Bootstrap первого administrator интерактивен, не прини
 - MinIO capacity, PostgreSQL storage, queue depth, failures и certificate expiry мониторятся.
 - Backup охватывает PostgreSQL и versioned MinIO consistently; restore drill обязателен.
 
+## Безопасность поиска
+
+- Поисковый документ строится только сервером из published snapshot и не принимает готовый
+  `tsvector` от клиента.
+- Allowlist полей исключает draft descriptions, teacher notes, solutions, code examples,
+  remote HTML и media keys; совпадение не может подтвердить существование скрытого текста.
+- Query и фильтры передаются bind parameters. CLI диагностики принимает 1–100 символов,
+  использует постоянный SQL и read-only transaction; пользовательский текст не становится SQL.
+- Backend остаётся источником истины: публичная выдача дополнительно проверяет component
+  `archived_at IS NULL` и активность category, даже если производный документ устарел.
+
 ## Security acceptance cases
 
 1. Student получает `403` на draft, parser, upload, publish, audit и merge endpoints.

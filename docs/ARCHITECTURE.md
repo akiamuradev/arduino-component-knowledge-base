@@ -202,4 +202,18 @@ monitoring и restore drill обязательны перед production. Produc
 
 Локальные opaque server-side sessions утверждены как MVP baseline. Возможная интеграция с
 колледжным SSO не должна менять backend RBAC, отзыв сессий и audit invariants. Outbox
-implementation, merge/review UI, search engine, backup tooling и orchestrator остаются отложенными.
+implementation, merge/review UI, backup tooling и orchestrator остаются отложенными.
+
+## Поиск опубликованного каталога
+
+PostgreSQL обслуживает поиск без отдельного search engine. При публикации backend в той же
+транзакции обновляет `published_search_documents` из immutable published snapshot; archive
+удаляет документ. В индекс входят только title, aliases, manufacturer, model, summary и tags.
+Draft content, teacher notes, solutions и code examples не индексируются.
+
+Основной путь использует weighted `tsvector` и `plainto_tsquery('simple', ...)`: identity-поля
+получают больший вес, чем summary/tags. `pg_trgm` word similarity является fallback для
+опечаток. Category/difficulty predicates, ranking, ordering и limit выполняются SQL. GIN
+индексы покрывают FTS и trigram, B-tree — category/difficulty. Диагностический
+`ackb-explain-search` запускает параметризованный `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)`
+в read-only transaction на явном operator query.

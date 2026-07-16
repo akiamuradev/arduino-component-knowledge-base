@@ -50,6 +50,7 @@ def test_metadata_contains_authentication_catalog_and_media_tables() -> None:
         "media_variants",
         "merge_decisions",
         "property_definitions",
+        "published_search_documents",
         "sources",
         "tags",
         "units",

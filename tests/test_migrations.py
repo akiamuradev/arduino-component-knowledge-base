@@ -19,7 +19,7 @@ def alembic_config() -> Config:
 
 def test_alembic_has_one_backend_head() -> None:
     scripts = ScriptDirectory.from_config(alembic_config())
-    assert scripts.get_heads() == ["20260716_11"]
+    assert scripts.get_heads() == ["20260716_12"]
 
 
 def test_alembic_upgrade_renders_offline_postgresql_sql(
@@ -70,6 +70,12 @@ def test_alembic_upgrade_renders_offline_postgresql_sql(
     assert "CREATE TABLE code_example_hints" in sql
     assert "octet_length(body) <= 65536" in sql
     assert "20260716_11" in sql
+    assert "CREATE TABLE published_search_documents" in sql
+    assert "ix_published_search_vector" in sql
+    assert "ix_published_search_trigram" in sql
+    assert "gin_trgm_ops" in sql
+    assert "to_tsvector('simple'" in sql
+    assert "20260716_12" in sql
 
 
 def test_runtime_has_no_create_all_escape_hatch() -> None:

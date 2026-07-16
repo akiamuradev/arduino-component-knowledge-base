@@ -235,6 +235,21 @@ Merge decision immutable. Таблица добавлена revision `20260716_1
 Append-only права database role; application не имеет UPDATE/DELETE. Детали не содержат
 паролей, tokens, presigned URLs, full session identifiers или remote response bodies.
 
+## Поисковый документ опубликованной карточки
+
+### `published_search_documents`
+
+Одна строка на опубликованный component: `component_id` (PK/FK), `revision`, `category_id`,
+`difficulty`, `title`, `aliases_text`, `manufacturer`, `model`, `summary`, `tags_text`,
+`search_text`, weighted `search_vector`, `published_at`.
+
+Документ является производной read model только от immutable published snapshot. Backend
+перезаписывает его через PostgreSQL upsert при публикации и удаляет при archive; binary и
+teacher-only данные отсутствуют. GIN `ix_published_search_vector` обслуживает FTS, GIN
+`ix_published_search_trigram` с `gin_trgm_ops` — word-similarity fallback, B-tree индексы
+покрывают category/difficulty. Revision `20260716_12` создаёт таблицу и backfill последних
+published revisions существующих неархивированных карточек.
+
 ## Ключевые отношения
 
 ```text
@@ -242,6 +257,7 @@ users --< user_roles
 users --< auth_sessions
 auth_throttles
 categories --< components --< component_revisions
+components -- published_search_documents
 components --< specifications / pins / interfaces / compatibility / code_examples
 components >--< tags
 sources --< component_sources >-- components

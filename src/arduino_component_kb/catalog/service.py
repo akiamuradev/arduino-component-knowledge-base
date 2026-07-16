@@ -11,6 +11,7 @@ from typing import cast
 from uuid import UUID, uuid4
 
 from sqlalchemy import delete, func, or_, select, update
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from arduino_component_kb.catalog.domain import (
@@ -37,6 +38,7 @@ from arduino_component_kb.catalog.models import (
     ComponentRevision,
     ComponentTag,
     PropertyDefinition,
+    PublishedSearchDocument,
     Tag,
     Unit,
 )
@@ -131,28 +133,56 @@ class CatalogService:
         difficulty: Difficulty | None,
         limit: int,
     ) -> tuple[list[CatalogCard], int]:
-        rows = await self.session.scalars(
-            select(Component)
-            .where(Component.status != ComponentStatus.ARCHIVED.value)
-            .order_by(Component.updated_at.desc())
-        )
-        needle = _normalized(query) if query else None
-        cards: list[CatalogCard] = []
-        for row in rows:
-            card = await self._published_card(row)
-            if card is None:
-                continue
-            haystack = _normalized(
-                " ".join((card.data.title, card.data.summary, *card.data.aliases, *card.data.tags))
+        needle = _normalized(query) if query else ""
+        conditions = [
+            Component.status != ComponentStatus.ARCHIVED.value,
+            Category.is_active.is_(True),
+        ]
+        if category_id is not None:
+            conditions.append(PublishedSearchDocument.category_id == category_id)
+        if difficulty is not None:
+            conditions.append(PublishedSearchDocument.difficulty == difficulty.value)
+
+        rank = None
+        if needle:
+            tsquery = func.plainto_tsquery("simple", needle)
+            full_text_match = PublishedSearchDocument.search_vector.op("@@")(tsquery)
+            trigram_match = PublishedSearchDocument.search_text.op("%>")(needle)
+            conditions.append(or_(full_text_match, trigram_match))
+            rank = (
+                func.ts_rank_cd(PublishedSearchDocument.search_vector, tsquery)
+                + func.word_similarity(needle, PublishedSearchDocument.search_text) * 0.35
             )
-            if needle and needle not in haystack:
-                continue
-            if category_id is not None and card.data.primary_category_id != category_id:
-                continue
-            if difficulty is not None and card.data.difficulty is not difficulty:
-                continue
-            cards.append(card)
-        return cards[:limit], len(cards)
+
+        base = (
+            select(Component.id)
+            .join(
+                PublishedSearchDocument,
+                PublishedSearchDocument.component_id == Component.id,
+            )
+            .join(Category, Category.id == PublishedSearchDocument.category_id)
+            .where(*conditions)
+        )
+        if rank is not None:
+            base = base.order_by(
+                rank.desc(), PublishedSearchDocument.published_at.desc(), Component.id
+            )
+        else:
+            base = base.order_by(PublishedSearchDocument.published_at.desc(), Component.id)
+        rows = await self.session.scalars(base.limit(limit))
+        total = await self.session.scalar(
+            select(func.count())
+            .select_from(PublishedSearchDocument)
+            .join(Component, Component.id == PublishedSearchDocument.component_id)
+            .join(Category, Category.id == PublishedSearchDocument.category_id)
+            .where(*conditions)
+        )
+        cards = [
+            card
+            for component_id in rows
+            if (card := await self._published_card(component_id)) is not None
+        ]
+        return cards, int(total or 0)
 
     async def get_published(self, slug: str) -> CatalogCard:
         row = await self.session.scalar(
@@ -163,7 +193,7 @@ class CatalogService:
         )
         if row is None:
             raise ComponentNotFoundError
-        card = await self._published_card(row)
+        card = await self._published_card(row.id)
         if card is None:
             raise ComponentNotFoundError
         return card
@@ -265,6 +295,14 @@ class CatalogService:
         row.updated_at = datetime.now(UTC)
         data = await self._data(row)
         await self._snapshot(row, data, actor_id, row.updated_at)
+        if target is ComponentStatus.PUBLISHED:
+            await self._upsert_search_document(row, data, row.updated_at)
+        else:
+            await self.session.execute(
+                delete(PublishedSearchDocument).where(
+                    PublishedSearchDocument.component_id == row.id
+                )
+            )
         return await self._card(row)
 
     async def resolve_duplicate_pair(
@@ -384,10 +422,47 @@ class CatalogService:
         loser.revision += 1
         loser.updated_by = actor_id
         loser.updated_at = now
+        await self.session.execute(
+            delete(PublishedSearchDocument).where(PublishedSearchDocument.component_id == loser.id)
+        )
         await self._snapshot(survivor, survivor_data, actor_id, now)
         await self._snapshot(loser, await self._data(loser), actor_id, now)
         await self.session.flush()
         return before_left, before_right, await self._card(survivor)
+
+    async def _upsert_search_document(
+        self, row: Component, data: DraftData, published_at: datetime
+    ) -> None:
+        identity_text = " ".join((*data.aliases, data.manufacturer or "", data.model or ""))
+        content_text = " ".join((data.summary, *data.tags))
+        search_text = _normalized(" ".join((data.title, identity_text, content_text)))
+        search_vector = (
+            func.setweight(func.to_tsvector("simple", data.title), "A")
+            .op("||")(func.setweight(func.to_tsvector("simple", identity_text), "B"))
+            .op("||")(func.setweight(func.to_tsvector("simple", content_text), "C"))
+        )
+        values: dict[str, object] = {
+            "component_id": row.id,
+            "revision": row.revision,
+            "category_id": data.primary_category_id,
+            "difficulty": data.difficulty.value,
+            "title": data.title,
+            "aliases_text": " ".join(data.aliases),
+            "manufacturer": data.manufacturer or "",
+            "model": data.model or "",
+            "summary": data.summary,
+            "tags_text": " ".join(data.tags),
+            "search_text": search_text,
+            "search_vector": search_vector,
+            "published_at": published_at,
+        }
+        statement = insert(PublishedSearchDocument).values(**values)
+        await self.session.execute(
+            statement.on_conflict_do_update(
+                index_elements=[PublishedSearchDocument.component_id],
+                set_={key: value for key, value in values.items() if key != "component_id"},
+            )
+        )
 
     async def _locked(self, component_id: UUID) -> Component:
         row = await self.session.scalar(
@@ -814,11 +889,11 @@ class CatalogService:
             )
         )
 
-    async def _published_card(self, row: Component) -> CatalogCard | None:
+    async def _published_card(self, component_id: UUID) -> CatalogCard | None:
         snapshot = await self.session.scalar(
             select(ComponentRevision)
             .where(
-                ComponentRevision.component_id == row.id,
+                ComponentRevision.component_id == component_id,
                 ComponentRevision.status == ComponentStatus.PUBLISHED.value,
             )
             .order_by(ComponentRevision.revision.desc())
@@ -892,7 +967,7 @@ class CatalogService:
             ),
         )
         return CatalogCard(
-            row.id,
+            component_id,
             ComponentStatus.PUBLISHED,
             data,
             CategoryItem(category.id, category.key, category.name),

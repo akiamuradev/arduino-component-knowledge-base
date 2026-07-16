@@ -18,7 +18,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -202,3 +202,42 @@ class CodeExampleHint(Base):
     )
     body: Mapped[str] = mapped_column(Text, nullable=False)
     position: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class PublishedSearchDocument(Base):
+    __tablename__ = "published_search_documents"
+    __table_args__ = (
+        CheckConstraint(
+            "difficulty IN ('beginner','intermediate','advanced')",
+            name="ck_published_search_difficulty",
+        ),
+        Index("ix_published_search_vector", "search_vector", postgresql_using="gin"),
+        Index(
+            "ix_published_search_trigram",
+            "search_text",
+            postgresql_using="gin",
+            postgresql_ops={"search_text": "gin_trgm_ops"},
+        ),
+        Index("ix_published_search_category", "category_id"),
+        Index("ix_published_search_difficulty", "difficulty"),
+    )
+
+    component_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("components.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    category_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("categories.id"), nullable=False
+    )
+    difficulty: Mapped[str] = mapped_column(String(16), nullable=False)
+    title: Mapped[str] = mapped_column(String(160), nullable=False)
+    aliases_text: Mapped[str] = mapped_column(Text, nullable=False)
+    manufacturer: Mapped[str] = mapped_column(String(120), nullable=False)
+    model: Mapped[str] = mapped_column(String(120), nullable=False)
+    summary: Mapped[str] = mapped_column(String(500), nullable=False)
+    tags_text: Mapped[str] = mapped_column(Text, nullable=False)
+    search_text: Mapped[str] = mapped_column(Text, nullable=False)
+    search_vector: Mapped[str] = mapped_column(TSVECTOR, nullable=False)
+    published_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
