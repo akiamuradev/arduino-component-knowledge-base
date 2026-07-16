@@ -234,7 +234,8 @@ class AuthRepository:
     async def count_active_administrators(self) -> int:
         administrators = await self.session.scalars(
             select(User.id)
-            .join(User, User.id == UserRole.user_id)
+            .select_from(User)
+            .join(UserRole, UserRole.user_id == User.id)
             .where(
                 UserRole.role == Role.ADMINISTRATOR.value,
                 User.status == UserStatus.ACTIVE.value,
