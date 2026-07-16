@@ -1,5 +1,5 @@
 import { QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -45,6 +45,8 @@ const card: ComponentCard = {
   published_at: null,
   revision: 7,
   updated_at: "2026-07-15T20:00:00Z",
+  specifications: [{ key: "clock-frequency", label: "Частота", value_text: "16", value_number: "16", unit: "МГц", position: 0 }],
+  compatibility: [{ target_type: "board", name: "Arduino Uno", version_constraint: "R3", notes: null, position: 0 }],
 };
 
 function renderEditor(component: ComponentCard = card) {
@@ -84,6 +86,9 @@ describe("component editor", () => {
     expect(screen.getByText("<img src=x onerror=alert(1)>")).toBeVisible();
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
     expect(screen.getByText("Проверить подключение питания.")).toBeVisible();
+    expect(screen.getByText("Частота")).toBeVisible();
+    expect(screen.getByText("16 МГц")).toBeVisible();
+    expect(screen.getByText("Arduino Uno", { selector: "strong" })).toBeVisible();
   });
 
   it("keeps local edits and stops a blind overwrite on revision conflict", async () => {
@@ -95,7 +100,7 @@ describe("component editor", () => {
       ),
     );
     renderEditor();
-    const title = screen.getByLabelText("Название");
+    const title = within(screen.getByRole("group", { name: "Идентификация" })).getByLabelText("Название");
     await userEvent.clear(title);
     await userEvent.type(title, "Локальное название");
     await userEvent.click(screen.getByRole("button", { name: "Сохранить draft" }));

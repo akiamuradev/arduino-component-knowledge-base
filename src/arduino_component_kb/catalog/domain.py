@@ -28,6 +28,25 @@ class CategoryItem:
 
 
 @dataclass(frozen=True, slots=True)
+class TechnicalSpecification:
+    key: str
+    label: str
+    value_text: str
+    value_number: str | None
+    unit: str | None
+    position: int
+
+
+@dataclass(frozen=True, slots=True)
+class CompatibilityItem:
+    target_type: str
+    name: str
+    version_constraint: str | None
+    notes: str | None
+    position: int
+
+
+@dataclass(frozen=True, slots=True)
 class DraftData:
     slug: str
     title: str
@@ -44,6 +63,8 @@ class DraftData:
     difficulty: Difficulty
     teacher_notes: str | None
     manual_original: bool
+    specifications: tuple[TechnicalSpecification, ...] = ()
+    compatibility: tuple[CompatibilityItem, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

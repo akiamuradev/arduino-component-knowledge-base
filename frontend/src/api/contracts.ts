@@ -86,6 +86,31 @@ export interface Category {
   name: string;
 }
 
+export interface TechnicalSpecificationInput {
+  key: string;
+  label: string;
+  value_text: string;
+  value_number: string | null;
+  unit: string | null;
+}
+
+export interface TechnicalSpecification extends TechnicalSpecificationInput {
+  position: number;
+}
+
+export type CompatibilityTarget = "board" | "library" | "platform";
+
+export interface ComponentCompatibilityInput {
+  target_type: CompatibilityTarget;
+  name: string;
+  version_constraint: string | null;
+  notes: string | null;
+}
+
+export interface ComponentCompatibility extends ComponentCompatibilityInput {
+  position: number;
+}
+
 export interface ComponentSummary {
   id: string;
   slug: string;
@@ -116,6 +141,8 @@ export interface ComponentCard extends ComponentSummary {
   teacher_notes: string | null;
   manual_original: boolean;
   published_at: string | null;
+  specifications: TechnicalSpecification[];
+  compatibility: ComponentCompatibility[];
 }
 
 export interface ComponentDraftInput {
@@ -134,6 +161,8 @@ export interface ComponentDraftInput {
   difficulty: Difficulty;
   teacher_notes: string | null;
   manual_original: boolean;
+  specifications: TechnicalSpecificationInput[];
+  compatibility: ComponentCompatibilityInput[];
 }
 
 export interface ComponentUpdateInput extends ComponentDraftInput {
@@ -160,6 +189,8 @@ export interface CatalogComponent {
   safety_notes: string | null;
   difficulty: Difficulty;
   published_at: string;
+  specifications: TechnicalSpecification[];
+  compatibility: ComponentCompatibility[];
 }
 
 export interface CatalogComponentListResponse {

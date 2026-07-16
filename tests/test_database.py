@@ -35,6 +35,7 @@ def test_metadata_contains_authentication_catalog_and_media_tables() -> None:
         "boards",
         "categories",
         "component_aliases",
+        "component_compatibility",
         "component_properties",
         "component_revisions",
         "component_tags",

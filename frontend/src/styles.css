@@ -101,6 +101,10 @@ h2 { font-size: clamp(1.7rem, 3vw, 2.7rem); letter-spacing: -0.035em; }
 .editor-form textarea { line-height: 1.55; resize: vertical; }
 .editor-form .checkbox { align-items: center; display: flex; flex-direction: row; }
 .editor-form .checkbox input { height: 1rem; width: 1rem; }
+.field-help { color: #5e6f65; font-size: .85rem; margin: 0; }
+.structured-list { display: grid; gap: 1rem; }
+.structured-row { align-items: end; border-bottom: 1px solid #d5d8ca; display: grid; gap: .75rem; grid-template-columns: repeat(2, minmax(8rem, 1fr)); padding-bottom: 1rem; }
+.structured-row > .button { justify-self: start; }
 .editor-actions { align-items: center; display: flex; flex-wrap: wrap; gap: .75rem; position: sticky; bottom: 1rem; background: #f3f1e8e8; border-radius: 1rem; padding: 1rem; backdrop-filter: blur(12px); }
 .catalog-filters { align-items: end; background: #fff; border: 1px solid #d5d8ca; border-radius: 1rem; display: grid; gap: 1rem; grid-template-columns: minmax(12rem, 2fr) repeat(2, minmax(10rem, 1fr)); margin: 1.5rem 0; padding: 1rem; }
 .catalog-filters label { display: grid; font-size: .85rem; font-weight: 750; gap: .4rem; }
@@ -114,8 +118,15 @@ h2 { font-size: clamp(1.7rem, 3vw, 2.7rem); letter-spacing: -0.035em; }
 .student-card header, .student-card section { display: grid; gap: .65rem; }
 .student-card h1, .student-card h2, .student-card p { margin: 0; }
 .student-card footer { border-top: 1px solid #d5d8ca; display: flex; flex-wrap: wrap; gap: 1rem; padding-top: 1rem; }
+.specification-list { display: grid; gap: 0; margin: 0; }
+.specification-list div { display: grid; gap: 1rem; grid-template-columns: minmax(10rem, 1fr) 2fr; padding: .75rem 0; border-bottom: 1px solid #e5e7df; }
+.specification-list dt { font-weight: 800; }
+.specification-list dd { margin: 0; }
+.compatibility-list { display: grid; gap: .75rem; list-style: none; margin: 0; padding: 0; }
+.compatibility-list li { background: #f7f6ef; border-radius: .75rem; padding: .85rem 1rem; }
+.compatibility-list span { color: #5e6f65; margin-left: .75rem; }
 .preserve-lines { white-space: pre-wrap; }
-@media (max-width: 720px) { .catalog-filters { grid-template-columns: 1fr; } .topbar { gap: .75rem; grid-template-columns: 1fr auto; } .topbar nav { grid-column: 1 / -1; grid-row: 2; } }
+@media (max-width: 720px) { .catalog-filters, .structured-row { grid-template-columns: 1fr; } .specification-list div { gap: .25rem; grid-template-columns: 1fr; } .topbar { gap: .75rem; grid-template-columns: 1fr auto; } .topbar nav { grid-column: 1 / -1; grid-row: 2; } }
 .validation-note { color: #785d12; font-size: .85rem; }
 .component-preview { background: #fbfaf5; border: 1px solid #d5d8ca; border-radius: 1.5rem; margin: 0 auto; max-width: 900px; padding: clamp(2rem, 6vw, 5rem); }
 .component-preview h1 { font-size: clamp(2.5rem, 6vw, 5rem); }

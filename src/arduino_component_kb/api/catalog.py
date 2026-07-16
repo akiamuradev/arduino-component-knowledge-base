@@ -22,10 +22,12 @@ from arduino_component_kb.auth.repository import AuthRepository
 from arduino_component_kb.catalog.domain import (
     CatalogCard,
     CatalogError,
+    CompatibilityItem,
     ComponentStatus,
     Difficulty,
     DraftData,
     RevisionConflictError,
+    TechnicalSpecification,
 )
 from arduino_component_kb.catalog.service import CatalogService
 from arduino_component_kb.logging import current_request_id
@@ -51,6 +53,44 @@ class CategoryCreateRequest(BaseModel):
     position: int = Field(default=0, ge=0, le=10000)
 
 
+class SpecificationRequest(BaseModel):
+    key: str = Field(min_length=1, max_length=100, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+    label: str = Field(min_length=1, max_length=160)
+    value_text: str = Field(min_length=1, max_length=2000)
+    value_number: str | None = Field(default=None, max_length=64)
+    unit: str | None = Field(default=None, max_length=32)
+
+    def domain(self, position: int) -> TechnicalSpecification:
+        return TechnicalSpecification(position=position, **self.model_dump())
+
+
+class CompatibilityRequest(BaseModel):
+    target_type: str = Field(pattern=r"^(board|library|platform)$")
+    name: str = Field(min_length=1, max_length=160)
+    version_constraint: str | None = Field(default=None, max_length=120)
+    notes: str | None = Field(default=None, max_length=2000)
+
+    def domain(self, position: int) -> CompatibilityItem:
+        return CompatibilityItem(position=position, **self.model_dump())
+
+
+class SpecificationResponse(BaseModel):
+    key: str
+    label: str
+    value_text: str
+    value_number: str | None
+    unit: str | None
+    position: int
+
+
+class CompatibilityResponse(BaseModel):
+    target_type: str
+    name: str
+    version_constraint: str | None
+    notes: str | None
+    position: int
+
+
 class DraftRequest(BaseModel):
     slug: str = Field(min_length=1, max_length=160)
     title: str = Field(min_length=2, max_length=160)
@@ -67,6 +107,8 @@ class DraftRequest(BaseModel):
     difficulty: Difficulty
     teacher_notes: str | None = Field(default=None, max_length=10000)
     manual_original: bool
+    specifications: list[SpecificationRequest] = Field(default_factory=list, max_length=50)
+    compatibility: list[CompatibilityRequest] = Field(default_factory=list, max_length=30)
 
     @field_validator("description")
     @classmethod
@@ -76,7 +118,15 @@ class DraftRequest(BaseModel):
         return value
 
     def domain(self) -> DraftData:
-        return DraftData(**self.model_dump(exclude={"revision"}))
+        return DraftData(
+            **self.model_dump(exclude={"revision", "specifications", "compatibility"}),
+            specifications=tuple(
+                item.domain(position) for position, item in enumerate(self.specifications)
+            ),
+            compatibility=tuple(
+                item.domain(position) for position, item in enumerate(self.compatibility)
+            ),
+        )
 
 
 class UpdateRequest(DraftRequest):
@@ -109,6 +159,8 @@ class ComponentResponse(BaseModel):
     teacher_notes: str | None
     manual_original: bool
     published_at: datetime | None
+    specifications: list[SpecificationResponse]
+    compatibility: list[CompatibilityResponse]
 
 
 class ComponentListResponse(BaseModel):
@@ -132,11 +184,34 @@ class PublicComponentResponse(BaseModel):
     safety_notes: str | None
     difficulty: Difficulty
     published_at: datetime
+    specifications: list[SpecificationResponse]
+    compatibility: list[CompatibilityResponse]
 
 
 class PublicComponentListResponse(BaseModel):
     items: list[PublicComponentResponse]
     total: int
+
+
+def specification_response(item: TechnicalSpecification) -> SpecificationResponse:
+    return SpecificationResponse(
+        key=item.key,
+        label=item.label,
+        value_text=item.value_text,
+        value_number=item.value_number,
+        unit=item.unit,
+        position=item.position,
+    )
+
+
+def compatibility_response(item: CompatibilityItem) -> CompatibilityResponse:
+    return CompatibilityResponse(
+        target_type=item.target_type,
+        name=item.name,
+        version_constraint=item.version_constraint,
+        notes=item.notes,
+        position=item.position,
+    )
 
 
 def response(card: CatalogCard) -> ComponentResponse:
@@ -153,6 +228,8 @@ def response(card: CatalogCard) -> ComponentResponse:
         primary_category_id=str(data.primary_category_id),
         aliases=list(data.aliases),
         tags=list(data.tags),
+        specifications=[specification_response(item) for item in data.specifications],
+        compatibility=[compatibility_response(item) for item in data.compatibility],
         **{
             key: getattr(data, key)
             for key in (
@@ -195,6 +272,8 @@ def public_response(card: CatalogCard) -> PublicComponentResponse:
         safety_notes=data.safety_notes,
         difficulty=data.difficulty,
         published_at=card.published_at,
+        specifications=[specification_response(item) for item in data.specifications],
+        compatibility=[compatibility_response(item) for item in data.compatibility],
     )
 
 

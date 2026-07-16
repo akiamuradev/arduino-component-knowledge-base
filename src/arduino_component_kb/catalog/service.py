@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 import unicodedata
 from datetime import UTC, datetime
+from decimal import Decimal, InvalidOperation
+from hashlib import sha256
 from uuid import UUID, uuid4
 
 from sqlalchemy import delete, func, select
@@ -14,19 +16,25 @@ from arduino_component_kb.catalog.domain import (
     CatalogCard,
     CatalogValidationError,
     CategoryItem,
+    CompatibilityItem,
     ComponentNotFoundError,
     ComponentStatus,
     Difficulty,
     DraftData,
     RevisionConflictError,
+    TechnicalSpecification,
 )
 from arduino_component_kb.catalog.models import (
     Category,
     Component,
     ComponentAlias,
+    ComponentCompatibility,
+    ComponentProperty,
     ComponentRevision,
     ComponentTag,
+    PropertyDefinition,
     Tag,
+    Unit,
 )
 
 _SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
@@ -40,6 +48,12 @@ def _snapshot_strings(value: object) -> tuple[str, ...]:
     if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
         raise CatalogValidationError
     return tuple(value)
+
+
+def _snapshot_records(value: object) -> list[dict[str, object]]:
+    if not isinstance(value, list) or not all(isinstance(item, dict) for item in value):
+        raise CatalogValidationError
+    return value
 
 
 class CatalogService:
@@ -169,6 +183,7 @@ class CatalogService:
         self.session.add(row)
         await self.session.flush()
         await self._replace_lists(row.id, data)
+        await self._replace_technical(row.id, data)
         await self._snapshot(row, data, actor_id, now)
         return await self._card(row)
 
@@ -189,6 +204,7 @@ class CatalogService:
         row.updated_at = now
         row.revision += 1
         await self._replace_lists(row.id, data)
+        await self._replace_technical(row.id, data)
         await self._snapshot(row, data, actor_id, now)
         return await self._card(row)
 
@@ -234,6 +250,8 @@ class CatalogService:
             or len(data.tags) > 20
             or any(not value.strip() or len(value.strip()) > 100 for value in data.aliases)
             or any(not value.strip() or len(value.strip()) > 100 for value in data.tags)
+            or len(data.specifications) > 50
+            or len(data.compatibility) > 30
         ):
             raise CatalogValidationError
         category = await self.session.get(Category, data.primary_category_id)
@@ -243,6 +261,52 @@ class CatalogService:
             {_normalized(x) for x in data.tags}
         ) != len(data.tags):
             raise CatalogValidationError
+        specification_keys: set[str] = set()
+        for item in data.specifications:
+            if (
+                not _SLUG.fullmatch(item.key)
+                or not item.label.strip()
+                or len(item.label.strip()) > 160
+                or not item.value_text.strip()
+                or len(item.value_text.strip()) > 2000
+                or (item.unit is not None and len(item.unit.strip()) > 32)
+                or item.key in specification_keys
+            ):
+                raise CatalogValidationError
+            if item.value_number is not None:
+                try:
+                    number = Decimal(item.value_number)
+                except InvalidOperation as error:
+                    raise CatalogValidationError from error
+                exponent = number.as_tuple().exponent
+                if (
+                    not number.is_finite()
+                    or not isinstance(exponent, int)
+                    or exponent < -8
+                    or number.adjusted() > 15
+                ):
+                    raise CatalogValidationError
+            specification_keys.add(item.key)
+        compatibility_keys: set[tuple[str, str, str]] = set()
+        for compatibility_item in data.compatibility:
+            key = (
+                compatibility_item.target_type,
+                _normalized(compatibility_item.name),
+                _normalized(compatibility_item.version_constraint or ""),
+            )
+            if (
+                compatibility_item.target_type not in {"board", "library", "platform"}
+                or not compatibility_item.name.strip()
+                or len(compatibility_item.name.strip()) > 160
+                or (
+                    compatibility_item.version_constraint is not None
+                    and len(compatibility_item.version_constraint) > 120
+                )
+                or (compatibility_item.notes is not None and len(compatibility_item.notes) > 2000)
+                or key in compatibility_keys
+            ):
+                raise CatalogValidationError
+            compatibility_keys.add(key)
 
     @staticmethod
     def _columns(data: DraftData) -> dict[str, object]:
@@ -293,6 +357,83 @@ class CatalogService:
                 await self.session.flush()
             self.session.add(ComponentTag(component_id=component_id, tag_id=tag.id))
 
+    async def _replace_technical(self, component_id: UUID, data: DraftData) -> None:
+        await self.session.execute(
+            delete(ComponentProperty).where(ComponentProperty.component_id == component_id)
+        )
+        await self.session.execute(
+            delete(ComponentCompatibility).where(
+                ComponentCompatibility.component_id == component_id
+            )
+        )
+        for position, item in enumerate(data.specifications):
+            unit = await self._unit(item.unit)
+            definition = await self.session.scalar(
+                select(PropertyDefinition).where(PropertyDefinition.key == item.key)
+            )
+            value_type = "number" if item.value_number is not None else "text"
+            if definition is None:
+                definition = PropertyDefinition(
+                    id=uuid4(),
+                    key=item.key,
+                    label=item.label.strip(),
+                    value_type=value_type,
+                    unit_id=unit.id if unit is not None else None,
+                    is_multivalue=False,
+                )
+                self.session.add(definition)
+                await self.session.flush()
+            elif (
+                definition.label != item.label.strip()
+                or definition.value_type != value_type
+                or definition.unit_id != (unit.id if unit is not None else None)
+            ):
+                raise CatalogValidationError
+            self.session.add(
+                ComponentProperty(
+                    id=uuid4(),
+                    component_id=component_id,
+                    definition_id=definition.id,
+                    value_text=item.value_text.strip(),
+                    value_number=(
+                        Decimal(item.value_number) if item.value_number is not None else None
+                    ),
+                    position=position,
+                )
+            )
+        self.session.add_all(
+            [
+                ComponentCompatibility(
+                    id=uuid4(),
+                    component_id=component_id,
+                    target_type=item.target_type,
+                    name=item.name.strip(),
+                    version_constraint=(
+                        item.version_constraint.strip() if item.version_constraint else None
+                    ),
+                    notes=item.notes.strip() if item.notes else None,
+                    position=position,
+                )
+                for position, item in enumerate(data.compatibility)
+            ]
+        )
+
+    async def _unit(self, symbol: str | None) -> Unit | None:
+        if symbol is None or not symbol.strip():
+            return None
+        normalized = symbol.strip()
+        unit = await self.session.scalar(select(Unit).where(Unit.symbol == normalized))
+        if unit is None:
+            unit = Unit(
+                id=uuid4(),
+                key=f"custom-{sha256(normalized.encode()).hexdigest()[:16]}",
+                symbol=normalized,
+                name=normalized,
+            )
+            self.session.add(unit)
+            await self.session.flush()
+        return unit
+
     async def _data(self, row: Component) -> DraftData:
         aliases = await self.session.scalars(
             select(ComponentAlias.alias)
@@ -305,9 +446,46 @@ class CatalogService:
             .where(ComponentTag.component_id == row.id)
             .order_by(Tag.name)
         )
+        specification_rows = await self.session.execute(
+            select(ComponentProperty, PropertyDefinition, Unit)
+            .join(PropertyDefinition, PropertyDefinition.id == ComponentProperty.definition_id)
+            .outerjoin(Unit, Unit.id == PropertyDefinition.unit_id)
+            .where(ComponentProperty.component_id == row.id)
+            .order_by(ComponentProperty.position)
+        )
+        compatibility_rows = await self.session.scalars(
+            select(ComponentCompatibility)
+            .where(ComponentCompatibility.component_id == row.id)
+            .order_by(ComponentCompatibility.position)
+        )
         return DraftData(
             aliases=tuple(aliases),
             tags=tuple(tags),
+            specifications=tuple(
+                TechnicalSpecification(
+                    key=definition.key,
+                    label=definition.label,
+                    value_text=property_row.value_text,
+                    value_number=(
+                        str(property_row.value_number)
+                        if property_row.value_number is not None
+                        else None
+                    ),
+                    unit=unit.symbol if unit is not None else None,
+                    position=property_row.position,
+                )
+                for property_row, definition, unit in specification_rows
+            ),
+            compatibility=tuple(
+                CompatibilityItem(
+                    target_type=item.target_type,
+                    name=item.name,
+                    version_constraint=item.version_constraint,
+                    notes=item.notes,
+                    position=item.position,
+                )
+                for item in compatibility_rows
+            ),
             **{
                 key: getattr(row, key)
                 for key in (
@@ -353,6 +531,27 @@ class CatalogService:
                 "primary_category_id": str(data.primary_category_id),
                 "aliases": list(data.aliases),
                 "tags": list(data.tags),
+                "specifications": [
+                    {
+                        "key": item.key,
+                        "label": item.label,
+                        "value_text": item.value_text,
+                        "value_number": item.value_number,
+                        "unit": item.unit,
+                        "position": item.position,
+                    }
+                    for item in data.specifications
+                ],
+                "compatibility": [
+                    {
+                        "target_type": item.target_type,
+                        "name": item.name,
+                        "version_constraint": item.version_constraint,
+                        "notes": item.notes,
+                        "position": item.position,
+                    }
+                    for item in data.compatibility
+                ],
             }
         )
         self.session.add(
@@ -384,6 +583,8 @@ class CatalogService:
         category = await self.session.get(Category, category_id)
         if category is None or not category.is_active:
             return None
+        specifications = _snapshot_records(content.get("specifications", []))
+        compatibility = _snapshot_records(content.get("compatibility", []))
         data = DraftData(
             slug=str(content["slug"]),
             title=str(content["title"]),
@@ -400,6 +601,31 @@ class CatalogService:
             difficulty=Difficulty(str(content["difficulty"])),
             teacher_notes=None,
             manual_original=bool(content["manual_original"]),
+            specifications=tuple(
+                TechnicalSpecification(
+                    key=str(item["key"]),
+                    label=str(item["label"]),
+                    value_text=str(item["value_text"]),
+                    value_number=(
+                        str(item["value_number"]) if item.get("value_number") is not None else None
+                    ),
+                    unit=str(item["unit"]) if item.get("unit") else None,
+                    position=int(str(item["position"])),
+                )
+                for item in specifications
+            ),
+            compatibility=tuple(
+                CompatibilityItem(
+                    target_type=str(item["target_type"]),
+                    name=str(item["name"]),
+                    version_constraint=(
+                        str(item["version_constraint"]) if item.get("version_constraint") else None
+                    ),
+                    notes=str(item["notes"]) if item.get("notes") else None,
+                    position=int(str(item["position"])),
+                )
+                for item in compatibility
+            ),
         )
         return CatalogCard(
             row.id,

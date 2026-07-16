@@ -14,7 +14,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from arduino_component_kb.api.catalog import DraftRequest, UpdateRequest, editor
 from arduino_component_kb.auth.domain import Principal, Role
-from arduino_component_kb.catalog.domain import ComponentStatus, RevisionConflictError
+from arduino_component_kb.catalog.domain import (
+    CatalogValidationError,
+    ComponentStatus,
+    RevisionConflictError,
+)
 from arduino_component_kb.catalog.models import Category, Component, ComponentRevision
 from arduino_component_kb.catalog.service import CatalogService
 
@@ -53,9 +57,49 @@ def test_update_revision_is_not_part_of_draft_content() -> None:
         difficulty="beginner",
         manual_original=True,
         revision=7,
+        specifications=[
+            {
+                "key": "supply-voltage",
+                "label": "Питание",
+                "value_text": "5 В",
+                "value_number": "5",
+                "unit": "В",
+            }
+        ],
+        compatibility=[{"target_type": "board", "name": "Arduino Uno"}],
     )
     assert payload.domain().slug == "sensor"
+    assert payload.domain().specifications[0].position == 0
+    assert payload.domain().compatibility[0].name == "Arduino Uno"
     assert payload.revision == 7
+
+
+async def test_non_finite_numeric_specification_is_rejected_before_database_write() -> None:
+    category_id = uuid4()
+    payload = DraftRequest(
+        slug="sensor",
+        title="Sensor",
+        primary_category_id=category_id,
+        summary="A sufficiently long summary",
+        description="Safe Markdown",
+        difficulty="beginner",
+        manual_original=True,
+        specifications=[
+            {
+                "key": "voltage",
+                "label": "Voltage",
+                "value_text": "invalid",
+                "value_number": "NaN",
+            }
+        ],
+    )
+    session = Mock(spec=AsyncSession)
+    session.get = AsyncMock(
+        return_value=Category(id=category_id, key="sensors", name="Датчики", is_active=True)
+    )
+
+    with pytest.raises(CatalogValidationError):
+        await CatalogService(cast(AsyncSession, session)).create(payload.domain(), uuid4())
 
 
 async def test_stale_revision_is_rejected_before_mutation() -> None:
@@ -94,6 +138,25 @@ async def test_student_card_uses_published_snapshot_and_hides_teacher_notes() ->
             "difficulty": "beginner",
             "teacher_notes": "must not leak",
             "manual_original": True,
+            "specifications": [
+                {
+                    "key": "supply-voltage",
+                    "label": "Питание",
+                    "value_text": "5 В",
+                    "value_number": "5",
+                    "unit": "В",
+                    "position": 0,
+                }
+            ],
+            "compatibility": [
+                {
+                    "target_type": "board",
+                    "name": "Arduino Uno",
+                    "version_constraint": None,
+                    "notes": "GPIO",
+                    "position": 0,
+                }
+            ],
         },
         actor_id=uuid4(),
         created_at=published_at,
@@ -107,4 +170,6 @@ async def test_student_card_uses_published_snapshot_and_hides_teacher_notes() ->
 
     assert card.data.title == "Published title"
     assert card.data.teacher_notes is None
+    assert card.data.specifications[0].label == "Питание"
+    assert card.data.compatibility[0].name == "Arduino Uno"
     assert card.published_at == published_at

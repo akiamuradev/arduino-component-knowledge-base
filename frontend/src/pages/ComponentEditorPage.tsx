@@ -4,9 +4,11 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import type {
   Category,
+  ComponentCompatibilityInput,
   ComponentCard,
   ComponentDraftInput,
   Difficulty,
+  TechnicalSpecificationInput,
 } from "../api/contracts";
 import { api, ApiError } from "../api/client";
 import { ErrorState, LoadingState } from "../components/AsyncStates";
@@ -35,6 +37,8 @@ interface EditorState {
   difficulty: Difficulty;
   teacherNotes: string;
   manualOriginal: boolean;
+  specifications: TechnicalSpecificationInput[];
+  compatibility: ComponentCompatibilityInput[];
 }
 
 function emptyState(categories: Category[]): EditorState {
@@ -54,6 +58,8 @@ function emptyState(categories: Category[]): EditorState {
     difficulty: "beginner",
     teacherNotes: "",
     manualOriginal: true,
+    specifications: [],
+    compatibility: [],
   };
 }
 
@@ -74,6 +80,19 @@ function stateFromCard(card: ComponentCard): EditorState {
     difficulty: card.difficulty,
     teacherNotes: card.teacher_notes ?? "",
     manualOriginal: card.manual_original,
+    specifications: card.specifications.map((item) => ({
+      key: item.key,
+      label: item.label,
+      value_text: item.value_text,
+      value_number: item.value_number,
+      unit: item.unit,
+    })),
+    compatibility: card.compatibility.map((item) => ({
+      target_type: item.target_type,
+      name: item.name,
+      version_constraint: item.version_constraint,
+      notes: item.notes,
+    })),
   };
 }
 
@@ -98,6 +117,19 @@ function toDraftInput(state: EditorState): ComponentDraftInput {
     difficulty: state.difficulty,
     teacher_notes: nullable(state.teacherNotes),
     manual_original: state.manualOriginal,
+    specifications: state.specifications.map((item) => ({
+      key: item.key.trim(),
+      label: item.label.trim(),
+      value_text: item.value_text.trim(),
+      value_number: nullable(item.value_number ?? ""),
+      unit: nullable(item.unit ?? ""),
+    })),
+    compatibility: state.compatibility.map((item) => ({
+      target_type: item.target_type,
+      name: item.name.trim(),
+      version_constraint: nullable(item.version_constraint ?? ""),
+      notes: nullable(item.notes ?? ""),
+    })),
   };
 }
 
@@ -196,6 +228,26 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
   const update = <K extends keyof EditorState>(key: K, value: EditorState[K]) => {
     setState((current) => ({ ...current, [key]: value }));
   };
+  const updateSpecification = (
+    index: number,
+    key: keyof TechnicalSpecificationInput,
+    value: string,
+  ) => {
+    update("specifications", state.specifications.map((item, position) =>
+      position === index
+        ? { ...item, [key]: key === "value_number" || key === "unit" ? value || null : value }
+        : item));
+  };
+  const updateCompatibility = (
+    index: number,
+    key: keyof ComponentCompatibilityInput,
+    value: string,
+  ) => {
+    update("compatibility", state.compatibility.map((item, position) =>
+      position === index
+        ? { ...item, [key]: key === "version_constraint" || key === "notes" ? value || null : value }
+        : item));
+  };
   const submit = (event: SyntheticEvent<HTMLFormElement, SubmitEvent>) => {
     event.preventDefault();
     save.mutate();
@@ -245,6 +297,27 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
             <EditorTextArea label="Заметки преподавателя — скрыты от student" value={state.teacherNotes} maxLength={10000} onChange={(value) => { update("teacherNotes", value); }} />
             <label className="checkbox"><input type="checkbox" checked={state.manualOriginal} onChange={(event) => { update("manualOriginal", event.target.checked); }} />Материал создан вручную</label>
           </fieldset>
+          <fieldset><legend>Характеристики</legend><p className="field-help">Ключ стабилен между карточками; числовое значение используется будущими фильтрами.</p>
+            <div className="structured-list">{state.specifications.map((item, index) => <div className="structured-row" key={`${item.key}:${String(index)}`}>
+              <EditorField label="Ключ" value={item.key} maxLength={100} required onChange={(value) => { updateSpecification(index, "key", value); }} />
+              <EditorField label="Название" value={item.label} maxLength={160} required onChange={(value) => { updateSpecification(index, "label", value); }} />
+              <EditorField label="Отображаемое значение" value={item.value_text} maxLength={2000} required onChange={(value) => { updateSpecification(index, "value_text", value); }} />
+              <EditorField label="Число (необязательно)" value={item.value_number ?? ""} maxLength={64} onChange={(value) => { updateSpecification(index, "value_number", value); }} />
+              <EditorField label="Единица" value={item.unit ?? ""} maxLength={32} onChange={(value) => { updateSpecification(index, "unit", value); }} />
+              <button className="button button--quiet" type="button" onClick={() => { update("specifications", state.specifications.filter((_, position) => position !== index)); }}>Удалить</button>
+            </div>)}</div>
+            <button className="button button--quiet" disabled={state.specifications.length >= 50} type="button" onClick={() => { update("specifications", [...state.specifications, { key: "", label: "", value_text: "", value_number: null, unit: null }]); }}>Добавить характеристику</button>
+          </fieldset>
+          <fieldset><legend>Совместимость</legend>
+            <div className="structured-list">{state.compatibility.map((item, index) => <div className="structured-row" key={`${item.target_type}:${item.name}:${String(index)}`}>
+              <label>Тип<select value={item.target_type} onChange={(event) => { updateCompatibility(index, "target_type", event.target.value); }}><option value="board">Плата</option><option value="library">Библиотека</option><option value="platform">Платформа</option></select></label>
+              <EditorField label="Название" value={item.name} maxLength={160} required onChange={(value) => { updateCompatibility(index, "name", value); }} />
+              <EditorField label="Версия" value={item.version_constraint ?? ""} maxLength={120} onChange={(value) => { updateCompatibility(index, "version_constraint", value); }} />
+              <EditorField label="Примечание" value={item.notes ?? ""} maxLength={2000} onChange={(value) => { updateCompatibility(index, "notes", value); }} />
+              <button className="button button--quiet" type="button" onClick={() => { update("compatibility", state.compatibility.filter((_, position) => position !== index)); }}>Удалить</button>
+            </div>)}</div>
+            <button className="button button--quiet" disabled={state.compatibility.length >= 30} type="button" onClick={() => { update("compatibility", [...state.compatibility, { target_type: "board", name: "", version_constraint: null, notes: null }]); }}>Добавить совместимость</button>
+          </fieldset>
           <div className="editor-actions">
             <button className="button button--primary" disabled={save.isPending || lifecycle.isPending} type="submit">{save.isPending ? "Сохраняем…" : "Сохранить draft"}</button>
             {card?.status === "draft" ? <button className="button button--success" disabled={problems.length > 0 || save.isPending || lifecycle.isPending} type="button" onClick={() => { lifecycle.mutate("publish"); }}>Опубликовать</button> : null}
@@ -274,6 +347,8 @@ function ComponentPreview({ state, categories, status }: { state: EditorState; c
     <p className="preview-summary">{state.summary || "Аннотация ещё не заполнена."}</p>
     <div className="preview-body"><section><h2>Описание</h2><p>{state.description || "Описание ещё не заполнено."}</p></section>
       {state.purpose ? <section><h2>Назначение</h2><p>{state.purpose}</p></section> : null}
+      {state.specifications.length > 0 ? <section><h2>Характеристики</h2><dl className="specification-list">{state.specifications.map((item) => <div key={item.key}><dt>{item.label}</dt><dd>{item.value_text}{item.unit ? ` ${item.unit}` : ""}</dd></div>)}</dl></section> : null}
+      {state.compatibility.length > 0 ? <section><h2>Совместимость</h2><ul className="compatibility-list">{state.compatibility.map((item, index) => <li key={`${item.target_type}:${item.name}:${String(index)}`}><strong>{item.name}</strong>{item.version_constraint ? <span>{item.version_constraint}</span> : null}{item.notes ? <p>{item.notes}</p> : null}</li>)}</ul></section> : null}
       {state.safetyNotes ? <section className="safety-callout"><h2>Безопасность</h2><p>{state.safetyNotes}</p></section> : null}
     </div>
     {commaList(state.tags).length > 0 ? <div className="tag-list">{commaList(state.tags).map((tag) => <span key={tag}>{tag}</span>)}</div> : null}

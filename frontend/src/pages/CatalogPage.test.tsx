@@ -18,6 +18,8 @@ const card: CatalogComponent = {
   purpose: "Измерение температуры", usage_notes: "Подключите питание.",
   safety_notes: "Проверьте напряжение.", difficulty: "beginner",
   published_at: "2026-07-16T10:00:00Z",
+  specifications: [{ key: "supply-voltage", label: "Питание", value_text: "5", value_number: "5", unit: "В", position: 0 }],
+  compatibility: [{ target_type: "board", name: "Arduino Uno", version_constraint: null, notes: "Подключение по GPIO", position: 0 }],
 };
 
 function renderCatalog(path = "/") {
@@ -40,6 +42,9 @@ describe("student catalog", () => {
     renderCatalog("/components/temperature-sensor");
     expect(await screen.findByRole("heading", { name: "Датчик температуры", level: 1 })).toBeVisible();
     expect(screen.getByText("Проверьте напряжение.")).toBeVisible();
+    expect(screen.getByText("Питание")).toBeVisible();
+    expect(screen.getByText("5 В")).toBeVisible();
+    expect(screen.getByText(/Плата: Arduino Uno/)).toBeVisible();
     expect(screen.getByRole("link", { name: /К каталогу/ })).toHaveAttribute("href", "/");
   });
 });

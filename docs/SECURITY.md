@@ -17,6 +17,8 @@ PostgreSQL, Redis и MinIO доступны только внутри deployment
 - Default deny. Student видит только published revision и student-visible examples.
 - `/api/v1/catalog/*` требует active session, не сериализует `teacher_notes` и не возвращает
   карточку без published snapshot либо после archive; frontend route guard не заменяет эту проверку.
+- технические поля student API восстанавливаются из published snapshot, а не из редактируемого
+  draft head; текст значений выводится React text nodes без raw HTML execution.
 - Teacher управляет draft и публикацией без merge-конфликта. Только administrator управляет
   ролями/source policy и подтверждает duplicate merge.
 - MVP использует локальные Argon2id credentials и opaque server-side sessions. PostgreSQL

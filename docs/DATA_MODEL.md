@@ -79,14 +79,16 @@ Unique: `key`; parent не может ссылаться на себя. Испо
 `tags`: `id`, `name`, `normalized_name`; unique normalized name.
 `component_tags`: `(component_id, tag_id)`; максимум 20 — application rule.
 
-### `component_specifications`
+### `units`, `property_definitions` и `component_properties`
 
-`id`, `component_id`, `key`, `label`, `value_text`, `value_number?`, `unit?`, `position`,
-`source_fragment?`.
+`units`: `id`, stable `key`, `symbol`, `name`. `property_definitions`: `id`, stable `key`,
+`label`, `value_type(text|number|boolean)`, `unit_id?`, `is_multivalue`.
+`component_properties`: `id`, `component_id`, `definition_id`, `value_text`, `value_number?`,
+`position`.
 
-Numeric representation используется для фильтрации, но `value_text` сохраняет исходный
-смысл. Unique `(component_id, key)` только для single-value keys; multi-value определяется
-schema policy, а не молчаливым overwrite.
+Numeric representation используется для будущей фильтрации, но `value_text` сохраняет
+отображаемый смысл. В текущем редакторе один stable key встречается в карточке один раз;
+несовместимое переопределение общего key отклоняется, а не молча заменяет definition.
 
 ### `component_pins`
 
@@ -100,6 +102,8 @@ schema policy, а не молчаливым overwrite.
 
 `id`, `component_id`, `target_type(board|library|platform)`, `name`, `version_constraint?`,
 `notes?`.
+
+Таблица добавлена Alembic revision `20260716_07`; порядок задаётся `position`.
 
 ### `code_examples`
 

@@ -134,3 +134,16 @@ class ComponentProperty(Base):
     value_text: Mapped[str] = mapped_column(Text)
     value_number: Mapped[Decimal | None] = mapped_column(Numeric(24, 8))
     position: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class ComponentCompatibility(Base):
+    __tablename__ = "component_compatibility"
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    component_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("components.id", ondelete="CASCADE")
+    )
+    target_type: Mapped[str] = mapped_column(String(16))
+    name: Mapped[str] = mapped_column(String(160))
+    version_constraint: Mapped[str | None] = mapped_column(String(120))
+    notes: Mapped[str | None] = mapped_column(Text)
+    position: Mapped[int] = mapped_column(Integer, default=0)
