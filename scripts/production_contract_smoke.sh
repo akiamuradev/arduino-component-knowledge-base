@@ -41,4 +41,3 @@ docker run --rm \
   nginx -t
 
 printf 'Production Compose and nginx contract smoke test passed.\n'
-

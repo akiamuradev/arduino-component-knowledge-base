@@ -21,7 +21,6 @@ server {
         return 308 https://${ACKB_INTERNAL_HOSTNAME}$request_uri;
     }
 }
-
 server {
     listen 8443 ssl;
     http2 on;
@@ -71,4 +70,3 @@ server {
         proxy_set_header X-Forwarded-Proto https;
     }
 }
-
