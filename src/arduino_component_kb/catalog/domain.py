@@ -20,6 +20,11 @@ class Difficulty(StrEnum):
     ADVANCED = "advanced"
 
 
+class CodeExampleVisibility(StrEnum):
+    STUDENT = "student"
+    TEACHER = "teacher"
+
+
 @dataclass(frozen=True, slots=True)
 class CategoryItem:
     id: UUID
@@ -47,6 +52,19 @@ class CompatibilityItem:
 
 
 @dataclass(frozen=True, slots=True)
+class CodeExample:
+    title: str
+    language: str
+    practical_task: str
+    hints: tuple[str, ...]
+    body: str
+    libraries: tuple[str, ...]
+    explanation: str | None
+    visibility: CodeExampleVisibility
+    position: int
+
+
+@dataclass(frozen=True, slots=True)
 class DraftData:
     slug: str
     title: str
@@ -65,6 +83,7 @@ class DraftData:
     manual_original: bool
     specifications: tuple[TechnicalSpecification, ...] = ()
     compatibility: tuple[CompatibilityItem, ...] = ()
+    code_examples: tuple[CodeExample, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

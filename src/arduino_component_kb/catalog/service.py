@@ -17,6 +17,8 @@ from arduino_component_kb.catalog.domain import (
     CatalogCard,
     CatalogValidationError,
     CategoryItem,
+    CodeExample,
+    CodeExampleVisibility,
     CompatibilityItem,
     ComponentNotFoundError,
     ComponentStatus,
@@ -27,6 +29,7 @@ from arduino_component_kb.catalog.domain import (
 )
 from arduino_component_kb.catalog.models import (
     Category,
+    CodeExampleHint,
     Component,
     ComponentAlias,
     ComponentCompatibility,
@@ -36,6 +39,9 @@ from arduino_component_kb.catalog.models import (
     PropertyDefinition,
     Tag,
     Unit,
+)
+from arduino_component_kb.catalog.models import (
+    CodeExample as CodeExampleRow,
 )
 from arduino_component_kb.catalog.normalization import normalize_exact_identity
 
@@ -186,6 +192,7 @@ class CatalogService:
         await self.session.flush()
         await self._replace_lists(row.id, data)
         await self._replace_technical(row.id, data)
+        await self._replace_learning(row.id, data, actor_id, now)
         await self._snapshot(row, data, actor_id, now)
         return await self._card(row)
 
@@ -207,6 +214,7 @@ class CatalogService:
         row.revision += 1
         await self._replace_lists(row.id, data)
         await self._replace_technical(row.id, data)
+        await self._replace_learning(row.id, data, actor_id, now)
         await self._snapshot(row, data, actor_id, now)
         return await self._card(row)
 
@@ -313,6 +321,7 @@ class CatalogService:
                 "teacher_notes",
                 "specifications",
                 "compatibility",
+                "code_examples",
             }
             if not set(field_sources).issubset(allowed) or any(
                 source_id not in by_id for source_id in field_sources.values()
@@ -344,12 +353,14 @@ class CatalogService:
                 manual_original=survivor_data.manual_original,
                 specifications=cast(tuple[TechnicalSpecification, ...], chosen("specifications")),
                 compatibility=cast(tuple[CompatibilityItem, ...], chosen("compatibility")),
+                code_examples=cast(tuple[CodeExample, ...], chosen("code_examples")),
             )
             await self._validate(survivor_data)
             for key, value in self._columns(survivor_data).items():
                 setattr(survivor, key, value)
             await self._replace_lists(survivor.id, survivor_data)
             await self._replace_technical(survivor.id, survivor_data)
+            await self._replace_learning(survivor.id, survivor_data, actor_id, datetime.now(UTC))
 
         from arduino_component_kb.imports.models import ComponentSource
         from arduino_component_kb.media.models import MediaAsset
@@ -395,6 +406,7 @@ class CatalogService:
             or any(not value.strip() or len(value.strip()) > 100 for value in data.tags)
             or len(data.specifications) > 50
             or len(data.compatibility) > 30
+            or len(data.code_examples) > 10
         ):
             raise CatalogValidationError
         category = await self.session.get(Category, data.primary_category_id)
@@ -450,6 +462,23 @@ class CatalogService:
             ):
                 raise CatalogValidationError
             compatibility_keys.add(key)
+        for example in data.code_examples:
+            if (
+                not example.title.strip()
+                or len(example.title.strip()) > 160
+                or not re.fullmatch(r"[a-z0-9][a-z0-9_+.#-]{0,31}", example.language)
+                or not example.practical_task.strip()
+                or len(example.practical_task) > 5000
+                or not example.body.strip()
+                or len(example.body.encode("utf-8")) > 65536
+                or (example.explanation is not None and len(example.explanation) > 10000)
+                or len(example.hints) > 10
+                or any(not hint.strip() or len(hint) > 2000 for hint in example.hints)
+                or len(example.libraries) > 20
+                or any(not item.strip() or len(item) > 100 for item in example.libraries)
+                or len({_normalized(item) for item in example.libraries}) != len(example.libraries)
+            ):
+                raise CatalogValidationError
 
     @staticmethod
     def _columns(data: DraftData) -> dict[str, object]:
@@ -580,6 +609,37 @@ class CatalogService:
             await self.session.flush()
         return unit
 
+    async def _replace_learning(
+        self, component_id: UUID, data: DraftData, actor_id: UUID, now: datetime
+    ) -> None:
+        await self.session.execute(
+            delete(CodeExampleRow).where(CodeExampleRow.component_id == component_id)
+        )
+        for position, item in enumerate(data.code_examples):
+            example = CodeExampleRow(
+                id=uuid4(),
+                component_id=component_id,
+                title=item.title.strip(),
+                language=item.language,
+                practical_task=item.practical_task.strip(),
+                body=item.body,
+                libraries_json=[library.strip() for library in item.libraries],
+                explanation=item.explanation.strip() if item.explanation else None,
+                visibility=item.visibility.value,
+                position=position,
+                created_by=actor_id,
+                updated_at=now,
+            )
+            self.session.add(example)
+            self.session.add_all(
+                [
+                    CodeExampleHint(
+                        id=uuid4(), example_id=example.id, body=hint.strip(), position=hint_position
+                    )
+                    for hint_position, hint in enumerate(item.hints)
+                ]
+            )
+
     async def _data(self, row: Component) -> DraftData:
         aliases = await self.session.scalars(
             select(ComponentAlias.alias)
@@ -604,6 +664,33 @@ class CatalogService:
             .where(ComponentCompatibility.component_id == row.id)
             .order_by(ComponentCompatibility.position)
         )
+        example_rows = list(
+            await self.session.scalars(
+                select(CodeExampleRow)
+                .where(CodeExampleRow.component_id == row.id)
+                .order_by(CodeExampleRow.position)
+            )
+        )
+        code_examples: list[CodeExample] = []
+        for example in example_rows:
+            hints = await self.session.scalars(
+                select(CodeExampleHint.body)
+                .where(CodeExampleHint.example_id == example.id)
+                .order_by(CodeExampleHint.position)
+            )
+            code_examples.append(
+                CodeExample(
+                    title=example.title,
+                    language=example.language,
+                    practical_task=example.practical_task,
+                    hints=tuple(hints),
+                    body=example.body,
+                    libraries=tuple(example.libraries_json),
+                    explanation=example.explanation,
+                    visibility=CodeExampleVisibility(example.visibility),
+                    position=example.position,
+                )
+            )
         return DraftData(
             aliases=tuple(aliases),
             tags=tuple(tags),
@@ -632,6 +719,7 @@ class CatalogService:
                 )
                 for item in compatibility_rows
             ),
+            code_examples=tuple(code_examples),
             **{
                 key: getattr(row, key)
                 for key in (
@@ -698,6 +786,20 @@ class CatalogService:
                     }
                     for item in data.compatibility
                 ],
+                "code_examples": [
+                    {
+                        "title": item.title,
+                        "language": item.language,
+                        "practical_task": item.practical_task,
+                        "hints": list(item.hints),
+                        "body": item.body,
+                        "libraries": list(item.libraries),
+                        "explanation": item.explanation,
+                        "visibility": item.visibility.value,
+                        "position": item.position,
+                    }
+                    for item in data.code_examples
+                ],
             }
         )
         self.session.add(
@@ -731,6 +833,7 @@ class CatalogService:
             return None
         specifications = _snapshot_records(content.get("specifications", []))
         compatibility = _snapshot_records(content.get("compatibility", []))
+        code_examples = _snapshot_records(content.get("code_examples", []))
         data = DraftData(
             slug=str(content["slug"]),
             title=str(content["title"]),
@@ -771,6 +874,21 @@ class CatalogService:
                     position=int(str(item["position"])),
                 )
                 for item in compatibility
+            ),
+            code_examples=tuple(
+                CodeExample(
+                    title=str(item["title"]),
+                    language=str(item["language"]),
+                    practical_task=str(item["practical_task"]),
+                    hints=_snapshot_strings(item.get("hints", [])),
+                    body=str(item["body"]),
+                    libraries=_snapshot_strings(item.get("libraries", [])),
+                    explanation=(str(item["explanation"]) if item.get("explanation") else None),
+                    visibility=CodeExampleVisibility(str(item["visibility"])),
+                    position=int(str(item["position"])),
+                )
+                for item in code_examples
+                if item.get("visibility") == CodeExampleVisibility.STUDENT.value
             ),
         )
         return CatalogCard(

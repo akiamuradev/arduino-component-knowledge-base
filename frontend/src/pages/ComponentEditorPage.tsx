@@ -4,6 +4,8 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import type {
   Category,
+  CodeExampleInput,
+  CodeExampleVisibility,
   ComponentCompatibilityInput,
   ComponentCard,
   ComponentDraftInput,
@@ -12,6 +14,7 @@ import type {
 } from "../api/contracts";
 import { api, ApiError } from "../api/client";
 import { ErrorState, LoadingState } from "../components/AsyncStates";
+import { LearningExample } from "../components/LearningExample";
 import {
   workspaceCategoriesQuery,
   workspaceComponentQuery,
@@ -39,6 +42,11 @@ interface EditorState {
   manualOriginal: boolean;
   specifications: TechnicalSpecificationInput[];
   compatibility: ComponentCompatibilityInput[];
+  codeExamples: EditorCodeExample[];
+}
+
+interface EditorCodeExample extends Omit<CodeExampleInput, "libraries"> {
+  libraries: string;
 }
 
 function emptyState(categories: Category[]): EditorState {
@@ -60,6 +68,7 @@ function emptyState(categories: Category[]): EditorState {
     manualOriginal: true,
     specifications: [],
     compatibility: [],
+    codeExamples: [],
   };
 }
 
@@ -92,6 +101,16 @@ function stateFromCard(card: ComponentCard): EditorState {
       name: item.name,
       version_constraint: item.version_constraint,
       notes: item.notes,
+    })),
+    codeExamples: card.code_examples.map((item) => ({
+      title: item.title,
+      language: item.language,
+      practical_task: item.practical_task,
+      hints: [...item.hints],
+      body: item.body,
+      libraries: item.libraries.join(", "),
+      explanation: item.explanation,
+      visibility: item.visibility,
     })),
   };
 }
@@ -129,6 +148,16 @@ function toDraftInput(state: EditorState): ComponentDraftInput {
       name: item.name.trim(),
       version_constraint: nullable(item.version_constraint ?? ""),
       notes: nullable(item.notes ?? ""),
+    })),
+    code_examples: state.codeExamples.map((item) => ({
+      title: item.title.trim(),
+      language: item.language.trim().toLowerCase(),
+      practical_task: item.practical_task.trim(),
+      hints: item.hints.map((hint) => hint.trim()),
+      body: item.body,
+      libraries: commaList(item.libraries),
+      explanation: nullable(item.explanation ?? ""),
+      visibility: item.visibility,
     })),
   };
 }
@@ -248,6 +277,14 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
         ? { ...item, [key]: key === "version_constraint" || key === "notes" ? value || null : value }
         : item));
   };
+  const updateCodeExample = <K extends keyof EditorCodeExample>(
+    index: number,
+    key: K,
+    value: EditorCodeExample[K],
+  ) => {
+    update("codeExamples", state.codeExamples.map((item, position) =>
+      position === index ? { ...item, [key]: value } : item));
+  };
   const submit = (event: SyntheticEvent<HTMLFormElement, SubmitEvent>) => {
     event.preventDefault();
     save.mutate();
@@ -318,6 +355,26 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
             </div>)}</div>
             <button className="button button--quiet" disabled={state.compatibility.length >= 30} type="button" onClick={() => { update("compatibility", [...state.compatibility, { target_type: "board", name: "", version_constraint: null, notes: null }]); }}>Добавить совместимость</button>
           </fieldset>
+          <fieldset><legend>Учебные примеры кода</legend><p className="field-help">Код хранится и показывается только как текст: backend его не запускает.</p>
+            <div className="structured-list">{state.codeExamples.map((item, index) => <section className="code-example-editor" key={`${String(index)}:${item.title}`}>
+              <div className="form-grid">
+                <EditorField label="Название задания" value={item.title} maxLength={160} required onChange={(value) => { updateCodeExample(index, "title", value); }} />
+                <EditorField label="Язык (arduino, cpp, python)" value={item.language} maxLength={32} required onChange={(value) => { updateCodeExample(index, "language", value); }} />
+                <EditorField label="Библиотеки через запятую" value={item.libraries} onChange={(value) => { updateCodeExample(index, "libraries", value); }} />
+                <label>Видимость<select value={item.visibility} onChange={(event) => { updateCodeExample(index, "visibility", event.target.value as CodeExampleVisibility); }}><option value="student">Студент</option><option value="teacher">Только преподаватель</option></select></label>
+              </div>
+              <EditorTextArea label="Практическое задание" value={item.practical_task} maxLength={5000} required onChange={(value) => { updateCodeExample(index, "practical_task", value); }} />
+              <div className="structured-list"><strong>Подсказки по порядку</strong>{item.hints.map((hint, hintIndex) => <div className="hint-editor" key={`${String(hintIndex)}:${hint}`}>
+                <EditorTextArea label={`Подсказка ${String(hintIndex + 1)}`} value={hint} maxLength={2000} required rows={2} onChange={(value) => { updateCodeExample(index, "hints", item.hints.map((current, position) => position === hintIndex ? value : current)); }} />
+                <button className="button button--quiet" type="button" onClick={() => { updateCodeExample(index, "hints", item.hints.filter((_, position) => position !== hintIndex)); }}>Удалить подсказку</button>
+              </div>)}</div>
+              <button className="button button--quiet" disabled={item.hints.length >= 10} type="button" onClick={() => { updateCodeExample(index, "hints", [...item.hints, ""]); }}>Добавить подсказку</button>
+              <EditorTextArea label="Решение — скрыто до действия студента" value={item.body} maxLength={65536} required rows={10} onChange={(value) => { updateCodeExample(index, "body", value); }} />
+              <EditorTextArea label="Объяснение решения" value={item.explanation ?? ""} maxLength={10000} onChange={(value) => { updateCodeExample(index, "explanation", value || null); }} />
+              <button className="button button--danger" type="button" onClick={() => { update("codeExamples", state.codeExamples.filter((_, position) => position !== index)); }}>Удалить пример</button>
+            </section>)}</div>
+            <button className="button button--quiet" disabled={state.codeExamples.length >= 10} type="button" onClick={() => { update("codeExamples", [...state.codeExamples, { title: "", language: "arduino", practical_task: "", hints: [], body: "", libraries: "", explanation: null, visibility: "student" }]); }}>Добавить учебный пример</button>
+          </fieldset>
           <div className="editor-actions">
             <button className="button button--primary" disabled={save.isPending || lifecycle.isPending} type="submit">{save.isPending ? "Сохраняем…" : "Сохранить draft"}</button>
             {card?.status === "draft" ? <button className="button button--success" disabled={problems.length > 0 || save.isPending || lifecycle.isPending} type="button" onClick={() => { lifecycle.mutate("publish"); }}>Опубликовать</button> : null}
@@ -349,6 +406,7 @@ function ComponentPreview({ state, categories, status }: { state: EditorState; c
       {state.purpose ? <section><h2>Назначение</h2><p>{state.purpose}</p></section> : null}
       {state.specifications.length > 0 ? <section><h2>Характеристики</h2><dl className="specification-list">{state.specifications.map((item) => <div key={item.key}><dt>{item.label}</dt><dd>{item.value_text}{item.unit ? ` ${item.unit}` : ""}</dd></div>)}</dl></section> : null}
       {state.compatibility.length > 0 ? <section><h2>Совместимость</h2><ul className="compatibility-list">{state.compatibility.map((item, index) => <li key={`${item.target_type}:${item.name}:${String(index)}`}><strong>{item.name}</strong>{item.version_constraint ? <span>{item.version_constraint}</span> : null}{item.notes ? <p>{item.notes}</p> : null}</li>)}</ul></section> : null}
+      {state.codeExamples.length > 0 ? <section><h2>Практика</h2>{state.codeExamples.map((item, position) => <LearningExample example={{ ...item, libraries: commaList(item.libraries), position }} key={`${String(position)}:${item.title}`} />)}</section> : null}
       {state.safetyNotes ? <section className="safety-callout"><h2>Безопасность</h2><p>{state.safetyNotes}</p></section> : null}
     </div>
     {commaList(state.tags).length > 0 ? <div className="tag-list">{commaList(state.tags).map((tag) => <span key={tag}>{tag}</span>)}</div> : null}

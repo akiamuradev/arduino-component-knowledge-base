@@ -22,6 +22,8 @@ from arduino_component_kb.auth.repository import AuthRepository
 from arduino_component_kb.catalog.domain import (
     CatalogCard,
     CatalogError,
+    CodeExample,
+    CodeExampleVisibility,
     CompatibilityItem,
     ComponentStatus,
     Difficulty,
@@ -91,6 +93,42 @@ class CompatibilityResponse(BaseModel):
     position: int
 
 
+class CodeExampleRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=160)
+    language: str = Field(pattern=r"^[a-z0-9][a-z0-9_+.#-]{0,31}$")
+    practical_task: str = Field(min_length=1, max_length=5000)
+    hints: list[str] = Field(default_factory=list, max_length=10)
+    body: str = Field(min_length=1, max_length=65536)
+    libraries: list[str] = Field(default_factory=list, max_length=20)
+    explanation: str | None = Field(default=None, max_length=10000)
+    visibility: CodeExampleVisibility = CodeExampleVisibility.STUDENT
+
+    def domain(self, position: int) -> CodeExample:
+        return CodeExample(
+            title=self.title,
+            language=self.language,
+            practical_task=self.practical_task,
+            hints=tuple(self.hints),
+            body=self.body,
+            libraries=tuple(self.libraries),
+            explanation=self.explanation,
+            visibility=self.visibility,
+            position=position,
+        )
+
+
+class CodeExampleResponse(BaseModel):
+    title: str
+    language: str
+    practical_task: str
+    hints: list[str]
+    body: str
+    libraries: list[str]
+    explanation: str | None
+    visibility: CodeExampleVisibility
+    position: int
+
+
 class DraftRequest(BaseModel):
     slug: str = Field(min_length=1, max_length=160)
     title: str = Field(min_length=2, max_length=160)
@@ -109,6 +147,7 @@ class DraftRequest(BaseModel):
     manual_original: bool
     specifications: list[SpecificationRequest] = Field(default_factory=list, max_length=50)
     compatibility: list[CompatibilityRequest] = Field(default_factory=list, max_length=30)
+    code_examples: list[CodeExampleRequest] = Field(default_factory=list, max_length=10)
 
     @field_validator("description")
     @classmethod
@@ -119,12 +158,17 @@ class DraftRequest(BaseModel):
 
     def domain(self) -> DraftData:
         return DraftData(
-            **self.model_dump(exclude={"revision", "specifications", "compatibility"}),
+            **self.model_dump(
+                exclude={"revision", "specifications", "compatibility", "code_examples"}
+            ),
             specifications=tuple(
                 item.domain(position) for position, item in enumerate(self.specifications)
             ),
             compatibility=tuple(
                 item.domain(position) for position, item in enumerate(self.compatibility)
+            ),
+            code_examples=tuple(
+                item.domain(position) for position, item in enumerate(self.code_examples)
             ),
         )
 
@@ -161,6 +205,7 @@ class ComponentResponse(BaseModel):
     published_at: datetime | None
     specifications: list[SpecificationResponse]
     compatibility: list[CompatibilityResponse]
+    code_examples: list[CodeExampleResponse]
 
 
 class ComponentListResponse(BaseModel):
@@ -186,6 +231,7 @@ class PublicComponentResponse(BaseModel):
     published_at: datetime
     specifications: list[SpecificationResponse]
     compatibility: list[CompatibilityResponse]
+    code_examples: list[CodeExampleResponse]
 
 
 class PublicComponentListResponse(BaseModel):
@@ -214,6 +260,20 @@ def compatibility_response(item: CompatibilityItem) -> CompatibilityResponse:
     )
 
 
+def code_example_response(item: CodeExample) -> CodeExampleResponse:
+    return CodeExampleResponse(
+        title=item.title,
+        language=item.language,
+        practical_task=item.practical_task,
+        hints=list(item.hints),
+        body=item.body,
+        libraries=list(item.libraries),
+        explanation=item.explanation,
+        visibility=item.visibility,
+        position=item.position,
+    )
+
+
 def response(card: CatalogCard) -> ComponentResponse:
     data = card.data
     return ComponentResponse(
@@ -230,6 +290,7 @@ def response(card: CatalogCard) -> ComponentResponse:
         tags=list(data.tags),
         specifications=[specification_response(item) for item in data.specifications],
         compatibility=[compatibility_response(item) for item in data.compatibility],
+        code_examples=[code_example_response(item) for item in data.code_examples],
         **{
             key: getattr(data, key)
             for key in (
@@ -274,6 +335,7 @@ def public_response(card: CatalogCard) -> PublicComponentResponse:
         published_at=card.published_at,
         specifications=[specification_response(item) for item in data.specifications],
         compatibility=[compatibility_response(item) for item in data.compatibility],
+        code_examples=[code_example_response(item) for item in data.code_examples],
     )
 
 

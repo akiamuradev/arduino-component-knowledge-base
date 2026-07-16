@@ -1,5 +1,6 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 
@@ -20,6 +21,11 @@ const card: CatalogComponent = {
   published_at: "2026-07-16T10:00:00Z",
   specifications: [{ key: "supply-voltage", label: "Питание", value_text: "5", value_number: "5", unit: "В", position: 0 }],
   compatibility: [{ target_type: "board", name: "Arduino Uno", version_constraint: null, notes: "Подключение по GPIO", position: 0 }],
+  code_examples: [{
+    title: "Мигающий светодиод", language: "arduino", practical_task: "Настройте мигание встроенного светодиода.",
+    hints: ["Используйте pinMode."], body: "void setup() { pinMode(13, OUTPUT); }", libraries: [],
+    explanation: "Пин переводится в режим выхода.", visibility: "student", position: 0,
+  }],
 };
 
 function renderCatalog(path = "/") {
@@ -39,12 +45,18 @@ describe("student catalog", () => {
   });
 
   it("renders component details and safety notes", async () => {
-    renderCatalog("/components/temperature-sensor");
+    const user = userEvent.setup();
+    const view = renderCatalog("/components/temperature-sensor");
     expect(await screen.findByRole("heading", { name: "Датчик температуры", level: 1 })).toBeVisible();
     expect(screen.getByText("Проверьте напряжение.")).toBeVisible();
     expect(screen.getByText("Питание")).toBeVisible();
     expect(screen.getByText("5 В")).toBeVisible();
     expect(screen.getByText(/Плата: Arduino Uno/)).toBeVisible();
     expect(screen.getByRole("link", { name: /К каталогу/ })).toHaveAttribute("href", "/");
+    expect(view.container.querySelector(".learning-code")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Показать подсказку 1" }));
+    expect(screen.getByText("Используйте pinMode.")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Показать решение" }));
+    expect(view.container.querySelector(".learning-code")).toHaveTextContent("void setup");
   });
 });

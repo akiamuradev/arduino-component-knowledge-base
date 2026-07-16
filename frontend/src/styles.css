@@ -107,6 +107,17 @@ h2 { font-size: clamp(1.7rem, 3vw, 2.7rem); letter-spacing: -0.035em; }
 .decision-reason { display: grid; font-size: .8rem; font-weight: 800; gap: .5rem; margin-top: 2rem; }
 .decision-reason textarea { border: 1px solid #c6cbc0; border-radius: .65rem; padding: .75rem; resize: vertical; }
 .decision-actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 1rem; }
+.code-example-editor { background: #f7f6ef; border: 1px solid #d5d8ca; border-radius: 1rem; display: grid; gap: 1rem; padding: 1.25rem; }
+.hint-editor { align-items: end; display: grid; gap: .75rem; grid-template-columns: 1fr auto; }
+.learning-example { background: #f7f6ef; border: 1px solid #d5d8ca; border-radius: 1rem; display: grid; gap: 1rem; margin-top: 1rem; padding: 1.25rem; }
+.learning-example > header { align-items: start; display: flex; gap: 1rem; justify-content: space-between; }
+.learning-example .button { justify-self: start; }
+.learning-hints { background: #fff6df; border-left: 4px solid #d6a934; display: grid; gap: .6rem; margin: 0; padding: 1rem 1rem 1rem 2.5rem; }
+.learning-code { background: #14251e; border-radius: .75rem; color: #e8eee9; max-width: 100%; overflow: auto; padding: 1rem; tab-size: 2; white-space: pre; }
+.code-token--comment { color: #89a497; }
+.code-token--keyword { color: #f29a73; font-weight: 700; }
+.code-token--number { color: #f0d587; }
+.code-token--string { color: #b9d889; }
 
 .editor-header { align-items: center; display: flex; gap: 2rem; justify-content: space-between; margin-bottom: 2rem; }
 .editor-header h2 { margin-bottom: 0; }
@@ -196,6 +207,6 @@ h2 { font-size: clamp(1.7rem, 3vw, 2.7rem); letter-spacing: -0.035em; }
   .status-grid { grid-template-columns: 1fr; }
   .section-heading, .editor-header, .conflict-banner { align-items: stretch; flex-direction: column; }
   .component-row { grid-template-columns: 1fr; }
-  .job-row, .duplicate-columns, .conflict-table > div { grid-template-columns: 1fr; }
+  .job-row, .duplicate-columns, .conflict-table > div, .hint-editor { grid-template-columns: 1fr; }
   .form-grid { grid-template-columns: 1fr; }
 }

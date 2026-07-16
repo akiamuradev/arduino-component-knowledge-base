@@ -74,6 +74,33 @@ def test_update_revision_is_not_part_of_draft_content() -> None:
     assert payload.revision == 7
 
 
+def test_code_example_contract_preserves_ordered_hints() -> None:
+    payload = DraftRequest(
+        slug="sensor",
+        title="Sensor",
+        primary_category_id=uuid4(),
+        summary="A sufficiently long summary",
+        description="Safe Markdown",
+        difficulty="beginner",
+        manual_original=True,
+        code_examples=[
+            {
+                "title": "Read sensor",
+                "language": "arduino",
+                "practical_task": "Read and print the sensor value.",
+                "hints": ["Configure the pin.", "Use Serial.println."],
+                "body": "void loop() { Serial.println(analogRead(A0)); }",
+                "libraries": ["Arduino core"],
+                "explanation": "The loop prints one measurement.",
+                "visibility": "student",
+            }
+        ],
+    )
+    example = payload.domain().code_examples[0]
+    assert example.hints == ("Configure the pin.", "Use Serial.println.")
+    assert example.position == 0
+
+
 async def test_non_finite_numeric_specification_is_rejected_before_database_write() -> None:
     category_id = uuid4()
     payload = DraftRequest(
@@ -98,6 +125,33 @@ async def test_non_finite_numeric_specification_is_rejected_before_database_writ
         return_value=Category(id=category_id, key="sensors", name="Датчики", is_active=True)
     )
 
+    with pytest.raises(CatalogValidationError):
+        await CatalogService(cast(AsyncSession, session)).create(payload.domain(), uuid4())
+
+
+async def test_code_solution_limit_is_measured_in_utf8_bytes() -> None:
+    category_id = uuid4()
+    payload = DraftRequest(
+        slug="sensor",
+        title="Sensor",
+        primary_category_id=category_id,
+        summary="A sufficiently long summary",
+        description="Safe Markdown",
+        difficulty="beginner",
+        manual_original=True,
+        code_examples=[
+            {
+                "title": "Oversized UTF-8",
+                "language": "arduino",
+                "practical_task": "Demonstrate the byte limit.",
+                "body": "я" * 40_000,
+            }
+        ],
+    )
+    session = Mock(spec=AsyncSession)
+    session.get = AsyncMock(
+        return_value=Category(id=category_id, key="sensors", name="Датчики", is_active=True)
+    )
     with pytest.raises(CatalogValidationError):
         await CatalogService(cast(AsyncSession, session)).create(payload.domain(), uuid4())
 
@@ -157,6 +211,30 @@ async def test_student_card_uses_published_snapshot_and_hides_teacher_notes() ->
                     "position": 0,
                 }
             ],
+            "code_examples": [
+                {
+                    "title": "Student task",
+                    "language": "arduino",
+                    "practical_task": "Blink the LED.",
+                    "hints": ["Use pinMode."],
+                    "body": "void setup() {}",
+                    "libraries": [],
+                    "explanation": "A visible explanation.",
+                    "visibility": "student",
+                    "position": 0,
+                },
+                {
+                    "title": "Teacher solution",
+                    "language": "arduino",
+                    "practical_task": "Extended task.",
+                    "hints": [],
+                    "body": "teacher-only code",
+                    "libraries": [],
+                    "explanation": None,
+                    "visibility": "teacher",
+                    "position": 1,
+                },
+            ],
         },
         actor_id=uuid4(),
         created_at=published_at,
@@ -172,4 +250,5 @@ async def test_student_card_uses_published_snapshot_and_hides_teacher_notes() ->
     assert card.data.teacher_notes is None
     assert card.data.specifications[0].label == "Питание"
     assert card.data.compatibility[0].name == "Arduino Uno"
+    assert [example.title for example in card.data.code_examples] == ["Student task"]
     assert card.published_at == published_at

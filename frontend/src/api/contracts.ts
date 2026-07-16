@@ -79,6 +79,7 @@ export interface ApiErrorBody {
 
 export type ComponentStatus = "draft" | "published" | "archived";
 export type Difficulty = "beginner" | "intermediate" | "advanced";
+export type CodeExampleVisibility = "student" | "teacher";
 
 export interface Category {
   id: string;
@@ -108,6 +109,21 @@ export interface ComponentCompatibilityInput {
 }
 
 export interface ComponentCompatibility extends ComponentCompatibilityInput {
+  position: number;
+}
+
+export interface CodeExampleInput {
+  title: string;
+  language: string;
+  practical_task: string;
+  hints: string[];
+  body: string;
+  libraries: string[];
+  explanation: string | null;
+  visibility: CodeExampleVisibility;
+}
+
+export interface CodeExample extends CodeExampleInput {
   position: number;
 }
 
@@ -143,6 +159,7 @@ export interface ComponentCard extends ComponentSummary {
   published_at: string | null;
   specifications: TechnicalSpecification[];
   compatibility: ComponentCompatibility[];
+  code_examples: CodeExample[];
 }
 
 export interface ComponentDraftInput {
@@ -163,6 +180,7 @@ export interface ComponentDraftInput {
   manual_original: boolean;
   specifications: TechnicalSpecificationInput[];
   compatibility: ComponentCompatibilityInput[];
+  code_examples: CodeExampleInput[];
 }
 
 export interface ComponentUpdateInput extends ComponentDraftInput {
@@ -191,6 +209,7 @@ export interface CatalogComponent {
   published_at: string;
   specifications: TechnicalSpecification[];
   compatibility: ComponentCompatibility[];
+  code_examples: CodeExample[];
 }
 
 export interface CatalogComponentListResponse {

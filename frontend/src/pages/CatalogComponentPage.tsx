@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 
 import { catalogComponentQuery } from "../catalog/queries";
 import { ErrorState, LoadingState } from "../components/AsyncStates";
+import { LearningExample } from "../components/LearningExample";
 
 const targetLabels = { board: "Плата", library: "Библиотека", platform: "Платформа" };
 
@@ -23,6 +24,7 @@ export function CatalogComponentPage() {
     {card.compatibility.length > 0 ? <section><h2>Совместимость</h2><ul className="compatibility-list">{card.compatibility.map((item) => <li key={`${item.target_type}:${item.name}:${item.version_constraint ?? ""}`}><strong>{targetLabels[item.target_type]}: {item.name}</strong>{item.version_constraint ? <span>{item.version_constraint}</span> : null}{item.notes ? <p>{item.notes}</p> : null}</li>)}</ul></section> : null}
     {card.usage_notes ? <section><h2>Использование</h2><p className="preserve-lines">{card.usage_notes}</p></section> : null}
     {card.safety_notes ? <section className="safety-callout"><h2>Безопасность</h2><p className="preserve-lines">{card.safety_notes}</p></section> : null}
+    {card.code_examples.length > 0 ? <section><h2>Практика</h2>{card.code_examples.map((example) => <LearningExample example={example} key={`${String(example.position)}:${example.title}`} />)}</section> : null}
     <footer><span>{card.manufacturer ?? "Производитель не указан"}</span><span>{card.model ?? "Модель не указана"}</span><span>{card.difficulty}</span></footer>
   </article>;
 }

@@ -107,10 +107,16 @@ Numeric representation используется для будущей фильт
 
 ### `code_examples`
 
-`id`, `component_id`, `title`, `language`, `body`, `explanation?`,
-`visibility(student|teacher)`, `position`, `created_by`, `updated_at`.
+`id`, `component_id`, `title`, `language`, `practical_task`, `body`, `libraries_json`,
+`explanation?`, `visibility(student|teacher)`, `position`, `created_by`, `updated_at`.
 
 Body — text до 64 KiB; он никогда не исполняется backend/worker.
+
+### `code_example_hints`
+
+`id`, `example_id`, `body`, `position`; unique `(example_id, position)`. До 10 подсказок
+по 2 000 символов раскрываются строго по `position`. Таблицы учебного блока добавлены
+revision `20260716_11`.
 
 ## Источники и импорт
 

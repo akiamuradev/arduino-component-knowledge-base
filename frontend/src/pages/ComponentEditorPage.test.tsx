@@ -47,6 +47,11 @@ const card: ComponentCard = {
   updated_at: "2026-07-15T20:00:00Z",
   specifications: [{ key: "clock-frequency", label: "Частота", value_text: "16", value_number: "16", unit: "МГц", position: 0 }],
   compatibility: [{ target_type: "board", name: "Arduino Uno", version_constraint: "R3", notes: null, position: 0 }],
+  code_examples: [{
+    title: "Blink", language: "arduino", practical_task: "Заставьте светодиод мигать.",
+    hints: ["Настройте пин как выход."], body: "void loop() { digitalWrite(13, HIGH); }",
+    libraries: [], explanation: "HIGH включает светодиод.", visibility: "student", position: 0,
+  }],
 };
 
 function renderEditor(component: ComponentCard = card) {

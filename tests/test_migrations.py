@@ -19,7 +19,7 @@ def alembic_config() -> Config:
 
 def test_alembic_has_one_backend_head() -> None:
     scripts = ScriptDirectory.from_config(alembic_config())
-    assert scripts.get_heads() == ["20260716_10"]
+    assert scripts.get_heads() == ["20260716_11"]
 
 
 def test_alembic_upgrade_renders_offline_postgresql_sql(
@@ -66,6 +66,10 @@ def test_alembic_upgrade_renders_offline_postgresql_sql(
     assert "CREATE TABLE merge_decisions" in sql
     assert "decision IN ('merge','attach','create','reject')" in sql
     assert "20260716_10" in sql
+    assert "CREATE TABLE code_examples" in sql
+    assert "CREATE TABLE code_example_hints" in sql
+    assert "octet_length(body) <= 65536" in sql
+    assert "20260716_11" in sql
 
 
 def test_runtime_has_no_create_all_escape_hatch() -> None:

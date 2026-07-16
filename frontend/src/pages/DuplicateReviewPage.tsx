@@ -29,6 +29,7 @@ const selectableFields: { key: keyof ComponentCard; label: string }[] = [
   { key: "teacher_notes", label: "Заметки преподавателя" },
   { key: "specifications", label: "Характеристики" },
   { key: "compatibility", label: "Совместимость" },
+  { key: "code_examples", label: "Учебные примеры" },
 ];
 
 function display(value: unknown): string {

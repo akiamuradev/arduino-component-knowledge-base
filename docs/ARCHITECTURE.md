@@ -144,6 +144,12 @@ score evidence. Команда merge/attach блокирует candidate и об
 immutable decision с before/after snapshot в одной PostgreSQL transaction. Create/reject только
 закрывают candidate. Parser и worker не имеют пути к этому transition.
 
+Revision `20260716_11` добавляет `code_examples` и нормализованные ordered hints. Примеры
+редактируются вместе с optimistic card revision и входят в immutable published snapshot.
+Workspace получает обе visibility, student serializer фильтрует teacher-only записи.
+Frontend раскрывает подсказки последовательно и решение по кнопке; tokenizer создаёт только
+экранированные React nodes и не является средой исполнения кода.
+
 ### Публикация и merge
 
 1. Teacher исправляет draft и запрашивает validation.

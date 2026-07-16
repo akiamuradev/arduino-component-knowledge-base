@@ -41,6 +41,7 @@ function card(id: string, title: string, model: string): ComponentCard {
     updated_at: "2026-07-16T12:00:00Z",
     specifications: [],
     compatibility: [],
+    code_examples: [],
   };
 }
 
