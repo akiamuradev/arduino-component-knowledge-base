@@ -143,8 +143,9 @@ published component.
 `source_url`, `canonical_url`, `source_item_id`, `source_content_sha256`, `parser_name`,
 `parser_version`, `parsed_at`,
 bounded `title/summary/description`, aliases/model/category hint/tags. Поля published/merge и
-binary body отсутствуют. Добавление `import_jobs`, sources и draft components выполняется
-отдельной Alembic revision, а не runtime DDL.
+binary body отсутствуют. `components` введены revision `20260716_06`; добавление `import_jobs`
+и sources выполняется отдельной будущей Alembic revision, а не runtime DDL. Parser boundary пока
+не сохраняет карточку напрямую.
 
 Каждый adapter имеет стабильные `parser_name` и semantic `parser_version`; fixture update,
 который меняет извлечение полей, требует новой parser version. Drift diagnostic является

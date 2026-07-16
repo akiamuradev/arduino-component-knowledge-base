@@ -65,7 +65,9 @@ class MediaAsset(Base):
     owner_user_id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
     )
-    component_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True))
+    component_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("components.id", ondelete="SET NULL")
+    )
     kind: Mapped[str] = mapped_column(String(16), nullable=False, default="image")
     purpose: Mapped[str] = mapped_column(String(40), nullable=False)
     alt_text: Mapped[str] = mapped_column(String(500), nullable=False)

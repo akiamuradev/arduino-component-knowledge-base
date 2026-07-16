@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from arduino_component_kb.auth.models import User
+from arduino_component_kb.catalog.models import Component
 from arduino_component_kb.config import Settings
 from arduino_component_kb.db import Base, Database
 from arduino_component_kb.media.models import MediaAsset
@@ -23,16 +24,27 @@ async def test_database_uses_asyncpg_without_connecting() -> None:
         await database.dispose()
 
 
-def test_metadata_contains_authentication_and_media_tables() -> None:
+def test_metadata_contains_authentication_catalog_and_media_tables() -> None:
     assert User.__tablename__ == "users"
+    assert Component.__tablename__ == "components"
     assert MediaAsset.__tablename__ == "media_assets"
     assert set(Base.metadata.tables) == {
         "audit_events",
         "auth_sessions",
         "auth_throttles",
+        "boards",
+        "categories",
+        "component_aliases",
+        "component_properties",
+        "component_revisions",
+        "component_tags",
+        "components",
         "media_assets",
         "media_jobs",
         "media_variants",
+        "property_definitions",
+        "tags",
+        "units",
         "user_roles",
         "users",
     }

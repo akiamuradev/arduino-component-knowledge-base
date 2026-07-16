@@ -1,0 +1,322 @@
+"""Teacher workspace API for catalog cards."""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime
+from typing import Annotated
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel, Field, field_validator
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from arduino_component_kb.api.dependencies import csrf_principal, database_session, require_roles
+from arduino_component_kb.auth.domain import Principal, Role
+from arduino_component_kb.auth.repository import AuthRepository
+from arduino_component_kb.catalog.domain import (
+    CatalogCard,
+    CatalogError,
+    ComponentStatus,
+    Difficulty,
+    DraftData,
+    RevisionConflictError,
+)
+from arduino_component_kb.catalog.service import CatalogService
+from arduino_component_kb.logging import current_request_id
+
+router = APIRouter(prefix="/api/v1/workspace", tags=["catalog-workspace"])
+admin_router = APIRouter(prefix="/api/v1/admin/catalog", tags=["catalog-administration"])
+editor = require_roles(Role.TEACHER, Role.ADMINISTRATOR)
+administrator = require_roles(Role.ADMINISTRATOR)
+
+
+class CategoryResponse(BaseModel):
+    id: str
+    slug: str
+    name: str
+
+
+class CategoryCreateRequest(BaseModel):
+    key: str = Field(min_length=1, max_length=80, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+    name: str = Field(min_length=1, max_length=160)
+    parent_id: UUID | None = None
+    description: str | None = Field(default=None, max_length=2000)
+    position: int = Field(default=0, ge=0, le=10000)
+
+
+class DraftRequest(BaseModel):
+    slug: str = Field(min_length=1, max_length=160)
+    title: str = Field(min_length=2, max_length=160)
+    aliases: list[str] = Field(default_factory=list, max_length=20)
+    manufacturer: str | None = Field(default=None, max_length=120)
+    model: str | None = Field(default=None, max_length=120)
+    primary_category_id: UUID
+    tags: list[str] = Field(default_factory=list, max_length=20)
+    summary: str = Field(min_length=20, max_length=500)
+    description: str = Field(max_length=30000)
+    purpose: str | None = Field(default=None, max_length=2000)
+    usage_notes: str | None = Field(default=None, max_length=5000)
+    safety_notes: str | None = Field(default=None, max_length=5000)
+    difficulty: Difficulty
+    teacher_notes: str | None = Field(default=None, max_length=10000)
+    manual_original: bool
+
+    @field_validator("description")
+    @classmethod
+    def reject_raw_html(cls, value: str) -> str:
+        if "<" in value or ">" in value:
+            raise ValueError("raw HTML is not allowed")
+        return value
+
+    def domain(self) -> DraftData:
+        return DraftData(**self.model_dump(exclude={"revision"}))
+
+
+class UpdateRequest(DraftRequest):
+    revision: int = Field(ge=1)
+
+
+class LifecycleRequest(BaseModel):
+    revision: int = Field(ge=1)
+
+
+class ComponentResponse(BaseModel):
+    id: str
+    slug: str
+    status: ComponentStatus
+    title: str
+    summary: str
+    primary_category: CategoryResponse
+    revision: int
+    updated_at: datetime
+    aliases: list[str]
+    manufacturer: str | None
+    model: str | None
+    primary_category_id: str
+    tags: list[str]
+    description: str
+    purpose: str | None
+    usage_notes: str | None
+    safety_notes: str | None
+    difficulty: Difficulty
+    teacher_notes: str | None
+    manual_original: bool
+    published_at: datetime | None
+
+
+class ComponentListResponse(BaseModel):
+    items: list[ComponentResponse]
+    total: int
+
+
+def response(card: CatalogCard) -> ComponentResponse:
+    data = card.data
+    return ComponentResponse(
+        id=str(card.id),
+        status=card.status,
+        primary_category=CategoryResponse(
+            id=str(card.category.id), slug=card.category.slug, name=card.category.name
+        ),
+        revision=card.revision,
+        updated_at=card.updated_at,
+        published_at=card.published_at,
+        primary_category_id=str(data.primary_category_id),
+        aliases=list(data.aliases),
+        tags=list(data.tags),
+        **{
+            key: getattr(data, key)
+            for key in (
+                "slug",
+                "title",
+                "summary",
+                "manufacturer",
+                "model",
+                "description",
+                "purpose",
+                "usage_notes",
+                "safety_notes",
+                "difficulty",
+                "teacher_notes",
+                "manual_original",
+            )
+        },
+    )
+
+
+async def _commit(session: AsyncSession, action: str, actor: Principal, card: CatalogCard) -> None:
+    await AuthRepository(session).audit(
+        now=datetime.now(UTC),
+        actor_user_id=actor.user_id,
+        action=action,
+        object_type="component",
+        object_id=card.id,
+        request_id=current_request_id(),
+        outcome="success",
+        details={"revision": card.revision},
+    )
+    await session.commit()
+
+
+def _error(error: Exception) -> HTTPException:
+    if isinstance(error, RevisionConflictError):
+        return HTTPException(409, detail={"code": "revision_conflict"})
+    return HTTPException(409, detail={"code": "catalog_conflict"})
+
+
+@router.get("/categories", response_model=list[CategoryResponse])
+async def categories(
+    _: Annotated[Principal, Depends(editor)],
+    session: Annotated[AsyncSession, Depends(database_session)],
+) -> list[CategoryResponse]:
+    return [
+        CategoryResponse(id=str(x.id), slug=x.slug, name=x.name)
+        for x in await CatalogService(session).categories()
+    ]
+
+
+@admin_router.post("/categories", response_model=CategoryResponse, status_code=201)
+async def create_category(
+    payload: CategoryCreateRequest,
+    actor: Annotated[Principal, Depends(administrator)],
+    _: Annotated[Principal, Depends(csrf_principal)],
+    session: Annotated[AsyncSession, Depends(database_session)],
+) -> CategoryResponse:
+    try:
+        item = await CatalogService(session).create_category(**payload.model_dump())
+        await AuthRepository(session).audit(
+            now=datetime.now(UTC),
+            actor_user_id=actor.user_id,
+            action="category.created",
+            object_type="category",
+            object_id=item.id,
+            request_id=current_request_id(),
+            outcome="success",
+            details={"key": item.slug},
+        )
+        await session.commit()
+        return CategoryResponse(id=str(item.id), slug=item.slug, name=item.name)
+    except (CatalogError, IntegrityError) as error:
+        await session.rollback()
+        raise _error(error) from error
+
+
+@admin_router.post("/categories/{category_id}/deactivate", status_code=204)
+async def deactivate_category(
+    category_id: UUID,
+    actor: Annotated[Principal, Depends(administrator)],
+    _: Annotated[Principal, Depends(csrf_principal)],
+    session: Annotated[AsyncSession, Depends(database_session)],
+) -> None:
+    try:
+        await CatalogService(session).deactivate_category(category_id)
+        await AuthRepository(session).audit(
+            now=datetime.now(UTC),
+            actor_user_id=actor.user_id,
+            action="category.deactivated",
+            object_type="category",
+            object_id=category_id,
+            request_id=current_request_id(),
+            outcome="success",
+        )
+        await session.commit()
+    except CatalogError as error:
+        await session.rollback()
+        raise _error(error) from error
+
+
+@router.get("/components", response_model=ComponentListResponse)
+async def list_components(
+    _: Annotated[Principal, Depends(editor)],
+    session: Annotated[AsyncSession, Depends(database_session)],
+    component_status: Annotated[ComponentStatus | None, Query(alias="status")] = None,
+) -> ComponentListResponse:
+    items = [response(x) for x in await CatalogService(session).list_cards(component_status)]
+    return ComponentListResponse(items=items, total=len(items))
+
+
+@router.get("/components/{component_id}", response_model=ComponentResponse)
+async def get_component(
+    component_id: UUID,
+    _: Annotated[Principal, Depends(editor)],
+    session: Annotated[AsyncSession, Depends(database_session)],
+) -> ComponentResponse:
+    try:
+        return response(await CatalogService(session).get_card(component_id))
+    except CatalogError as error:
+        raise HTTPException(404, detail={"code": "component_not_found"}) from error
+
+
+@router.post("/components", response_model=ComponentResponse, status_code=status.HTTP_201_CREATED)
+async def create_component(
+    payload: DraftRequest,
+    actor: Annotated[Principal, Depends(editor)],
+    _: Annotated[Principal, Depends(csrf_principal)],
+    session: Annotated[AsyncSession, Depends(database_session)],
+) -> ComponentResponse:
+    try:
+        card = await CatalogService(session).create(payload.domain(), actor.user_id)
+        await _commit(session, "component.created", actor, card)
+        return response(card)
+    except (CatalogError, IntegrityError) as error:
+        await session.rollback()
+        raise _error(error) from error
+
+
+@router.put("/components/{component_id}", response_model=ComponentResponse)
+async def update_component(
+    component_id: UUID,
+    payload: UpdateRequest,
+    actor: Annotated[Principal, Depends(editor)],
+    _: Annotated[Principal, Depends(csrf_principal)],
+    session: Annotated[AsyncSession, Depends(database_session)],
+) -> ComponentResponse:
+    try:
+        card = await CatalogService(session).update(
+            component_id, payload.revision, payload.domain(), actor.user_id
+        )
+        await _commit(session, "component.updated", actor, card)
+        return response(card)
+    except (CatalogError, IntegrityError) as error:
+        await session.rollback()
+        raise _error(error) from error
+
+
+async def _transition(
+    component_id: UUID,
+    payload: LifecycleRequest,
+    actor: Principal,
+    session: AsyncSession,
+    target: ComponentStatus,
+) -> ComponentResponse:
+    try:
+        card = await CatalogService(session).transition(
+            component_id, payload.revision, target, actor.user_id
+        )
+        await _commit(session, f"component.{target.value}", actor, card)
+        return response(card)
+    except CatalogError as error:
+        await session.rollback()
+        raise _error(error) from error
+
+
+@router.post("/components/{component_id}/publish", response_model=ComponentResponse)
+async def publish_component(
+    component_id: UUID,
+    payload: LifecycleRequest,
+    actor: Annotated[Principal, Depends(editor)],
+    _: Annotated[Principal, Depends(csrf_principal)],
+    session: Annotated[AsyncSession, Depends(database_session)],
+) -> ComponentResponse:
+    return await _transition(component_id, payload, actor, session, ComponentStatus.PUBLISHED)
+
+
+@router.post("/components/{component_id}/archive", response_model=ComponentResponse)
+async def archive_component(
+    component_id: UUID,
+    payload: LifecycleRequest,
+    actor: Annotated[Principal, Depends(editor)],
+    _: Annotated[Principal, Depends(csrf_principal)],
+    session: Annotated[AsyncSession, Depends(database_session)],
+) -> ComponentResponse:
+    return await _transition(component_id, payload, actor, session, ComponentStatus.ARCHIVED)

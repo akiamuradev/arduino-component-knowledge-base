@@ -37,6 +37,7 @@ PostgreSQL, Redis и MinIO доступны только внутри deployment
   защищённого workspace и не входят в student layout.
 - Save/publish/archive передают optimistic revision. `409 revision_conflict` запрещает
   автоматический retry и blind overwrite; локальная форма сохраняется до решения пользователя.
+  Операции выполняются под PostgreSQL row lock и создают immutable revision snapshot.
 
 ## SSRF-защита parser
 

@@ -19,7 +19,7 @@ def alembic_config() -> Config:
 
 def test_alembic_has_one_backend_head() -> None:
     scripts = ScriptDirectory.from_config(alembic_config())
-    assert scripts.get_heads() == ["20260715_05"]
+    assert scripts.get_heads() == ["20260716_06"]
 
 
 def test_alembic_upgrade_renders_offline_postgresql_sql(
@@ -33,7 +33,7 @@ def test_alembic_upgrade_renders_offline_postgresql_sql(
     command.upgrade(alembic_config(), "head", sql=True)
     sql = capsys.readouterr().out
     assert "CREATE TABLE alembic_version" in sql
-    assert "20260715_05" in sql
+    assert "20260716_06" in sql
     assert "CREATE TABLE users" in sql
     assert "CREATE TABLE auth_sessions" in sql
     assert "CREATE TABLE auth_throttles" in sql
@@ -46,6 +46,12 @@ def test_alembic_upgrade_renders_offline_postgresql_sql(
     assert "ADD COLUMN idempotency_key" in sql
     assert "ADD COLUMN max_attempts" in sql
     assert "status IN ('queued', 'running', 'retrying', 'succeeded', 'failed')" in sql
+    assert "CREATE TABLE categories" in sql
+    assert "CREATE TABLE components" in sql
+    assert "CREATE TABLE component_revisions" in sql
+    assert "CREATE TABLE boards" in sql
+    assert "CREATE TABLE units" in sql
+    assert "CREATE TABLE property_definitions" in sql
 
 
 def test_runtime_has_no_create_all_escape_hatch() -> None:
