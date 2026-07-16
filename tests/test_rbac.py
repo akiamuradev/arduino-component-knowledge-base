@@ -9,6 +9,7 @@ import pytest
 from fastapi import HTTPException
 
 from arduino_component_kb.api.dependencies import csrf_principal, require_roles
+from arduino_component_kb.api.duplicates import administrator as duplicate_administrator
 from arduino_component_kb.api.imports import editor as import_editor
 from arduino_component_kb.api.jobs import administrator as jobs_administrator
 from arduino_component_kb.api.media import media_editor
@@ -58,6 +59,14 @@ async def test_job_monitor_dependency_rejects_teacher() -> None:
     assert await jobs_administrator(admin) is admin
     with pytest.raises(HTTPException) as error:
         await jobs_administrator(principal(Role.TEACHER))
+    assert error.value.status_code == 403
+
+
+async def test_duplicate_review_dependency_rejects_teacher() -> None:
+    admin = principal(Role.ADMINISTRATOR)
+    assert await duplicate_administrator(admin) is admin
+    with pytest.raises(HTTPException) as error:
+        await duplicate_administrator(principal(Role.TEACHER))
     assert error.value.status_code == 403
 
 

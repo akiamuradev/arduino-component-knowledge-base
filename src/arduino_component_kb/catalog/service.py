@@ -7,9 +7,10 @@ import unicodedata
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from hashlib import sha256
+from typing import cast
 from uuid import UUID, uuid4
 
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from arduino_component_kb.catalog.domain import (
@@ -257,6 +258,125 @@ class CatalogService:
         data = await self._data(row)
         await self._snapshot(row, data, actor_id, row.updated_at)
         return await self._card(row)
+
+    async def resolve_duplicate_pair(
+        self,
+        left_component_id: UUID,
+        right_component_id: UUID,
+        left_revision: int,
+        right_revision: int,
+        survivor_component_id: UUID,
+        field_sources: dict[str, UUID],
+        actor_id: UUID,
+        *,
+        merge_fields: bool,
+    ) -> tuple[CatalogCard, CatalogCard, CatalogCard]:
+        """Merge or attach one card into another under deterministic row locks."""
+        ids = sorted((left_component_id, right_component_id))
+        rows = list(
+            await self.session.scalars(
+                select(Component)
+                .where(Component.id.in_(ids))
+                .order_by(Component.id)
+                .with_for_update()
+            )
+        )
+        if len(rows) != 2:
+            raise ComponentNotFoundError
+        by_id = {row.id: row for row in rows}
+        left = by_id[left_component_id]
+        right = by_id[right_component_id]
+        if left.revision != left_revision or right.revision != right_revision:
+            raise RevisionConflictError
+        if survivor_component_id not in by_id:
+            raise CatalogValidationError
+        survivor = by_id[survivor_component_id]
+        loser = right if survivor is left else left
+        before_left = await self._card(left)
+        before_right = await self._card(right)
+        survivor_data = await self._data(survivor)
+
+        if merge_fields:
+            allowed = {
+                "title",
+                "aliases",
+                "manufacturer",
+                "model",
+                "primary_category_id",
+                "tags",
+                "summary",
+                "description",
+                "purpose",
+                "usage_notes",
+                "safety_notes",
+                "difficulty",
+                "teacher_notes",
+                "specifications",
+                "compatibility",
+            }
+            if not set(field_sources).issubset(allowed) or any(
+                source_id not in by_id for source_id in field_sources.values()
+            ):
+                raise CatalogValidationError
+            source_data = {
+                component_id: await self._data(row) for component_id, row in by_id.items()
+            }
+
+            def chosen(field: str) -> object:
+                source_id = field_sources.get(field, survivor.id)
+                return getattr(source_data[source_id], field)
+
+            survivor_data = DraftData(
+                slug=survivor_data.slug,
+                title=cast(str, chosen("title")),
+                aliases=cast(tuple[str, ...], chosen("aliases")),
+                manufacturer=cast(str | None, chosen("manufacturer")),
+                model=cast(str | None, chosen("model")),
+                primary_category_id=cast(UUID, chosen("primary_category_id")),
+                tags=cast(tuple[str, ...], chosen("tags")),
+                summary=cast(str, chosen("summary")),
+                description=cast(str, chosen("description")),
+                purpose=cast(str | None, chosen("purpose")),
+                usage_notes=cast(str | None, chosen("usage_notes")),
+                safety_notes=cast(str | None, chosen("safety_notes")),
+                difficulty=cast(Difficulty, chosen("difficulty")),
+                teacher_notes=cast(str | None, chosen("teacher_notes")),
+                manual_original=survivor_data.manual_original,
+                specifications=cast(tuple[TechnicalSpecification, ...], chosen("specifications")),
+                compatibility=cast(tuple[CompatibilityItem, ...], chosen("compatibility")),
+            )
+            await self._validate(survivor_data)
+            for key, value in self._columns(survivor_data).items():
+                setattr(survivor, key, value)
+            await self._replace_lists(survivor.id, survivor_data)
+            await self._replace_technical(survivor.id, survivor_data)
+
+        from arduino_component_kb.imports.models import ComponentSource
+        from arduino_component_kb.media.models import MediaAsset
+
+        await self.session.execute(
+            update(ComponentSource)
+            .where(ComponentSource.component_id == loser.id)
+            .values(component_id=survivor.id)
+        )
+        await self.session.execute(
+            update(MediaAsset)
+            .where(MediaAsset.component_id == loser.id)
+            .values(component_id=survivor.id)
+        )
+        now = datetime.now(UTC)
+        survivor.status = ComponentStatus.DRAFT.value
+        survivor.revision += 1
+        survivor.updated_by = actor_id
+        survivor.updated_at = now
+        loser.status = ComponentStatus.ARCHIVED.value
+        loser.revision += 1
+        loser.updated_by = actor_id
+        loser.updated_at = now
+        await self._snapshot(survivor, survivor_data, actor_id, now)
+        await self._snapshot(loser, await self._data(loser), actor_id, now)
+        await self.session.flush()
+        return before_left, before_right, await self._card(survivor)
 
     async def _locked(self, component_id: UUID) -> Component:
         row = await self.session.scalar(

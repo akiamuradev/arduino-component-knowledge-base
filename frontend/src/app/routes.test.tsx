@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import type { User } from "../api/contracts";
 import { currentUserQueryKey } from "../auth/queries";
 import { catalogKeys } from "../catalog/queries";
+import { duplicateKeys } from "../duplicates/queries";
 import { jobKeys } from "../jobs/queries";
 import { workspaceKeys } from "../workspace/queries";
 import { createQueryClient } from "./query-client";
@@ -57,6 +58,7 @@ function renderRoute(path: string, user: User) {
     limit: 50,
     offset: 0,
   });
+  queryClient.setQueryData(duplicateKeys.all, { items: [], total: 0 });
   const router = createMemoryRouter(routes, { initialEntries: [path] });
   return render(
     <QueryClientProvider client={queryClient}>
@@ -101,5 +103,17 @@ describe("application routes", () => {
     renderRoute("/admin/jobs", { ...student, roles: ["teacher"] });
     expect(await screen.findByRole("heading", { name: "Недостаточно прав" })).toBeVisible();
     expect(screen.queryByText("process_media_video")).not.toBeInTheDocument();
+  });
+
+  it("renders duplicate review only for an administrator", async () => {
+    renderRoute("/admin/duplicates", { ...student, roles: ["administrator"] });
+    expect(await screen.findByRole("heading", { name: "Проверка дубликатов" })).toBeVisible();
+    expect(screen.getByText("Открытых кандидатов нет.")).toBeVisible();
+  });
+
+  it("does not expose duplicate decisions to a teacher", async () => {
+    renderRoute("/admin/duplicates", { ...student, roles: ["teacher"] });
+    expect(await screen.findByRole("heading", { name: "Недостаточно прав" })).toBeVisible();
+    expect(screen.queryByRole("heading", { name: "Проверка дубликатов" })).not.toBeInTheDocument();
   });
 });

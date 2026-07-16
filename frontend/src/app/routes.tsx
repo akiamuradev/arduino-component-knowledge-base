@@ -8,6 +8,7 @@ import { CatalogPage } from "../pages/CatalogPage";
 import { CatalogComponentPage } from "../pages/CatalogComponentPage";
 import { ComponentEditorPage } from "../pages/ComponentEditorPage";
 import { ComponentListPage } from "../pages/ComponentListPage";
+import { DuplicateReviewPage } from "../pages/DuplicateReviewPage";
 import { LoginPage } from "../pages/LoginPage";
 import { ForbiddenPage, NotFoundPage, RouteErrorPage } from "../pages/StatusPages";
 import { RequireAnyRole, RequireAuthenticated } from "../routing/guards";
@@ -42,7 +43,11 @@ export const routes: RouteObject[] = [
               { path: "components/:componentId/edit", element: <ComponentEditorPage mode="edit" /> },
               {
                 element: <RequireAnyRole roles={["administrator"]} />,
-                children: [{ path: "jobs", element: <AdminJobsPage /> }],
+                children: [
+                  { path: "jobs", element: <AdminJobsPage /> },
+                  { path: "duplicates", element: <DuplicateReviewPage /> },
+                  { path: "duplicates/:candidateId", element: <DuplicateReviewPage /> },
+                ],
               },
             ],
           },

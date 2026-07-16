@@ -10,6 +10,10 @@ import type {
   ComponentStatus,
   ComponentUpdateInput,
   CreateUserInput,
+  DuplicateCandidate,
+  DuplicateCandidateListResponse,
+  DuplicateDecisionInput,
+  DuplicateDecisionResponse,
   LoginInput,
   LoginResponse,
   LogoutResponse,
@@ -201,4 +205,16 @@ export const api = {
   },
   getCatalogComponent: (slug: string): Promise<CatalogComponent> =>
     apiRequest<CatalogComponent>(`/catalog/components/${encodeURIComponent(slug)}`),
+  listDuplicateCandidates: (): Promise<DuplicateCandidateListResponse> =>
+    apiRequest<DuplicateCandidateListResponse>("/admin/duplicates?status=open"),
+  getDuplicateCandidate: (candidateId: string): Promise<DuplicateCandidate> =>
+    apiRequest<DuplicateCandidate>(`/admin/duplicates/${encodeURIComponent(candidateId)}`),
+  decideDuplicate: (
+    candidateId: string,
+    input: DuplicateDecisionInput,
+  ): Promise<DuplicateDecisionResponse> =>
+    apiRequest<DuplicateDecisionResponse>(
+      `/admin/duplicates/${encodeURIComponent(candidateId)}/decision`,
+      { method: "POST", body: JSON.stringify(input), csrf: true },
+    ),
 };

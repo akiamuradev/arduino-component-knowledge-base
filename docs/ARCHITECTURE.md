@@ -138,6 +138,12 @@ Revision `20260716_09` запускает bounded fuzzy detector только д
 token/identity similarity, spec fingerprint, text/media hashes и conflict penalties. Он
 записывает только open candidate и evidence; карточки и lifecycle не изменяются.
 
+Revision `20260716_10` добавляет administrator review. API возвращает обе карточки и versioned
+score evidence. Команда merge/attach блокирует candidate и обе карточки в стабильном порядке,
+повторно проверяет optimistic revisions, переносит provenance/media, архивирует loser и создаёт
+immutable decision с before/after snapshot в одной PostgreSQL transaction. Create/reject только
+закрывают candidate. Parser и worker не имеют пути к этому transition.
+
 ### Публикация и merge
 
 1. Teacher исправляет draft и запрашивает validation.

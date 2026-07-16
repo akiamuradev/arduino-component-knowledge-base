@@ -207,7 +207,7 @@ REQ-MEDIA-004. Download производится через короткожив
 4. Результат сохраняется как draft и source record; media candidates остаются ссылками
    либо попадают в quarantine согласно source policy.
 5. Exact и fuzzy dedup формируют объяснимые candidates с evidence.
-6. Teacher редактирует draft. Administrator отдельно подтверждает merge/reject.
+6. Teacher редактирует draft. Administrator отдельно выбирает merge/attach/create/reject.
 7. После разрешения конфликтов teacher или administrator публикует revision.
 
 REQ-DEDUP-001. Exact keys: `(source_id, source_item_id)`, canonical source URL, media SHA-256
@@ -225,6 +225,11 @@ manufacturer/model/spec conflict penalties. Evidence содержит тольк
 REQ-DEDUP-003. Merge никогда не выполняется автоматически. Только administrator создаёт
 merge decision, явно выбирает survivor и значения конфликтующих полей. Решение и before/after
 snapshot попадают в audit log.
+
+REQ-DEDUP-004. Экран review показывает карточки в двух колонках, итоговый score, числовой
+breakdown, совпадения и конфликты. Merge объединяет выбранные поля, attach переносит provenance
+и media без выбора полей, create оставляет обе карточки, reject отклоняет совпадение. Backend
+проверяет administrator role, CSRF и обе revision непосредственно перед commit.
 
 ## Фоновые задачи
 

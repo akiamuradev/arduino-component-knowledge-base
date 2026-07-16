@@ -197,3 +197,38 @@ export interface CatalogComponentListResponse {
   items: CatalogComponent[];
   total: number;
 }
+
+export type DuplicateDecision = "merge" | "attach" | "create" | "reject";
+
+export interface DuplicateCandidate {
+  id: string;
+  kind: "exact" | "fuzzy";
+  status: "open" | "merged" | "rejected" | "superseded";
+  score: number;
+  algorithm_version: string;
+  evidence: Record<string, unknown>;
+  created_at: string;
+  left: ComponentCard;
+  right: ComponentCard;
+}
+
+export interface DuplicateCandidateListResponse {
+  items: DuplicateCandidate[];
+  total: number;
+}
+
+export interface DuplicateDecisionInput {
+  decision: DuplicateDecision;
+  left_revision: number;
+  right_revision: number;
+  survivor_component_id: string | null;
+  field_sources: Record<string, string>;
+  reason: string;
+}
+
+export interface DuplicateDecisionResponse {
+  id: string;
+  candidate_id: string;
+  decision: DuplicateDecision;
+  decided_at: string;
+}

@@ -164,6 +164,10 @@ title trigram, token/identity similarity, fingerprint характеристик
 явные conflict penalties. Candidate сохраняется с versioned evidence; detector не выполняет
 merge, attach, reject или publication.
 
+Revision `20260716_10` добавляет admin-only очередь `/admin/duplicates`: две карточки, score
+breakdown, совпадения/конфликты и явные действия merge/attach/create/reject. Backend повторно
+проверяет обе revision и сохраняет immutable decision, audit и snapshots в одной транзакции.
+
 ## Рабочее место преподавателя
 
 - dashboard показывает реальные backend counts и последние карточки;
@@ -349,6 +353,6 @@ gateway. Offline Alembic smoke компилирует PostgreSQL DDL, но не 
 Redis/Dramatiq jobs и SSRF-safe parser boundary с тремя pilot adapters.
 Предметные таблицы каталога, workspace/student API и durable exact import реализованы.
 Fuzzy detector `fuzzy-v1` создаёт объяснимые candidates, не изменяя карточки. Экран
-административного решения merge остаётся следующим этапом.
+администратора фиксирует merge/attach/create/reject только после просмотра evidence.
 Открытые продуктовые вопросы перечислены в конце
 [требований](docs/REQUIREMENTS.md#открытые-вопросы-перед-production-импортом).
