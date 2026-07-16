@@ -12,10 +12,16 @@ from arduino_component_kb.auth import models as auth_models
 from arduino_component_kb.catalog import models as catalog_models
 from arduino_component_kb.config import DatabaseSettings
 from arduino_component_kb.db import Base
+from arduino_component_kb.imports import models as import_models
 from arduino_component_kb.media import models as media_models
 
 config = context.config
-registered_models = (auth_models.User, catalog_models.Component, media_models.MediaAsset)
+registered_models = (
+    auth_models.User,
+    catalog_models.Component,
+    import_models.ImportJob,
+    media_models.MediaAsset,
+)
 target_metadata = Base.metadata
 
 

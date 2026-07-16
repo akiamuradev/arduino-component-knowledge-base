@@ -35,6 +35,8 @@ class Component(Base):
     title: Mapped[str] = mapped_column(String(160))
     manufacturer: Mapped[str | None] = mapped_column(String(120))
     model: Mapped[str | None] = mapped_column(String(120))
+    normalized_manufacturer: Mapped[str | None] = mapped_column(String(160))
+    normalized_model: Mapped[str | None] = mapped_column(String(160))
     summary: Mapped[str] = mapped_column(String(500))
     description: Mapped[str] = mapped_column(Text)
     purpose: Mapped[str | None] = mapped_column(Text)

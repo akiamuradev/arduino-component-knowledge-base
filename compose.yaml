@@ -17,6 +17,9 @@ x-app-environment: &app-environment
   ACKB_FFMPEG_THREADS: ${ACKB_FFMPEG_THREADS:-2}
   ACKB_MEDIA_JOB_MAX_ATTEMPTS: ${ACKB_MEDIA_JOB_MAX_ATTEMPTS:-4}
   ACKB_MEDIA_JOB_LEASE_SECONDS: ${ACKB_MEDIA_JOB_LEASE_SECONDS:-1800}
+  ACKB_IMPORT_JOB_MAX_ATTEMPTS: ${ACKB_IMPORT_JOB_MAX_ATTEMPTS:-4}
+  ACKB_IMPORT_LOCK_TTL_SECONDS: ${ACKB_IMPORT_LOCK_TTL_SECONDS:-60}
+  ACKB_IMPORT_LOCK_WAIT_SECONDS: ${ACKB_IMPORT_LOCK_WAIT_SECONDS:-10}
   ACKB_LOG_LEVEL: ${ACKB_LOG_LEVEL:-INFO}
   ACKB_DOCS_ENABLED: ${ACKB_DOCS_ENABLED:-false}
 
@@ -24,7 +27,7 @@ x-app-image: &app-image
   build:
     context: .
     dockerfile: Dockerfile
-  image: arduino-component-kb/backend:0.12.0
+  image: arduino-component-kb/backend:0.13.0
   environment: *app-environment
   restart: unless-stopped
   networks:
@@ -119,7 +122,7 @@ services:
 
   worker:
     <<: *app-image
-    command: ["dramatiq", "arduino_component_kb.media.tasks"]
+    command: ["dramatiq", "arduino_component_kb.worker"]
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -141,7 +144,7 @@ services:
     build:
       context: frontend
       dockerfile: Dockerfile
-    image: arduino-component-kb/frontend:0.12.0
+    image: arduino-component-kb/frontend:0.13.0
     healthcheck:
       test: ["CMD-SHELL", "wget --quiet --tries=1 --output-document=- http://127.0.0.1:8080/container-health | grep -q ok"]
       interval: 10s
@@ -156,7 +159,7 @@ services:
     build:
       context: deploy/reverse-proxy
       dockerfile: Dockerfile
-    image: arduino-component-kb/reverse-proxy:0.12.0
+    image: arduino-component-kb/reverse-proxy:0.13.0
     ports:
       - "${ACKB_HTTP_PORT:-8080}:8080"
     depends_on:

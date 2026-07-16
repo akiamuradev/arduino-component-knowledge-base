@@ -36,6 +36,7 @@ from arduino_component_kb.catalog.models import (
     Tag,
     Unit,
 )
+from arduino_component_kb.catalog.normalization import normalize_exact_identity
 
 _SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
@@ -215,9 +216,16 @@ class CatalogService:
         if row.revision != expected_revision:
             raise RevisionConflictError
         if target is ComponentStatus.PUBLISHED:
+            from arduino_component_kb.imports.models import ComponentSource
+
+            source_count = await self.session.scalar(
+                select(func.count())
+                .select_from(ComponentSource)
+                .where(ComponentSource.component_id == row.id)
+            )
             if (
                 row.status != ComponentStatus.DRAFT.value
-                or not row.manual_original
+                or (not row.manual_original and source_count == 0)
                 or not row.description.strip()
             ):
                 raise CatalogValidationError
@@ -310,7 +318,7 @@ class CatalogService:
 
     @staticmethod
     def _columns(data: DraftData) -> dict[str, object]:
-        return {
+        columns = {
             key: getattr(data, key)
             for key in (
                 "slug",
@@ -328,6 +336,9 @@ class CatalogService:
                 "manual_original",
             )
         }
+        columns["normalized_manufacturer"] = normalize_exact_identity(data.manufacturer)
+        columns["normalized_model"] = normalize_exact_identity(data.model)
+        return columns
 
     async def _replace_lists(self, component_id: UUID, data: DraftData) -> None:
         await self.session.execute(

@@ -3,22 +3,14 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
-from typing import cast
 from uuid import UUID
 
 import dramatiq
-from dramatiq.broker import Broker
-from dramatiq.brokers.redis import RedisBroker
 
-from arduino_component_kb.config import Settings
+from arduino_component_kb.broker import settings
 from arduino_component_kb.media.domain import RetryableJobError
 from arduino_component_kb.media.processor import process_media_job
 from arduino_component_kb.media.video_processor import process_video_job
-
-settings = Settings()
-broker_factory = cast(Callable[..., Broker], RedisBroker)
-dramatiq.set_broker(broker_factory(url=settings.redis_url))
 
 
 @dramatiq.actor(

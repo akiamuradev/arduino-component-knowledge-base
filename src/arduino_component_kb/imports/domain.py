@@ -68,6 +68,14 @@ class SourceFetchError(ParserError):
     """The approved source could not be fetched safely."""
 
 
+class RetryableImportError(Exception):
+    """A transient import failure with a bounded retry delay."""
+
+    def __init__(self, delay_ms: int) -> None:
+        self.delay_ms = delay_ms
+        super().__init__("import_retry_required")
+
+
 def normalized_text(value: str, *, maximum: int, field_name: str) -> str:
     """Normalize remote text and reject blank or oversized values."""
     normalized = _SPACE.sub(" ", unicodedata.normalize("NFKC", value)).strip()

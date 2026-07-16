@@ -9,6 +9,7 @@ import pytest
 from fastapi import HTTPException
 
 from arduino_component_kb.api.dependencies import csrf_principal, require_roles
+from arduino_component_kb.api.imports import editor as import_editor
 from arduino_component_kb.api.jobs import administrator as jobs_administrator
 from arduino_component_kb.api.media import media_editor
 from arduino_component_kb.auth.domain import Principal, Role
@@ -57,4 +58,12 @@ async def test_job_monitor_dependency_rejects_teacher() -> None:
     assert await jobs_administrator(admin) is admin
     with pytest.raises(HTTPException) as error:
         await jobs_administrator(principal(Role.TEACHER))
+    assert error.value.status_code == 403
+
+
+async def test_import_dependency_accepts_teacher_and_rejects_student() -> None:
+    teacher = principal(Role.TEACHER)
+    assert await import_editor(teacher) is teacher
+    with pytest.raises(HTTPException) as error:
+        await import_editor(principal(Role.STUDENT))
     assert error.value.status_code == 403

@@ -46,7 +46,7 @@ class Settings(DatabaseSettings):
     """Validated runtime configuration loaded from ACKB_* variables."""
 
     app_name: str = "Arduino Component Knowledge Base"
-    app_version: str = "0.12.0"
+    app_version: str = "0.13.0"
     environment: Environment = "production"
     database_echo: bool = False
     database_pool_size: int = Field(default=5, ge=1, le=50)
@@ -72,6 +72,9 @@ class Settings(DatabaseSettings):
     media_pending_upload_limit: int = Field(default=5, ge=1, le=20)
     media_job_max_attempts: int = Field(default=4, ge=2, le=10)
     media_job_lease_seconds: int = Field(default=1800, ge=60, le=7200)
+    import_job_max_attempts: int = Field(default=4, ge=2, le=10)
+    import_lock_ttl_seconds: int = Field(default=60, ge=10, le=300)
+    import_lock_wait_seconds: int = Field(default=10, ge=1, le=30)
     ffprobe_path: str = "ffprobe"
     ffmpeg_path: str = "ffmpeg"
     ffprobe_timeout_seconds: float = Field(default=15.0, ge=1, le=60)

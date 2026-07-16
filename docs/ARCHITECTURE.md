@@ -129,10 +129,10 @@ allowlist и network-address policy, `transport` выполняет DNS validati
 8. Job становится `succeeded`, только когда durable result записан; ошибка сохраняется как
    typed failure и доступна teacher/administrator.
 
-Текущий parser increment реализует URL policy, safe fetch и все три pilot adapters как
-dependency-isolated boundary. `DEFAULT_ADAPTERS` содержит уникальную пару host/parser name и
-semver parser version; detail URL должен выбрать ровно один adapter. Durable job, persistence
-и dedup остаются следующей Alembic-backed итерацией; синхронный parser API намеренно не добавлен.
+Parser flow реализует URL policy, safe fetch и все три pilot adapters. `DEFAULT_ADAPTERS`
+содержит уникальную пару host/parser name и semver parser version; detail URL выбирает ровно
+один adapter. Revision `20260716_08` сохраняет durable job, provenance и draft. Exact recheck
+выполняется по canonical URL, source item ID и нормализованной manufacturer/model паре.
 
 ### Публикация и merge
 
@@ -186,4 +186,4 @@ monitoring и restore drill обязательны перед production. Produc
 
 Локальные opaque server-side sessions утверждены как MVP baseline. Возможная интеграция с
 колледжным SSO не должна менять backend RBAC, отзыв сессий и audit invariants. Outbox
-implementation, search engine, backup tooling и orchestrator остаются отложенными.
+implementation, fuzzy matching, merge UI, search engine, backup tooling и orchestrator остаются отложенными.

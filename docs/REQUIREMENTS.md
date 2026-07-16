@@ -38,8 +38,8 @@ REQ-SRC-005. Для каждой импортированной карточки
 
 REQ-SRC-006. Первым реализован `arduino-tex.ru` adapter для `/news/{id}/{slug}.html`.
 Его versioned fixture проверяет DOM contract; результат содержит только metadata/plain text,
-имеет `status=draft` и `source_policy=metadata_only`. До появления catalog/import schema этот
-результат остаётся parser boundary value и не считается сохранённой карточкой.
+имеет `status=draft` и `source_policy=metadata_only`. Revision `20260716_08` сохраняет этот
+результат как draft и source provenance через durable import job.
 
 REQ-SRC-007. Fetcher повторно разрешает все A/AAAA для initial URL и каждого redirect,
 отклоняет запрос, если хотя бы один адрес non-global, и подключается к выбранному проверенному

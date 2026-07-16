@@ -57,6 +57,8 @@ def main() -> int:
             "/api/v1/media/videos/{asset_id}",
             "/api/v1/admin/jobs",
             "/api/v1/admin/jobs/{job_id}/retry",
+            "/api/v1/import-jobs",
+            "/api/v1/import-jobs/{job_id}",
             "/api/v1/workspace/categories",
             "/api/v1/workspace/components",
             "/api/v1/workspace/components/{component_id}",

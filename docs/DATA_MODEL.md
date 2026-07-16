@@ -134,22 +134,23 @@ Unique: `(source_id, canonical_url)` и partial unique `(source_id, source_item_
 
 ### `import_jobs`
 
-`id`, `source_id`, `submitted_url`, `canonical_url?`, `status(queued|running|succeeded|failed|cancelled)`,
-`requested_by`, `idempotency_key`, `attempt`, `max_attempts`, `parser_version`, `draft_component_id?`,
-`error_code?`, `error_message_safe?`, `created_at`, `started_at?`, `finished_at?`.
+`id`, `source_id`, `submitted_url`, `canonical_url?`,
+`status(queued|running|retrying|succeeded|failed)`, `requested_by`, `idempotency_key`, `attempts`,
+`max_attempts`, `parser_version`, `draft_component_id?`, `error_code?`, `created_at`,
+`started_at?`, `next_retry_at?`, `finished_at?`, `updated_at`.
 
 Unique: `(requested_by, idempotency_key)`. `succeeded` требует `draft_component_id`;
 `failed` требует typed `error_code`. Job result никогда не указывает на автоматически
 published component.
 
-На этапе трёх pilot adapters эта таблица ещё не создана. In-memory `ParsedComponent` фиксирует
-будущий persistence contract: `status=draft`, `source_policy=metadata_only`, `source_host`,
+Revision `20260716_08` создаёт эти таблицы и exact UNIQUE indexes. `ParsedComponent` фиксирует
+persistence contract: `status=draft`, `source_policy=metadata_only`, `source_host`,
 `source_url`, `canonical_url`, `source_item_id`, `source_content_sha256`, `parser_name`,
 `parser_version`, `parsed_at`,
 bounded `title/summary/description`, aliases/model/category hint/tags. Поля published/merge и
-binary body отсутствуют. `components` введены revision `20260716_06`; добавление `import_jobs`
-и sources выполняется отдельной будущей Alembic revision, а не runtime DDL. Parser boundary пока
-не сохраняет карточку напрямую.
+binary body отсутствуют. Нормализованные `components.normalized_manufacturer` и
+`components.normalized_model` заполняются application service; parser worker сохраняет только
+draft и provenance. Любое DDL выполняется только Alembic.
 
 Каждый adapter имеет стабильные `parser_name` и semantic `parser_version`; fixture update,
 который меняет извлечение полей, требует новой parser version. Drift diagnostic является
