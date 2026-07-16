@@ -1,0 +1,40 @@
+services:
+  postgres:
+    cpus: 1.0
+    mem_limit: 768m
+    logging: &bounded-json-logs
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  redis:
+    cpus: 0.5
+    mem_limit: 256m
+    logging: *bounded-json-logs
+
+  minio:
+    cpus: 0.75
+    mem_limit: 512m
+    logging: *bounded-json-logs
+
+  migrate:
+    cpus: 0.5
+    mem_limit: 384m
+    logging: *bounded-json-logs
+
+  media-init:
+    cpus: 0.25
+    mem_limit: 256m
+    logging: *bounded-json-logs
+
+  backend:
+    cpus: 1.0
+    mem_limit: 768m
+    logging: *bounded-json-logs
+
+  parser-worker:
+    cpus: 1.0
+    mem_limit: 768m
+    stop_grace_period: 30s
+    logging: *bounded-json-logs

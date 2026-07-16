@@ -235,6 +235,25 @@ async def test_student_card_uses_published_snapshot_and_hides_teacher_notes() ->
                     "position": 1,
                 },
             ],
+            "sources": [
+                {
+                    "display_name": "Seeed Studio Wiki",
+                    "original_url": "https://wiki.seeedstudio.com/example/",
+                    "repository_url": "https://github.com/Seeed-Studio/wiki-documents",
+                    "license_name": "GNU General Public License v3.0 only",
+                    "license_spdx": "GPL-3.0-only",
+                    "license_url": "https://www.gnu.org/licenses/gpl-3.0.html",
+                    "source_revision": "a" * 40,
+                    "source_tag": None,
+                    "source_file_path": "docs/example.md",
+                    "source_entry_name": None,
+                    "modifications_notice": "Facts shortened and normalized.",
+                    "imported_at": published_at.isoformat(),
+                    "attribution": "Seeed Studio Wiki, example",
+                    "parser_name": "seeed-wiki-git-v1",
+                    "parser_version": "1.0.0",
+                }
+            ],
         },
         actor_id=uuid4(),
         created_at=published_at,
@@ -251,4 +270,6 @@ async def test_student_card_uses_published_snapshot_and_hides_teacher_notes() ->
     assert card.data.specifications[0].label == "Питание"
     assert card.data.compatibility[0].name == "Arduino Uno"
     assert [example.title for example in card.data.code_examples] == ["Student task"]
+    assert card.sources[0].license_spdx == "GPL-3.0-only"
+    assert card.sources[0].source_revision == "a" * 40
     assert card.published_at == published_at

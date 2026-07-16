@@ -28,6 +28,7 @@ dependencies = [
 ackb-bootstrap-admin = "arduino_component_kb.bootstrap:main"
 ackb-provision-media = "arduino_component_kb.media.provision:main"
 ackb-explain-search = "arduino_component_kb.catalog.explain:main"
+ackb-import-dry-run = "arduino_component_kb.imports.dry_run:main"
 
 [project.optional-dependencies]
 dev = [

@@ -1,9 +1,10 @@
 # Автоматизированное тестирование
 
 Этап 19 разделяет быстрые проверки и тесты реальной инфраструктуры. Обычный `pytest`
-выполняет unit, contract и API-тесты без внешней сети. Parser contract использует три
-версионированные HTML-fixture из `tests/fixtures` и подтверждает, что каждый adapter создаёт
-только `ParsedComponent(status="draft")`.
+выполняет unit, contract и API-тесты без внешней сети. Исторические HTML fixtures сохраняются
+для regression/audit. Repository contract дополнительно использует Seeed Markdown/MDX и KiCad
+S-expression fixtures и подтверждает full commit, typed status/warnings, field provenance,
+license snapshot, idempotency identity и неизменный `draft`.
 
 ## Локальные проверки
 
@@ -71,7 +72,9 @@ pytest -m integration --strict-markers
 - Argon2id login, opaque cookies, CSRF, administrator mutation, backend RBAC и logout;
 - PostgreSQL unique constraint для login;
 - создание private MinIO buckets без public policy, upload/stat/download/presign/delete;
-- общий parser contract по fixtures всех трёх источников;
+- исторический parser contract и новые Seeed/KiCad repository fixtures без внешней сети;
+- запрет MDX/external-command execution, library allowlist и malformed document isolation;
+- repository idempotency, source deactivation и publish rejection без license snapshot;
 - frontend unit tests и Chromium Playwright flow.
 
 Не покрываются этим этапом: производительные нагрузки, реальные внешние сайты, полный browser

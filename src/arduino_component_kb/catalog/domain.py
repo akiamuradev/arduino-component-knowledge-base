@@ -87,6 +87,25 @@ class DraftData:
 
 
 @dataclass(frozen=True, slots=True)
+class SourceSnapshot:
+    display_name: str
+    original_url: str | None
+    repository_url: str | None
+    license_name: str
+    license_spdx: str
+    license_url: str
+    source_revision: str
+    source_tag: str | None
+    source_file_path: str | None
+    source_entry_name: str | None
+    modifications_notice: str
+    imported_at: datetime
+    attribution: str
+    parser_name: str
+    parser_version: str
+
+
+@dataclass(frozen=True, slots=True)
 class CatalogCard:
     id: UUID
     status: ComponentStatus
@@ -95,6 +114,7 @@ class CatalogCard:
     revision: int
     updated_at: datetime
     published_at: datetime | None
+    sources: tuple[SourceSnapshot, ...] = ()
 
 
 class CatalogError(Exception):
@@ -110,4 +130,6 @@ class RevisionConflictError(CatalogError):
 
 
 class CatalogValidationError(CatalogError):
-    pass
+    def __init__(self, code: str = "catalog_conflict") -> None:
+        self.code = code
+        super().__init__(code)

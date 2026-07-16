@@ -75,6 +75,19 @@ class Settings(DatabaseSettings):
     import_job_max_attempts: int = Field(default=4, ge=2, le=10)
     import_lock_ttl_seconds: int = Field(default=60, ge=10, le=300)
     import_lock_wait_seconds: int = Field(default=10, ge=1, le=30)
+    repository_connect_timeout_seconds: float = Field(default=5.0, ge=1, le=15)
+    repository_read_timeout_seconds: float = Field(default=20.0, ge=2, le=60)
+    repository_total_timeout_seconds: float = Field(default=30.0, ge=5, le=120)
+    repository_max_response_bytes: int = Field(
+        default=3 * 1024 * 1024, ge=64 * 1024, le=8 * 1024 * 1024
+    )
+    repository_max_file_bytes: int = Field(
+        default=2 * 1024 * 1024, ge=16 * 1024, le=4 * 1024 * 1024
+    )
+    kicad_library_allowlist: str = (
+        "Sensor_,MCU_,Display_,Relay,Switch,Connector,Motor,Driver_Motor,Regulator_,"
+        "Transistor_,Diode,LED,Memory,Interface_"
+    )
     ffprobe_path: str = "ffprobe"
     ffmpeg_path: str = "ffmpeg"
     ffprobe_timeout_seconds: float = Field(default=15.0, ge=1, le=60)
@@ -105,6 +118,22 @@ class Settings(DatabaseSettings):
         ):
             raise ValueError("MinIO bucket name must be a lowercase DNS-style name")
         return value
+
+    @field_validator("kicad_library_allowlist")
+    @classmethod
+    def require_kicad_library_allowlist(cls, value: str) -> str:
+        prefixes = tuple(part.strip() for part in value.split(",") if part.strip())
+        if (
+            not prefixes
+            or len(prefixes) > 50
+            or any(len(part) > 80 or "/" in part or "\\" in part for part in prefixes)
+        ):
+            raise ValueError("kicad_library_allowlist must contain bounded library prefixes")
+        return ",".join(prefixes)
+
+    @property
+    def kicad_library_prefixes(self) -> tuple[str, ...]:
+        return tuple(part for part in self.kicad_library_allowlist.split(",") if part)
 
     @model_validator(mode="after")
     def require_secure_production_cookie(self) -> Settings:

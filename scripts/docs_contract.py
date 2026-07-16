@@ -12,9 +12,8 @@ DOCS = (
     ROOT / "docs" / "SECURITY.md",
 )
 URLS = (
-    "https://arduino-tex.ru/",
-    "https://portal-pk.ru/",
-    "https://alexgyver.ru/ardu-proj/",
+    "https://github.com/Seeed-Studio/wiki-documents",
+    "https://gitlab.com/kicad/libraries/kicad-symbols",
 )
 REQUIRED_CONTRACTS = {
     "React + TypeScript": ("REQUIREMENTS.md", "ARCHITECTURE.md"),
@@ -48,7 +47,11 @@ def validate() -> list[str]:
     requirements = documents["REQUIREMENTS.md"]
     for url in URLS:
         if url not in requirements:
-            errors.append(f"REQUIREMENTS.md does not contain approved URL {url}")
+            errors.append(f"REQUIREMENTS.md does not contain registered repository {url}")
+
+    for token in ("owner_denied_usage", "permission_status=denied", "GPL-3.0-only", "CC-BY-SA-4.0"):
+        if token not in requirements:
+            errors.append(f"REQUIREMENTS.md does not contain source policy {token!r}")
 
     for token, names in REQUIRED_CONTRACTS.items():
         for name in names:

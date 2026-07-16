@@ -1,0 +1,7 @@
+(kicad_symbol_lib
+  (version 20231120)
+  (symbol "Relay_SPDT"
+    (property "Reference" "K")
+    (property "Value" "Relay_SPDT")
+    (property "Description" "Single pole double throw relay")
+    (pin passive line (name "A1") (number "1"))))

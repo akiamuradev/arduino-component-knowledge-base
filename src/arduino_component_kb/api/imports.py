@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Annotated, cast
+from datetime import datetime
+from typing import Annotated, Literal, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
@@ -17,10 +18,12 @@ from arduino_component_kb.imports.domain import SourcePolicyError
 from arduino_component_kb.imports.models import ImportJob
 from arduino_component_kb.imports.queue import ImportQueue
 from arduino_component_kb.imports.repository import ImportRepository
+from arduino_component_kb.imports.repository_domain import normalize_repository_path
 from arduino_component_kb.imports.urls import approve_source_url
 
 router = APIRouter(prefix="/api/v1/import-jobs", tags=["imports"])
 editor = require_roles(Role.TEACHER, Role.ADMINISTRATOR)
+administrator = require_roles(Role.ADMINISTRATOR)
 
 
 class ImportRequest(BaseModel):
@@ -37,6 +40,23 @@ class ImportJobResponse(BaseModel):
     parser_version: str | None
     draft_component_id: UUID | None
     error_code: str | None
+    repository_url: str | None
+    requested_revision: str | None
+    source_revision: str | None
+    source_file_path: str | None
+    source_entry_name: str | None
+    parser_name: str | None
+    parse_status: str | None
+    warnings_json: list[str]
+    heartbeat_at: datetime | None
+    metrics_json: dict[str, object]
+
+
+class RepositoryImportRequest(BaseModel):
+    source_key: Literal["seeed_wiki", "kicad_symbols"]
+    revision: str = Field(min_length=1, max_length=100)
+    file_path: str = Field(min_length=1, max_length=1000)
+    entry_name: str | None = Field(default=None, min_length=1, max_length=300)
 
 
 def _response(job: ImportJob) -> ImportJobResponse:
@@ -84,6 +104,73 @@ async def create_import(
             if job is None:
                 raise
     if job.submitted_url != approved.url:
+        await session.rollback()
+        raise HTTPException(409, detail={"code": "idempotency_key_conflict"})
+    await session.commit()
+    if job.status in {"queued", "retrying"}:
+        try:
+            queue.enqueue(job.id)
+        except Exception as error:
+            raise HTTPException(503, detail={"code": "import_enqueue_failed"}) from error
+    response.headers["Cache-Control"] = "no-store"
+    return _response(job)
+
+
+@router.post("/repository", response_model=ImportJobResponse, status_code=status.HTTP_202_ACCEPTED)
+async def create_repository_import(
+    payload: RepositoryImportRequest,
+    request: Request,
+    response: Response,
+    actor: Annotated[Principal, Depends(administrator)],
+    _: Annotated[Principal, Depends(csrf_principal)],
+    session: Annotated[AsyncSession, Depends(database_session)],
+    queue: Annotated[ImportQueue, Depends(queue_from_request)],
+    idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=1, max_length=160)],
+) -> ImportJobResponse:
+    try:
+        file_path = normalize_repository_path(payload.file_path)
+    except ValueError as error:
+        raise HTTPException(422, detail={"code": str(error)}) from error
+    if payload.source_key == "seeed_wiki" and payload.entry_name is not None:
+        raise HTTPException(422, detail={"code": "repository_entry_name_not_allowed"})
+    if payload.source_key == "kicad_symbols" and payload.entry_name is None:
+        raise HTTPException(422, detail={"code": "repository_entry_name_required"})
+    repository = ImportRepository(session)
+    source = await repository.source_for_key(payload.source_key)
+    if source is None:
+        raise HTTPException(422, detail={"code": "source_disabled"})
+    job = await repository.get_idempotent_job(actor.user_id, idempotency_key)
+    if job is None:
+        settings = cast(Settings, request.app.state.settings)
+        job = repository.add_repository_job(
+            source,
+            payload.revision,
+            file_path,
+            payload.entry_name,
+            actor.user_id,
+            idempotency_key,
+            settings.import_job_max_attempts,
+        )
+        try:
+            await session.flush()
+        except IntegrityError:
+            await session.rollback()
+            job = await repository.get_idempotent_job(actor.user_id, idempotency_key)
+            if job is None:
+                raise
+    identity = (
+        source.repository_url,
+        payload.revision,
+        file_path,
+        payload.entry_name,
+    )
+    stored_identity = (
+        job.repository_url,
+        job.requested_revision,
+        job.source_file_path,
+        job.source_entry_name,
+    )
+    if stored_identity != identity:
         await session.rollback()
         raise HTTPException(409, detail={"code": "idempotency_key_conflict"})
     await session.commit()

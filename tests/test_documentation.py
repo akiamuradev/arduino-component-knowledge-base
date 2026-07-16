@@ -11,11 +11,14 @@ def test_required_documents_exist_and_contract_is_consistent() -> None:
     assert validate() == []
 
 
-def test_exactly_three_approved_source_urls_are_declared() -> None:
+def test_registered_repositories_and_deactivated_sources_are_declared() -> None:
     requirements = read_documents()["REQUIREMENTS.md"]
     source_table = requirements.split("## Источники импорта", 1)[1].split("## Роли", 1)[0]
-    assert len(URLS) == 3
+    assert len(URLS) == 2
     assert all(source_table.count(url) == 1 for url in URLS)
+    assert "owner_denied_usage" in source_table
+    assert "permission_status=denied" in source_table
+    assert "status=inactive" in source_table
 
 
 def test_requirement_identifiers_are_unique() -> None:
@@ -71,7 +74,10 @@ def test_only_administrator_can_confirm_merge() -> None:
 
 def test_parser_cannot_publish() -> None:
     documents = read_documents()
-    assert "parser не может\nустановить `published`" in documents["REQUIREMENTS.md"]
+    requirements = documents["REQUIREMENTS.md"]
+    assert "parser не может установить" in requirements
+    assert "только `draft`" in requirements
+    assert "`published`" in requirements
     assert "Parser создаёт только draft" in documents["SECURITY.md"]
 
 
