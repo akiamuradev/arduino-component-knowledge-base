@@ -1,0 +1,183 @@
+name: arduino-component-kb
+
+x-app-environment: &app-environment
+  ACKB_ENVIRONMENT: local
+  ACKB_DATABASE_URL: postgresql+asyncpg://${ACKB_POSTGRES_USER:-ackb}:${ACKB_POSTGRES_PASSWORD:?set ACKB_POSTGRES_PASSWORD}@postgres:5432/${ACKB_POSTGRES_DB:-ackb}
+  ACKB_AUTH_THROTTLE_PEPPER: ${ACKB_AUTH_THROTTLE_PEPPER:?set ACKB_AUTH_THROTTLE_PEPPER}
+  ACKB_SESSION_COOKIE_SECURE: "false"
+  ACKB_REDIS_URL: redis://redis:6379/0
+  ACKB_MINIO_ENDPOINT: minio:9000
+  ACKB_MINIO_ACCESS_KEY: ${ACKB_MINIO_ROOT_USER:?set ACKB_MINIO_ROOT_USER}
+  ACKB_MINIO_SECRET_KEY: ${ACKB_MINIO_ROOT_PASSWORD:?set ACKB_MINIO_ROOT_PASSWORD}
+  ACKB_MINIO_SECURE: "false"
+  ACKB_FFPROBE_PATH: ffprobe
+  ACKB_FFMPEG_PATH: ffmpeg
+  ACKB_FFPROBE_TIMEOUT_SECONDS: ${ACKB_FFPROBE_TIMEOUT_SECONDS:-15}
+  ACKB_FFMPEG_TIMEOUT_SECONDS: ${ACKB_FFMPEG_TIMEOUT_SECONDS:-900}
+  ACKB_FFMPEG_THREADS: ${ACKB_FFMPEG_THREADS:-2}
+  ACKB_MEDIA_JOB_MAX_ATTEMPTS: ${ACKB_MEDIA_JOB_MAX_ATTEMPTS:-4}
+  ACKB_MEDIA_JOB_LEASE_SECONDS: ${ACKB_MEDIA_JOB_LEASE_SECONDS:-1800}
+  ACKB_LOG_LEVEL: ${ACKB_LOG_LEVEL:-INFO}
+  ACKB_DOCS_ENABLED: ${ACKB_DOCS_ENABLED:-false}
+
+x-app-image: &app-image
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: arduino-component-kb/backend:0.9.0
+  environment: *app-environment
+  restart: unless-stopped
+  networks:
+    - data
+
+services:
+  postgres:
+    image: postgres:17-alpine@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193
+    environment:
+      POSTGRES_DB: ${ACKB_POSTGRES_DB:-ackb}
+      POSTGRES_USER: ${ACKB_POSTGRES_USER:-ackb}
+      POSTGRES_PASSWORD: ${ACKB_POSTGRES_PASSWORD:?set ACKB_POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    networks:
+      - data
+
+  redis:
+    image: redis:8-alpine@sha256:9d317178eceac8454a2284a9e6df2466b93c745529947f0cd42a0fa9609d7005
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    networks:
+      - data
+
+  minio:
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z.hotfix.7aa24e772@sha256:cf3dadcfa1fb0324f43958bad1abba986d53c4ecc04d4d50b46c7dcda28bd3cd
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${ACKB_MINIO_ROOT_USER:?set ACKB_MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${ACKB_MINIO_ROOT_PASSWORD:?set ACKB_MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    networks:
+      - data
+
+  migrate:
+    <<: *app-image
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  media-init:
+    <<: *app-image
+    command: ["ackb-provision-media"]
+    restart: "no"
+    depends_on:
+      minio:
+        condition: service_healthy
+
+  backend:
+    <<: *app-image
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      media-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready', timeout=3).read()"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    networks:
+      - edge
+      - data
+
+  worker:
+    <<: *app-image
+    command: ["dramatiq", "arduino_component_kb.media.tasks"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      media-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os; os.kill(1, 0)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  frontend:
+    build:
+      context: frontend
+      dockerfile: Dockerfile
+    image: arduino-component-kb/frontend:0.9.0
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --output-document=- http://localhost:8080/container-health | grep -q ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+    networks:
+      - edge
+
+  reverse-proxy:
+    build:
+      context: deploy/reverse-proxy
+      dockerfile: Dockerfile
+    image: arduino-component-kb/reverse-proxy:0.9.0
+    ports:
+      - "${ACKB_HTTP_PORT:-8080}:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --output-document=/dev/null http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+    networks:
+      - edge
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:
+
+networks:
+  edge:
+  data:
+    internal: false

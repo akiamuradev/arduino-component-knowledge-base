@@ -5,6 +5,10 @@ Arduino-совместимых компонентов. Требования эт
 инфраструктурное ядро FastAPI, async PostgreSQL integration, локальную аутентификацию и
 backend RBAC.
 
+Проект распространяется по [PolyForm Noncommercial License 1.0.0](LICENCE). Коммерческое
+использование этой лицензией не разрешается; образовательное использование колледжем входит
+в определённые лицензией noncommercial purposes.
+
 ## Утверждённые пилотные источники
 
 1. <https://arduino-tex.ru/>
@@ -155,6 +159,64 @@ Frontend-контракт ожидает `/api/v1/workspace/*`. Эти endpoints
 Требуются Python 3.12+, отдельная PostgreSQL database, Redis, MinIO, `ffprobe` и `ffmpeg`
 с поддержкой `libx264`, AAC и WebP. Не используйте production или чужие ресурсы для разработки.
 
+### Docker Compose
+
+Воспроизводимый локальный контур включает PostgreSQL, Redis, MinIO, одноразовые Alembic и
+bucket-provisioning jobs, FastAPI backend, Dramatiq worker, React static frontend и reverse
+proxy. Наружу публикуется только `${ACKB_HTTP_PORT:-8080}`; data services доступны только в
+Compose network.
+
+```bash
+cp .env.example .env
+# заменить все replace-with-* только в локальном .env
+docker compose up --build -d
+python scripts/compose_smoke.py
+docker compose down
+```
+
+Первый запуск применяет только существующие Alembic migrations и создаёт private MinIO
+buckets. Application startup не выполняет DDL. Для bootstrap administrator после healthy
+старта используется отдельная интерактивная команда:
+
+```bash
+docker compose run --rm backend ackb-bootstrap-admin \
+  --login admin --display-name "Initial Administrator"
+```
+
+Локальный Compose использует HTTP и общие локальные MinIO credentials из `.env`. Internal
+HTTPS, production credential separation, firewall и DNS относятся к этапу корпоративного
+развёртывания и не имитируются в этапе 1.
+
+### Чистая Linux VM
+
+Для Ubuntu/Debian VM установите Docker Engine по
+[официальной инструкции](https://docs.docker.com/engine/install/ubuntu/) и
+[Compose plugin](https://docs.docker.com/compose/install/linux/), а также host-команды `curl` и
+`openssl`. Не используйте устаревший standalone `docker-compose`.
+
+```bash
+git clone <repository-url> arduino-component-knowledge-base
+cd arduino-component-knowledge-base
+./scripts/linux_bootstrap.sh
+```
+
+Скрипт проверяет доступ к daemon, создаёт ignored `.env` с mode `0600` и случайными local
+credentials, не выводит их, выполняет `docker compose config`, собирает stack и ждёт
+frontend, `/health` и `/ready`. Повторный запуск сохраняет существующий `.env`; наличие
+placeholder останавливает запуск с явной ошибкой.
+
+Управление после запуска:
+
+```bash
+docker compose ps
+docker compose logs -f backend worker
+docker compose down
+# удалить также локальные данные только при осознанном полном сбросе:
+docker compose down --volumes
+```
+
+### Запуск без контейнеров
+
 ```bash
 python -m venv .venv
 python -m pip install -e ".[dev]"
@@ -254,7 +316,7 @@ gateway. Offline Alembic smoke компилирует PostgreSQL DDL, но не 
 ## Статус решений
 
 Утверждены продуктовые и архитектурные defaults этапа 0, созданы backend-ядро,
-authentication/RBAC, frontend-каркас, безопасные image/video pipelines, durable
+воспроизводимый Docker Compose/CI каркас, authentication/RBAC, frontend-каркас, безопасные image/video pipelines, durable
 Redis/Dramatiq jobs и SSRF-safe parser boundary с тремя pilot adapters.
 Предметные таблицы каталога и durable import orchestration ещё не реализованы. Editorial UI
 подготовлен, но требует workspace API следующего backend-этапа.

@@ -30,6 +30,11 @@ Browser
 MinIO. `backend` выдаёт presigned media URL лишь после object-level authorization. `worker`
 не принимает входящий пользовательский HTTP traffic.
 
+Локальный `compose.yaml` публикует только reverse proxy. PostgreSQL, Redis и MinIO не имеют
+host port mappings; migration и media provisioning выполняются одноразовыми jobs до старта
+backend/worker. HTTP допустим только для local stage-1 contour. Internal TLS и production
+network policy добавляются на этапе корпоративного развёртывания.
+
 ## Модули
 
 Frontend организован по маршрутам и server-state boundary:

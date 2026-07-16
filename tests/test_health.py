@@ -49,7 +49,7 @@ def test_liveness_does_not_touch_database_and_preserves_safe_request_id() -> Non
     assert response.json() == {
         "status": "ok",
         "service": "Arduino Component Knowledge Base",
-        "version": "0.8.0",
+        "version": "0.9.0",
     }
     assert response.headers["X-Request-ID"] == "test-request-1"
     assert database.ping_calls == 0
