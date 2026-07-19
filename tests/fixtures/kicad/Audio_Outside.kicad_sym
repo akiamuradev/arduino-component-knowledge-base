@@ -1,0 +1,3 @@
+(kicad_symbol_lib
+  (version 20231120)
+  (symbol "AudioOnly" (property "Reference" "U") (property "Value" "AudioOnly")))

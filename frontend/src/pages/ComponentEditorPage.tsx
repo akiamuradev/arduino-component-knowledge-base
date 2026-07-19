@@ -15,6 +15,7 @@ import type {
 import { api, ApiError } from "../api/client";
 import { ErrorState, LoadingState } from "../components/AsyncStates";
 import { LearningExample } from "../components/LearningExample";
+import { SourceAttributionBlock } from "../components/SourceAttributionBlock";
 import {
   workspaceCategoriesQuery,
   workspaceComponentQuery,
@@ -254,9 +255,19 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
     (error) => error !== null && error !== conflict,
   );
   const problems = publicationProblems(state);
-  const hasUnknownLicense = card?.provenance?.some(
-    (item) => item.source.contentLicense === undefined || item.source.contentLicense === "Unknown",
+  const hasUnknownLicense = card?.sources.some(
+    (source) => source.license_spdx.trim() === "" || source.license_spdx === "Unknown",
   ) === true;
+  const backendValidationLabels: Record<string, string> = {
+    source_revision_missing: "не сохранена revision источника",
+    source_origin_missing: "не сохранена ссылка на оригинал",
+    source_license_missing: "не сохранена лицензия источника",
+    source_attribution_missing: "не сохранён attribution",
+    source_modifications_notice_missing: "не сохранено описание изменений",
+  };
+  const backendValidation = otherError instanceof ApiError
+    ? backendValidationLabels[otherError.code]
+    : undefined;
   const update = <K extends keyof EditorState>(key: K, value: EditorState[K]) => {
     setState((current) => ({ ...current, [key]: value }));
   };
@@ -312,8 +323,9 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
           {reloadServer === undefined ? null : <button className="button button--quiet" type="button" onClick={reloadServer}>Загрузить серверную revision</button>}
         </div>
       )}
-      {otherError === undefined ? null : <div className="inline-error" role="alert">Операция не выполнена. Backend вернул ошибку; изменения остаются в редакторе.</div>}
+      {otherError === undefined ? null : <div className="inline-error" role="alert">Операция не выполнена: {backendValidation ?? (otherError instanceof ApiError ? otherError.code : "ошибка backend")}. Изменения остаются в редакторе.</div>}
       {hasUnknownLicense ? <div className="license-warning" role="alert"><strong>Лицензия источника не подтверждена</strong><span>Условия использования материала не определены. Перед публикацией проверьте правила исходного ресурса.</span></div> : null}
+      {card === undefined || card.sources.length === 0 ? null : <SourceAttributionBlock sources={card.sources} />}
 
       {view === "preview" ? (
         <ComponentPreview state={state} categories={categories} status={card?.status ?? "draft"} />

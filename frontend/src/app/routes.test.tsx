@@ -26,6 +26,7 @@ function renderRoute(path: string, user: User) {
   queryClient.setQueryData(currentUserQueryKey, user);
   queryClient.setQueryData(workspaceKeys.components(), { items: [], total: 0 });
   queryClient.setQueryData(catalogKeys.categories, []);
+  queryClient.setQueryData(catalogKeys.sources, []);
   queryClient.setQueryData(
     catalogKeys.list({ query: "", categoryId: "", difficulty: "" }),
     { items: [], total: 0 },
@@ -119,5 +120,18 @@ describe("application routes", () => {
     renderRoute("/admin/duplicates", { ...student, roles: ["teacher"] });
     expect(await screen.findByRole("heading", { name: "Недостаточно прав" })).toBeVisible();
     expect(screen.queryByRole("heading", { name: "Проверка дубликатов" })).not.toBeInTheDocument();
+  });
+
+  it("renders the source registry for authenticated students", async () => {
+    renderRoute("/sources", student);
+    expect(await screen.findByRole("heading", { name: "Источники и лицензии" })).toBeVisible();
+  });
+
+  it("exposes repository import only to an administrator", async () => {
+    const view = renderRoute("/admin/import", { ...student, roles: ["administrator"] });
+    expect(await screen.findByRole("heading", { name: "Импорт из Git-источника" })).toBeVisible();
+    view.unmount();
+    renderRoute("/admin/import", { ...student, roles: ["teacher"] });
+    expect(await screen.findByRole("heading", { name: "Недостаточно прав" })).toBeVisible();
   });
 });

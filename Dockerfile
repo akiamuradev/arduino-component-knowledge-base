@@ -6,7 +6,7 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1
 WORKDIR /build
 
-COPY pyproject.toml README.md LICENCE MANIFEST.in alembic.ini ./
+COPY pyproject.toml README.md LICENCE THIRD_PARTY_NOTICES.md MANIFEST.in alembic.ini ./
 COPY docs ./docs
 COPY migrations ./migrations
 COPY src ./src

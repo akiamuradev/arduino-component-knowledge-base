@@ -12,7 +12,7 @@ export function AppFooter() {
       </div>
       <nav aria-label="Служебная навигация">
         <Link to="/about">О системе</Link>
-        <Link to="/about#material-sources">Источники материалов</Link>
+        <Link to="/sources">Источники материалов</Link>
         <a href={`${PRODUCT_BRAND.officialRepository}/blob/main/LICENCE`} target="_blank" rel="noopener noreferrer">Лицензия</a>
       </nav>
       <BuildInfo compact />

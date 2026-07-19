@@ -96,3 +96,20 @@ def test_production_requires_tls_for_minio() -> None:
             session_cookie_secure=True,
             minio_secure=False,
         )
+
+
+def test_kicad_library_allowlist_is_bounded_backend_configuration() -> None:
+    settings = Settings(
+        _env_file=None,
+        environment="test",
+        database_url="postgresql+asyncpg://ackb:placeholder@localhost/ackb",
+        kicad_library_allowlist="Sensor_,MCU_,Relay",
+    )
+    assert settings.kicad_library_prefixes == ("Sensor_", "MCU_", "Relay")
+    with pytest.raises(ValidationError, match="kicad_library_allowlist"):
+        Settings(
+            _env_file=None,
+            environment="test",
+            database_url="postgresql+asyncpg://ackb:placeholder@localhost/ackb",
+            kicad_library_allowlist="../untrusted",
+        )

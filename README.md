@@ -48,7 +48,8 @@ explicit publication.
   renditions with posters;
 - Redis + Dramatiq background jobs with durable PostgreSQL status, progress, retries and
   idempotency;
-- three versioned, SSRF-resistant source adapters that create metadata-only drafts;
+- administrator import workspace with bounded discovery, preview and draft job monitoring;
+- versioned, SSRF-resistant Seeed Studio Wiki and KiCad Symbols adapters;
 - exact and fuzzy duplicate detection; only an administrator can confirm merge decisions;
 - Docker Compose deployment with PostgreSQL, Redis and MinIO isolated from host ports.
 
@@ -83,24 +84,30 @@ separate administrator decision.
 |---|:---:|:---:|:---:|
 | Browse published cards | Yes | Yes | Yes |
 | Create and edit drafts | No | Yes | Yes |
-| Start an allowlisted import | No | Yes | Yes |
+| Start a repository import | No | No | Yes |
 | Publish/archive a reviewed card | No | Yes | Yes |
 | Manage users and roles | No | No | Yes |
 | Confirm duplicate merge | No | No | Yes |
 | Monitor/retry all background jobs | No | No | Yes |
 
-### Pilot parser sources
+### Data sources and licensing
 
-The exact allowlist contains only:
+New imports are limited to two registered repositories:
 
-1. <https://arduino-tex.ru/>
-2. <https://portal-pk.ru/>
-3. <https://alexgyver.ru/ardu-proj/>
+1. [Seeed Studio Wiki](https://github.com/Seeed-Studio/wiki-documents) — `GPL-3.0-only`;
+2. [Official KiCad Symbols](https://gitlab.com/kicad/libraries/kicad-symbols) — `CC-BY-SA-4.0`.
 
-These URLs are technical pilot inputs, not permission to copy third-party material. Before live
-content import, the operator must verify each site's terms, `robots.txt`, permitted metadata/text
-scope, media rights and attribution requirements. Current adapters transfer bounded metadata into
-a `draft`; they do not execute scripts or automatically copy remote images and video.
+The historical Arduino-Tex and Portal-PK records are inactive. AlexGyver is disabled because use
+was denied by the source owner. None of these three website sources can be launched from the UI or
+repository import API. Acquisition is bounded to registered repositories, paths and revisions;
+scripts, hooks and documentation builds are never executed. An import produces a preview and then
+only a `draft`, never a published card.
+
+The PolyForm license applies to application code, not imported third-party data. Each imported
+card retains an immutable source, commit, file/entry, parser version, license, attribution and
+modifications snapshot. See [Data licensing](docs/DATA_LICENSING.md) and
+[Third-party notices](THIRD_PARTY_NOTICES.md). This project is not affiliated with Arduino, Seeed
+Studio or KiCad; names and trademarks belong to their respective owners.
 
 ### Quick start on a Linux VM
 
@@ -154,17 +161,17 @@ established when the volume is first initialized.
 
 ### Content workflow
 
-1. Sign in as a teacher or administrator.
-2. Open **Administration → Components** and create a manual draft, or submit an approved page URL
-   through `POST /api/v1/import-jobs`.
-3. Review and complete the draft in the editor.
+1. Sign in as a teacher or administrator to create a manual draft.
+2. An administrator may open **Administration → Import**, select Seeed or KiCad, perform bounded
+   discovery and inspect the normalized preview.
+3. Click **Create draft** to enqueue the selected entry, then review and complete the resulting
+   draft in the editor.
 4. Resolve any duplicate candidate; merge confirmation is administrator-only.
 5. Preview and explicitly publish the card.
 6. The immutable published snapshot becomes available in the student catalogue.
 
-The editorial card UI is implemented. URL import is available through the backend contract; a
-dedicated frontend import form has not yet been added. A clean installation therefore shows an
-empty catalogue until the first reviewed draft is published.
+A clean installation shows an empty catalogue until the first reviewed draft is explicitly
+published. Importing never performs that publication step.
 
 ### Development and verification
 
@@ -201,10 +208,10 @@ PostgreSQL/MinIO integration tests and container contract/build jobs on every pu
 |---|---|
 | `/health`, `/ready` | Process liveness and bounded PostgreSQL readiness |
 | `/api/v1/auth/*` | Login, current backend-resolved principal and logout |
-| `/api/v1/catalog/*` | Published student catalogue |
+| `/api/v1/catalog/*` | Published student catalogue and source registry |
 | `/api/v1/workspace/*` | Teacher/administrator card and category workspace |
 | `/api/v1/media/*` | Private upload reservation, completion and processing status |
-| `/api/v1/import-jobs` | Allowlisted URL import into durable draft jobs |
+| `/api/v1/import-jobs/repository/*` | Administrator discovery, preview and durable draft jobs |
 | `/api/v1/admin/*` | Users, job monitor and duplicate decisions |
 | `/api/v1/openapi.json` | Versioned OpenAPI contract |
 
@@ -219,6 +226,8 @@ enable it merely to bypass production access controls.
 - [Security controls](docs/SECURITY.md)
 - [Threat model](docs/THREAT_MODEL.md)
 - [Testing](docs/TESTING.md)
+- [Data licensing](docs/DATA_LICENSING.md)
+- [Third-party notices](THIRD_PARTY_NOTICES.md)
 - [Corporate Ubuntu deployment](docs/DEPLOYMENT.md)
 - [Frontend guide](frontend/README.md)
 
@@ -227,6 +236,9 @@ enable it merely to bypass production access controls.
 The project is distributed under the
 [PolyForm Noncommercial License 1.0.0](LICENCE). Commercial use is not permitted by this license;
 permitted noncommercial use is governed by the license text.
+
+Third-party data remains under the license recorded in its source snapshot; it is not relicensed
+under PolyForm by inclusion in this application.
 
 [Back to language selector](#arduino-component-knowledge-base)
 
@@ -260,7 +272,8 @@ Arduino Component Knowledge Base — самостоятельная образо
 - private MinIO для изображений и видео, presigned upload и metadata в PostgreSQL;
 - MIME/magic bytes, Pillow variants, SHA-256/pHash, FFmpeg H.264/AAC rendition и poster;
 - Redis + Dramatiq с durable status/progress, retry/backoff и idempotency;
-- три версионированных SSRF-safe parser adapter, создающих только metadata draft;
+- рабочее место administrator для bounded discovery, preview и мониторинга draft job;
+- версионированные SSRF-safe adapters Seeed Studio Wiki и KiCad Symbols;
 - exact/fuzzy дедупликация; merge всегда отдельно подтверждает administrator;
 - Docker Compose, в котором PostgreSQL, Redis и MinIO не публикуются на host.
 
@@ -294,24 +307,30 @@ Parser не может публиковать карточку, а duplicate mer
 |---|:---:|:---:|:---:|
 | Просмотр опубликованных карточек | Да | Да | Да |
 | Создание и редактирование draft | Нет | Да | Да |
-| Запуск импорта разрешённого URL | Нет | Да | Да |
+| Запуск repository import | Нет | Нет | Да |
 | Публикация/архивирование после проверки | Нет | Да | Да |
 | Управление пользователями и ролями | Нет | Нет | Да |
 | Подтверждение merge дубликатов | Нет | Нет | Да |
 | Мониторинг/retry всех фоновых задач | Нет | Нет | Да |
 
-### Пилотные источники parser
+### Источники данных и лицензирование
 
-Exact allowlist содержит только:
+Новый импорт ограничен двумя зарегистрированными репозиториями:
 
-1. <https://arduino-tex.ru/>
-2. <https://portal-pk.ru/>
-3. <https://alexgyver.ru/ardu-proj/>
+1. [Seeed Studio Wiki](https://github.com/Seeed-Studio/wiki-documents) — `GPL-3.0-only`;
+2. [Official KiCad Symbols](https://gitlab.com/kicad/libraries/kicad-symbols) — `CC-BY-SA-4.0`.
 
-Эти URL являются техническими входными точками, а не разрешением копировать чужие материалы.
-До реального наполнения оператор должен проверить условия сайтов, `robots.txt`, допустимый объём
-metadata/текста, права на media и требования к атрибуции. Текущие adapters переносят ограниченную
-metadata в `draft`, не исполняют scripts и автоматически не копируют изображения или видео.
+Исторические записи Arduino-Tex и Portal-PK неактивны. AlexGyver отключён, поскольку владелец
+источника запретил использование материалов. Ни один из этих трёх website-источников нельзя
+запустить через UI или repository import API. Получение ограничено зарегистрированными repository,
+путями и revisions; scripts, hooks и сборка документации не запускаются. Импорт сначала создаёт
+preview, а затем только `draft`, но никогда не публикует карточку.
+
+PolyForm относится к коду приложения, а не к импортированным сторонним данным. Карточка хранит
+неизменяемый snapshot источника, commit, файла/entry, parser version, лицензии, attribution и
+преобразований. См. [Лицензирование данных](docs/DATA_LICENSING.md) и
+[уведомления о сторонних материалах](THIRD_PARTY_NOTICES.md). Проект не аффилирован с Arduino,
+Seeed Studio или KiCad; названия и товарные знаки принадлежат соответствующим правообладателям.
 
 ### Быстрый запуск в Linux VM
 
@@ -364,17 +383,16 @@ python3 scripts/compose_smoke.py
 
 ### Наполнение каталога
 
-1. Войдите как teacher или administrator.
-2. Откройте **Администрирование → Карточки** и создайте ручной draft либо отправьте разрешённый
-   URL через `POST /api/v1/import-jobs`.
-3. Проверьте и дополните draft в редакторе.
+1. Войдите как teacher или administrator, чтобы создать ручной draft.
+2. Administrator может открыть **Администрирование → Импорт**, выбрать Seeed или KiCad,
+   выполнить ограниченный поиск и проверить нормализованный preview.
+3. Нажмите **Создать черновик**, дождитесь job и проверьте полученный draft в редакторе.
 4. Разберите найденный duplicate candidate; merge подтверждает только administrator.
 5. Откройте preview и явно опубликуйте карточку.
 6. Immutable published snapshot появится в студенческом каталоге.
 
-Редактор карточек реализован. URL import доступен через backend contract; отдельная frontend-форма
-импорта пока не добавлена. Поэтому чистая установка показывает пустой каталог до публикации первого
-проверенного draft.
+Чистая установка показывает пустой каталог до первой проверенной и явно опубликованной карточки.
+Импорт сам по себе публикацию не выполняет.
 
 ### Разработка и проверки
 
@@ -411,10 +429,10 @@ lint/type/tests/build, Playwright E2E, PostgreSQL/MinIO integration и container
 |---|---|
 | `/health`, `/ready` | Liveness процесса и bounded PostgreSQL readiness |
 | `/api/v1/auth/*` | Login, backend-resolved principal и logout |
-| `/api/v1/catalog/*` | Опубликованный студенческий каталог |
+| `/api/v1/catalog/*` | Опубликованный студенческий каталог и реестр источников |
 | `/api/v1/workspace/*` | Карточки и категории teacher/administrator |
 | `/api/v1/media/*` | Private upload, completion и processing status |
-| `/api/v1/import-jobs` | Импорт разрешённых URL в durable draft jobs |
+| `/api/v1/import-jobs/repository/*` | Administrator discovery, preview и durable draft jobs |
 | `/api/v1/admin/*` | Пользователи, job monitor и duplicate decisions |
 | `/api/v1/openapi.json` | Версионированный OpenAPI contract |
 
@@ -429,6 +447,8 @@ Interactive API documentation по умолчанию выключена. Лок
 - [Контроли безопасности](docs/SECURITY.md)
 - [Модель угроз](docs/THREAT_MODEL.md)
 - [Тестирование](docs/TESTING.md)
+- [Лицензирование данных](docs/DATA_LICENSING.md)
+- [Уведомления о сторонних материалах](THIRD_PARTY_NOTICES.md)
 - [Развёртывание в Ubuntu](docs/DEPLOYMENT.md)
 - [Frontend](frontend/README.md)
 
@@ -437,5 +457,8 @@ Interactive API documentation по умолчанию выключена. Лок
 Проект распространяется по [PolyForm Noncommercial License 1.0.0](LICENCE). Коммерческое
 использование этой лицензией не разрешается; допустимое некоммерческое использование определяется
 текстом лицензии.
+
+Сторонние данные остаются под лицензией, записанной в их source snapshot, и не становятся
+PolyForm-материалом из-за включения в приложение.
 
 [К выбору языка](#arduino-component-knowledge-base)

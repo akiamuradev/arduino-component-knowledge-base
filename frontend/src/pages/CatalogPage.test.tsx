@@ -26,10 +26,14 @@ const card: CatalogComponent = {
     hints: ["Используйте pinMode."], body: "void setup() { pinMode(13, OUTPUT); }", libraries: [],
     explanation: "Пин переводится в режим выхода.", visibility: "student", position: 0,
   }],
-  origin: "imported",
-  provenance: [{
-    id: "source-1", contentType: "description",
-    source: { sourceName: "Arduino Tex", sourceUrl: "https://arduino-tex.ru/news/229/item.html", sourceDomain: "arduino-tex.ru", importedAt: "2026-07-15T10:00:00Z", contentLicense: "Unknown" },
+  sources: [{
+    display_name: "Seeed Studio Wiki", original_url: "https://wiki.seeedstudio.com/Grove-Button/",
+    repository_url: "https://github.com/Seeed-Studio/wiki-documents",
+    license_name: "GNU General Public License v3.0 only", license_spdx: "GPL-3.0-only",
+    license_url: "https://www.gnu.org/licenses/gpl-3.0.html", source_revision: "1234567890abcdef1234567890abcdef12345678",
+    source_tag: "docusaurus-version", source_file_path: "sites/en/docs/Sensor/Grove/Grove_Button.md", source_entry_name: null,
+    modifications_notice: "Normalized into an educational component draft.", imported_at: "2026-07-15T10:00:00Z",
+    attribution: "Based on Seeed Studio Wiki.", parser_name: "seeed_wiki", parser_version: "1.0.0",
   }],
 };
 
@@ -47,7 +51,7 @@ describe("student catalog", () => {
     expect(await screen.findByRole("link", { name: /Датчик температуры/ })).toHaveAttribute("href", "/components/temperature-sensor");
     expect(screen.getByRole("searchbox", { name: "Поиск" })).toBeVisible();
     expect(screen.getAllByRole("combobox")).toHaveLength(2);
-    expect(screen.getByText("Источник: arduino-tex.ru")).toBeVisible();
+    expect(screen.getByText("Проверенный источник · GPL-3.0-only")).toBeVisible();
   });
 
   it("renders component details and safety notes", async () => {
@@ -59,7 +63,7 @@ describe("student catalog", () => {
     expect(screen.getByText("5 В")).toBeVisible();
     expect(screen.getByText(/Плата: Arduino Uno/)).toBeVisible();
     expect(screen.getByRole("heading", { name: "Источник материала" })).toBeVisible();
-    expect(screen.getByRole("link", { name: /Arduino Tex/ })).toHaveAttribute("rel", "noopener noreferrer");
+    expect(screen.getByRole("link", { name: /Открыть источник/ })).toHaveAttribute("rel", "noopener noreferrer");
     expect(screen.getByRole("link", { name: /Каталог компонентов/ })).toHaveAttribute("href", "/");
     expect(view.container.querySelector(".learning-code")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Показать подсказку 1" }));

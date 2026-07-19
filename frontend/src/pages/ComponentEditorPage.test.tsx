@@ -46,6 +46,7 @@ const card: ComponentCard = {
   published_at: null,
   revision: 7,
   updated_at: "2026-07-15T20:00:00Z",
+  sources: [],
   specifications: [{ key: "clock-frequency", label: "Частота", value_text: "16", value_number: "16", unit: "МГц", position: 0 }],
   compatibility: [{ target_type: "board", name: "Arduino Uno", version_constraint: "R3", notes: null, position: 0 }],
   code_examples: [{
@@ -88,17 +89,13 @@ describe("component editor", () => {
     renderEditor({
       ...card,
       manual_original: false,
-      origin: "imported",
-      provenance: [{
-        id: "source-1",
-        contentType: "description",
-        source: {
-          sourceName: "Arduino Tex",
-          sourceUrl: "https://arduino-tex.ru/news/229/item.html",
-          sourceDomain: "arduino-tex.ru",
-          importedAt: "2026-07-15T10:00:00Z",
-          contentLicense: "Unknown",
-        },
+      sources: [{
+        display_name: "Unverified source", original_url: "https://example.com/item",
+        repository_url: null, license_name: "Unknown", license_spdx: "Unknown",
+        license_url: "https://example.com/license", source_revision: "1234567890abcdef",
+        source_tag: null, source_file_path: "item.md", source_entry_name: null,
+        modifications_notice: "Imported without modification details.", imported_at: "2026-07-15T10:00:00Z",
+        attribution: "Unverified source", parser_name: "legacy", parser_version: "1.0.0",
       }],
     });
     expect(await screen.findByText(/Условия использования материала не определены/)).toBeVisible();

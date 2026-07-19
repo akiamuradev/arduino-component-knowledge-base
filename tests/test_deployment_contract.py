@@ -142,4 +142,7 @@ def test_project_declares_exact_requested_license() -> None:
     assert 'license-files = ["LICENCE"]' in project
 
     backend_dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
-    assert "COPY pyproject.toml README.md LICENCE MANIFEST.in alembic.ini ./" in backend_dockerfile
+    assert (
+        "COPY pyproject.toml README.md LICENCE THIRD_PARTY_NOTICES.md MANIFEST.in alembic.ini ./"
+        in backend_dockerfile
+    )
