@@ -11,6 +11,7 @@ from uuid import uuid4
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from arduino_component_kb.api.imports import _preview_response
 from arduino_component_kb.catalog.domain import CatalogValidationError
 from arduino_component_kb.catalog.service import CatalogService
 from arduino_component_kb.imports.adapters.seeed_wiki import SeeedWikiAdapter
@@ -88,6 +89,16 @@ async def test_repository_idempotency_reuses_same_revision_component() -> None:
 
 async def test_new_revision_has_a_different_idempotency_identity() -> None:
     assert (await parsed("b" * 40)).idempotency_key != (await parsed("c" * 40)).idempotency_key
+
+
+async def test_preview_is_a_non_persisted_draft_with_source_snapshot() -> None:
+    response = _preview_response(await parsed("d" * 40), "docusaurus-version")
+    assert response.draft_status == "draft"
+    assert response.revision == "d" * 40
+    assert response.requested_revision == "docusaurus-version"
+    assert response.license.spdx == "GPL-3.0-only"
+    assert response.parser_name == "seeed-wiki-git-v1"
+    assert response.provenance["title"][0].source_revision == "d" * 40
 
 
 def relation(**changes: object) -> ComponentSource:

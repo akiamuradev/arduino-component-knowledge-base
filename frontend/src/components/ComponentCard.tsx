@@ -34,7 +34,11 @@ export function ComponentCard({ component }: { component: CatalogComponent }) {
   const image = preferredImage(component);
   const voltage = specification(component, [/voltage/i, /напряж/i, /питан/i]);
   const componentInterface = specification(component, [/interface/i, /интерфейс/i, /protocol/i]);
-  const source = component.provenance?.[0]?.source;
+  const sourceLabel = component.sources.length === 0
+    ? null
+    : component.sources.length === 1
+      ? `Проверенный источник · ${component.sources[0]?.license_spdx ?? ""}`
+      : `Несколько источников · ${String(component.sources.length)}`;
   return (
     <Link className="catalog-card" to={`/components/${component.slug}`}>
       <div className="catalog-card__media">
@@ -50,7 +54,7 @@ export function ComponentCard({ component }: { component: CatalogComponent }) {
           {voltage ? <div><dt>Питание</dt><dd>{voltage}</dd></div> : null}
           {componentInterface ? <div><dt>Интерфейс</dt><dd>{componentInterface}</dd></div> : null}
         </dl>
-        <footer><small><span aria-hidden="true">◉</span> {difficultyLabels[component.difficulty]}</small>{source ? <small className="catalog-card__source">Источник: {source.sourceDomain}</small> : null}</footer>
+        <footer><small><span aria-hidden="true">◉</span> {difficultyLabels[component.difficulty]}</small>{sourceLabel === null ? null : <small className="catalog-card__source">{sourceLabel}</small>}</footer>
       </div>
     </Link>
   );

@@ -136,7 +136,7 @@ export interface ComponentSummary {
   primary_category: Category;
   revision: number;
   updated_at: string;
-  origin?: ContentOrigin;
+  sources: SourceSnapshot[];
 }
 
 export interface ComponentListResponse {
@@ -161,8 +161,6 @@ export interface ComponentCard extends ComponentSummary {
   specifications: TechnicalSpecification[];
   compatibility: ComponentCompatibility[];
   code_examples: CodeExample[];
-  origin?: ContentOrigin;
-  provenance?: ContentProvenance[];
   media?: CatalogMedia[];
 }
 
@@ -214,8 +212,7 @@ export interface CatalogComponent {
   specifications: TechnicalSpecification[];
   compatibility: ComponentCompatibility[];
   code_examples: CodeExample[];
-  origin?: ContentOrigin;
-  provenance?: ContentProvenance[];
+  sources: SourceSnapshot[];
   media?: CatalogMedia[];
 }
 
@@ -224,35 +221,123 @@ export interface CatalogComponentListResponse {
   total: number;
 }
 
-export type ContentOrigin = "manual" | "imported" | "mixed";
-
-export interface SourceAttribution {
-  sourceName: string;
-  sourceUrl: string;
-  sourceDomain: string;
-  originalTitle?: string;
-  originalAuthor?: string;
-  originalPublishedAt?: string;
-  importedAt: string;
-  lastCheckedAt?: string;
-  sourceLanguage?: string;
-  contentLicense?: string;
-  attributionText?: string;
+export interface SourceSnapshot {
+  display_name: string;
+  original_url: string | null;
+  repository_url: string | null;
+  license_name: string;
+  license_spdx: string;
+  license_url: string;
+  source_revision: string;
+  source_tag: string | null;
+  source_file_path: string | null;
+  source_entry_name: string | null;
+  modifications_notice: string;
+  imported_at: string;
+  attribution: string;
+  parser_name: string;
+  parser_version: string;
 }
 
-export interface ContentProvenance {
+export interface CatalogSource {
+  key: string;
+  display_name: string;
+  repository_url: string | null;
+  source_type: string;
+  status: "active" | "inactive" | "disabled";
+  content_policy: string;
+  license_name: string | null;
+  license_spdx: string | null;
+  license_url: string | null;
+  attribution_template: string | null;
+  adapter_version: string;
+  default_revision_policy: string;
+  disable_reason: string | null;
+}
+
+export type RepositorySourceKey = "seeed_wiki" | "kicad_symbols";
+
+export interface RepositoryImportInput {
+  source_key: RepositorySourceKey;
+  revision: string;
+  file_path: string;
+  entry_name: string | null;
+}
+
+export interface RepositoryFile {
+  file_path: string;
+  size: number | null;
+}
+
+export interface RepositoryDiscoveryResponse {
+  source_key: RepositorySourceKey;
+  repository_url: string;
+  revision: string;
+  files_scanned: number;
+  files: RepositoryFile[];
+}
+
+export interface RepositoryEntry {
+  file_path: string;
+  entry_name: string | null;
+  title: string | null;
+}
+
+export interface RepositoryEntryDiscoveryResponse {
+  source_key: RepositorySourceKey;
+  repository_url: string;
+  revision: string;
+  entries: RepositoryEntry[];
+}
+
+export interface FieldProvenanceSnapshot {
+  repository_url: string;
+  source_revision: string;
+  source_file_path: string;
+  section_or_property: string;
+  confidence: "high" | "medium" | "low";
+  transformation: string;
+}
+
+export interface RepositoryPreview {
+  source_key: RepositorySourceKey;
+  repository_url: string;
+  requested_revision: string;
+  revision: string;
+  file_path: string;
+  entry_name: string | null;
+  original_url: string;
+  parser_name: string;
+  parser_version: string;
+  parse_status: string;
+  warnings: string[];
+  normalized_fields: Record<string, unknown>;
+  provenance: Record<string, FieldProvenanceSnapshot[]>;
+  license: { name: string; spdx: string; url: string; attribution: string };
+  modifications_notice: string;
+  draft_status: "draft";
+}
+
+export interface ImportJob {
   id: string;
-  contentType:
-    | "description"
-    | "specification"
-    | "image"
-    | "diagram"
-    | "code"
-    | "video"
-    | "document";
-  source: SourceAttribution;
-  fieldName?: string;
-  mediaId?: string;
+  submitted_url: string;
+  canonical_url: string | null;
+  status: JobStatus;
+  attempts: number;
+  max_attempts: number;
+  parser_version: string | null;
+  draft_component_id: string | null;
+  error_code: string | null;
+  repository_url: string | null;
+  requested_revision: string | null;
+  source_revision: string | null;
+  source_file_path: string | null;
+  source_entry_name: string | null;
+  parser_name: string | null;
+  parse_status: string | null;
+  warnings_json: string[];
+  heartbeat_at: string | null;
+  metrics_json: Record<string, unknown>;
 }
 
 export interface MediaSource {

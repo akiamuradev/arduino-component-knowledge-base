@@ -11,12 +11,6 @@ const statusLabels: Record<ComponentStatus, string> = {
   archived: "Архив",
 };
 
-const originLabels = {
-  manual: "Создано вручную",
-  imported: "Импортировано",
-  mixed: "Дополнено редактором",
-};
-
 export function ComponentListPage() {
   const components = useWorkspaceComponents();
   if (components.isPending) {
@@ -44,7 +38,7 @@ export function ComponentListPage() {
           <div className="component-table__head" aria-hidden="true"><span>Название</span><span>Категория</span><span>Статус</span><span>Версия</span></div>
           {components.data.items.map((component) => (
             <Link role="listitem" className="component-row" key={component.id} to={`/admin/components/${component.id}/edit`}>
-              <span><strong>{component.title}</strong><small>{component.summary}</small>{component.origin ? <small className="origin-label">{originLabels[component.origin]}</small> : null}</span>
+              <span><strong>{component.title}</strong><small>{component.summary}</small>{component.sources.length === 0 ? null : <small className="origin-label">Импортировано · {component.sources.length === 1 ? component.sources[0]?.license_spdx : `${String(component.sources.length)} источника`}</small>}</span>
               <span>{component.primary_category.name}</span>
               <span className={`status-badge status-badge--${component.status}`}>
                 {statusLabels[component.status]}

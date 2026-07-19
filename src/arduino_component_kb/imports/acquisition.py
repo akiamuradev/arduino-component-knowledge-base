@@ -379,7 +379,10 @@ class RepositoryAcquirer:
         try:
             if response.status_code == 404:
                 raise RepositoryAcquisitionError("repository_entry_not_found")
-            if response.status_code == 429 or response.status_code >= 500:
+            rate_limited = (
+                response.status_code == 403 and response.headers.get("x-ratelimit-remaining") == "0"
+            )
+            if response.status_code == 429 or response.status_code >= 500 or rate_limited:
                 raise RepositoryAcquisitionError("repository_provider_unavailable", retryable=True)
             if response.status_code != 200:
                 raise RepositoryAcquisitionError("repository_provider_rejected")

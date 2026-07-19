@@ -119,6 +119,31 @@ async def test_private_provider_dns_answer_is_rejected() -> None:
         )
 
 
+async def test_github_rate_limit_is_a_retryable_provider_failure() -> None:
+    def handler(_: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(
+            403,
+            headers={
+                "Content-Type": "application/json",
+                "X-RateLimit-Remaining": "0",
+                "X-RateLimit-Reset": "1784501637",
+            },
+            content=b'{"message":"API rate limit exceeded"}',
+        )
+
+    with pytest.raises(RepositoryAcquisitionError) as raised:
+        await RepositoryAcquirer(
+            resolver=StaticResolver("93.184.216.34"), transport=transport(handler)
+        ).acquire(
+            "seeed_wiki",
+            "https://github.com/Seeed-Studio/wiki-documents",
+            "main",
+            "README.md",
+        )
+    assert raised.value.code == "repository_provider_unavailable"
+    assert raised.value.retryable is True
+
+
 async def test_oversized_file_is_rejected() -> None:
     def handler(request: httpx2.Request) -> httpx2.Response:
         if "/commits/" in request.url.path:

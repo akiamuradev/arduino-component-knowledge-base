@@ -69,6 +69,17 @@ GET /api/v1/import-jobs/repository/discovery?source_key=kicad_symbols&revision=9
 Ответ содержит полный resolved SHA, число просмотренных записей и не более запрошенного количества
 путей. Endpoint не принимает repository URL от клиента и повторно проверяет роль administrator.
 
+После выбора файла UI запрашивает bounded entry discovery и preview без записи в PostgreSQL:
+
+```http
+GET /api/v1/import-jobs/repository/entries?source_key=kicad_symbols&revision=9.0.9.1&file_path=Sensor_Temperature.kicad_sym&limit=50
+POST /api/v1/import-jobs/repository/preview
+```
+
+Preview возвращает нормализованные поля, warnings, provenance, resolved SHA и license snapshot.
+Только после ручной проверки administrator нажимает «Создать черновик»; отдельного действия
+«импортировать и опубликовать» нет.
+
 Перед полными jobs запустите фиксированный smoke-набор: ровно пять Seeed документов и десять
 символов из `Sensor_Temperature.kicad_sym` стабильного тега KiCad 9.0.9.1. Команда только скачивает
 ограниченные исходники, разбирает их в памяти и печатает безопасную сводку; БД и MinIO она не меняет:
@@ -149,7 +160,7 @@ GET /api/v1/import-jobs/<job-id>
 | превышение response/file limit | `repository_response_too_large` / `repository_file_too_large` |
 | повреждённый Markdown/S-expression | `repository_invalid_metadata` или parser status |
 | partial parse | succeeded draft + `parsed_with_warnings` |
-| provider 429/5xx/timeout | bounded retry с backoff |
+| provider 429/5xx/timeout или GitHub 403 с исчерпанным rate limit | bounded retry с backoff |
 | denied source | `source_disabled`, job не создаётся |
 | publish без license snapshot | typed `source_license_missing` |
 | повторная доставка | тот же job/draft, без второго component |

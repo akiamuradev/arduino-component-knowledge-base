@@ -60,6 +60,8 @@ def main() -> int:
             "/api/v1/import-jobs",
             "/api/v1/import-jobs/repository",
             "/api/v1/import-jobs/repository/discovery",
+            "/api/v1/import-jobs/repository/entries",
+            "/api/v1/import-jobs/repository/preview",
             "/api/v1/import-jobs/{job_id}",
             "/api/v1/workspace/categories",
             "/api/v1/workspace/components",
@@ -69,6 +71,7 @@ def main() -> int:
             "/api/v1/admin/catalog/categories",
             "/api/v1/admin/catalog/categories/{category_id}/deactivate",
             "/api/v1/catalog/categories",
+            "/api/v1/catalog/sources",
             "/api/v1/catalog/components",
             "/api/v1/catalog/components/{slug}",
         }.issubset(openapi.json()["paths"])

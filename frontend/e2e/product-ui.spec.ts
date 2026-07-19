@@ -34,10 +34,13 @@ const component = {
     hints: ["Подключите библиотеку DHT."], body: "#include <DHT.h>\nvoid setup() { Serial.begin(9600); }", libraries: ["DHT sensor library"],
     explanation: "Значение можно читать после инициализации датчика.", visibility: "student", position: 0,
   }],
-  origin: "imported",
-  provenance: [{
-    id: "source-description", contentType: "description",
-    source: { sourceName: "Arduino Tex", sourceUrl: "https://arduino-tex.ru/news/229/item.html", sourceDomain: "arduino-tex.ru", originalTitle: "DHT22", importedAt: "2026-07-15T10:00:00Z", lastCheckedAt: "2026-07-16T10:00:00Z", contentLicense: "Unknown" },
+  sources: [{
+    display_name: "Seeed Studio Wiki", original_url: "https://wiki.seeedstudio.com/Grove-Temperature_And_Humidity_Sensor_Pro/",
+    repository_url: "https://github.com/Seeed-Studio/wiki-documents", license_name: "GNU General Public License v3.0 only",
+    license_spdx: "GPL-3.0-only", license_url: "https://www.gnu.org/licenses/gpl-3.0.html", source_revision: "1234567890abcdef1234567890abcdef12345678",
+    source_tag: "docusaurus-version", source_file_path: "sites/en/docs/Sensor/Grove/Grove-Temperature_And_Humidity_Sensor_Pro.md", source_entry_name: null,
+    modifications_notice: "Facts extracted and normalized.", imported_at: "2026-07-15T10:00:00Z", attribution: "Based on Seeed Studio Wiki.",
+    parser_name: "seeed-wiki-git-v1", parser_version: "1.0.0",
   }],
 };
 
@@ -79,7 +82,7 @@ test("student browses the catalog, switches theme and opens sourced learning con
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Исследуйте мир Arduino-компонентов" })).toBeVisible();
   await expect(page.locator(".hero__splat")).toHaveAttribute("aria-hidden", "true");
-  await expect(page.getByText("Источник: arduino-tex.ru")).toBeVisible();
+  await expect(page.getByText("Проверенный источник · GPL-3.0-only")).toBeVisible();
   await expect(page.getByRole("link", { name: /Добавить компонент/ })).toHaveCount(0);
   await page.keyboard.press("Tab");
   await expect(page.locator(":focus")).toBeVisible();
@@ -87,7 +90,7 @@ test("student browses the catalog, switches theme and opens sourced learning con
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.getByRole("link", { name: /Датчик температуры DHT22/ }).click();
   await expect(page.getByRole("heading", { name: "Источник материала" })).toBeVisible();
-  const source = page.getByRole("link", { name: /Arduino Tex/ });
+  const source = page.getByRole("link", { name: /Открыть источник/ });
   await expect(source).toHaveAttribute("target", "_blank");
   await expect(source).toHaveAttribute("rel", "noopener noreferrer");
   await page.getByRole("button", { name: "Показать подсказку 1" }).click();

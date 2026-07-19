@@ -1,6 +1,7 @@
 import type {
   ApiErrorBody,
   BackgroundJobListResponse,
+  CatalogSource,
   CatalogComponent,
   CatalogComponentListResponse,
   Category,
@@ -20,6 +21,11 @@ import type {
   MutationResponse,
   JobMutationResponse,
   JobStatus,
+  ImportJob,
+  RepositoryDiscoveryResponse,
+  RepositoryEntryDiscoveryResponse,
+  RepositoryImportInput,
+  RepositoryPreview,
   Role,
   User,
 } from "./contracts";
@@ -191,6 +197,7 @@ export const api = {
       csrf: true,
     }),
   listCatalogCategories: (): Promise<Category[]> => apiRequest<Category[]>("/catalog/categories"),
+  listCatalogSources: (): Promise<CatalogSource[]> => apiRequest<CatalogSource[]>("/catalog/sources"),
   listCatalogComponents: (filters: {
     query?: string;
     categoryId?: string;
@@ -205,6 +212,51 @@ export const api = {
   },
   getCatalogComponent: (slug: string): Promise<CatalogComponent> =>
     apiRequest<CatalogComponent>(`/catalog/components/${encodeURIComponent(slug)}`),
+  discoverRepositoryFiles: (input: {
+    sourceKey: RepositoryImportInput["source_key"];
+    revision: string;
+    query: string;
+    limit?: number;
+  }): Promise<RepositoryDiscoveryResponse> => {
+    const query = new URLSearchParams({
+      source_key: input.sourceKey,
+      revision: input.revision,
+      q: input.query,
+      limit: String(input.limit ?? 25),
+    });
+    return apiRequest<RepositoryDiscoveryResponse>(`/import-jobs/repository/discovery?${query.toString()}`);
+  },
+  discoverRepositoryEntries: (input: {
+    sourceKey: RepositoryImportInput["source_key"];
+    revision: string;
+    filePath: string;
+    query?: string;
+    limit?: number;
+  }): Promise<RepositoryEntryDiscoveryResponse> => {
+    const query = new URLSearchParams({
+      source_key: input.sourceKey,
+      revision: input.revision,
+      file_path: input.filePath,
+      limit: String(input.limit ?? 50),
+    });
+    if (input.query !== undefined && input.query.trim() !== "") query.set("q", input.query.trim());
+    return apiRequest<RepositoryEntryDiscoveryResponse>(`/import-jobs/repository/entries?${query.toString()}`);
+  },
+  previewRepositoryImport: (input: RepositoryImportInput): Promise<RepositoryPreview> =>
+    apiRequest<RepositoryPreview>("/import-jobs/repository/preview", {
+      method: "POST",
+      body: JSON.stringify(input),
+      csrf: true,
+    }),
+  createRepositoryImport: (input: RepositoryImportInput, idempotencyKey: string): Promise<ImportJob> =>
+    apiRequest<ImportJob>("/import-jobs/repository", {
+      method: "POST",
+      body: JSON.stringify(input),
+      headers: { "Idempotency-Key": idempotencyKey },
+      csrf: true,
+    }),
+  getImportJob: (jobId: string): Promise<ImportJob> =>
+    apiRequest<ImportJob>(`/import-jobs/${encodeURIComponent(jobId)}`),
   listDuplicateCandidates: (): Promise<DuplicateCandidateListResponse> =>
     apiRequest<DuplicateCandidateListResponse>("/admin/duplicates?status=open"),
   getDuplicateCandidate: (candidateId: string): Promise<DuplicateCandidate> =>

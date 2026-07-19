@@ -39,6 +39,11 @@ Playwright запускает собранный frontend через Vite previe
 безопасную source attribution, подсказку и скрытое решение. Реальная backend-авторизация отдельно
 проверяется integration-контуром. Тестовые ответы отсутствуют в production bundle.
 
+Vitest дополнительно проверяет administrator-only repository import: bounded discovery,
+entry selection, preview с license/provenance, создание draft job и переход к готовому черновику.
+Тест подтверждает отсутствие вызова publish. Страница `/sources` проверяется на разделение active
+и disabled источников и безопасные внешние ссылки.
+
 Четыре утверждённых visual artifacts для light/dark и desktop/mobile воспроизводятся только при
 `ACKB_UPDATE_SCREENSHOTS=1`. Обычный CI не перезаписывает файлы и отображает visual-update test
 как явный skip.

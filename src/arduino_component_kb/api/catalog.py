@@ -8,6 +8,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field, field_validator
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -34,6 +35,7 @@ from arduino_component_kb.catalog.domain import (
     TechnicalSpecification,
 )
 from arduino_component_kb.catalog.service import CatalogService
+from arduino_component_kb.imports.models import Source
 from arduino_component_kb.logging import current_request_id
 
 router = APIRouter(prefix="/api/v1/workspace", tags=["catalog-workspace"])
@@ -47,6 +49,22 @@ class CategoryResponse(BaseModel):
     id: str
     slug: str
     name: str
+
+
+class CatalogSourceResponse(BaseModel):
+    key: str
+    display_name: str
+    repository_url: str | None
+    source_type: str
+    status: str
+    content_policy: str
+    license_name: str | None
+    license_spdx: str | None
+    license_url: str | None
+    attribution_template: str | None
+    adapter_version: str
+    default_revision_policy: str
+    disable_reason: str | None
 
 
 class CategoryCreateRequest(BaseModel):
@@ -375,6 +393,19 @@ async def public_categories(
     return [
         CategoryResponse(id=str(x.id), slug=x.slug, name=x.name)
         for x in await CatalogService(session).categories()
+    ]
+
+
+@public_router.get("/sources", response_model=list[CatalogSourceResponse])
+async def public_sources(
+    _: Annotated[Principal, Depends(current_principal)],
+    session: Annotated[AsyncSession, Depends(database_session)],
+) -> list[CatalogSourceResponse]:
+    sources = (
+        await session.scalars(select(Source).order_by(Source.status, Source.display_name))
+    ).all()
+    return [
+        CatalogSourceResponse.model_validate(source, from_attributes=True) for source in sources
     ]
 
 

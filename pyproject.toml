@@ -45,7 +45,7 @@ dev = [
 where = ["src"]
 
 [tool.setuptools.data-files]
-"share/arduino-component-kb" = ["alembic.ini"]
+"share/arduino-component-kb" = ["alembic.ini", "THIRD_PARTY_NOTICES.md"]
 "share/arduino-component-kb/docs" = ["docs/*.md"]
 "share/arduino-component-kb/migrations" = ["migrations/*.py"]
 "share/arduino-component-kb/migrations/versions" = ["migrations/versions/*.py"]

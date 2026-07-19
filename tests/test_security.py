@@ -102,18 +102,25 @@ def test_sensitive_route_groups_keep_backend_role_dependencies() -> None:
     assert missing == []
 
 
-def test_repository_discovery_requires_administrator_role() -> None:
-    route = next(
-        route
-        for route in imports_router.routes
-        if isinstance(route, APIRoute) and route.path == "/api/v1/import-jobs/repository/discovery"
-    )
-    role_sets = {
-        frozenset(roles)
-        for call in _dependency_calls(route.dependant)
-        if (roles := inspect.getclosurevars(call).nonlocals.get("allowed")) is not None
+def test_repository_import_workflow_requires_administrator_role() -> None:
+    protected_paths = {
+        "/api/v1/import-jobs/repository/discovery",
+        "/api/v1/import-jobs/repository/entries",
+        "/api/v1/import-jobs/repository/preview",
+        "/api/v1/import-jobs/repository",
     }
-    assert frozenset({Role.ADMINISTRATOR}) in role_sets
+    checked: set[str] = set()
+    for route in imports_router.routes:
+        if not isinstance(route, APIRoute) or route.path not in protected_paths:
+            continue
+        role_sets = {
+            frozenset(roles)
+            for call in _dependency_calls(route.dependant)
+            if (roles := inspect.getclosurevars(call).nonlocals.get("allowed")) is not None
+        }
+        assert frozenset({Role.ADMINISTRATOR}) in role_sets
+        checked.add(route.path)
+    assert checked == protected_paths
 
 
 def test_security_headers_are_present_without_permissive_cors() -> None:

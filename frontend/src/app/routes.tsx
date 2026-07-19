@@ -4,6 +4,7 @@ import { AdminLayout } from "../layouts/AdminLayout";
 import { StudentLayout } from "../layouts/StudentLayout";
 import { AdminDashboardPage } from "../pages/AdminDashboardPage";
 import { AdminJobsPage } from "../pages/AdminJobsPage";
+import { AdminImportPage } from "../pages/AdminImportPage";
 import { AboutPage } from "../pages/AboutPage";
 import { CatalogPage } from "../pages/CatalogPage";
 import { CatalogComponentPage } from "../pages/CatalogComponentPage";
@@ -11,6 +12,7 @@ import { ComponentEditorPage } from "../pages/ComponentEditorPage";
 import { ComponentListPage } from "../pages/ComponentListPage";
 import { DuplicateReviewPage } from "../pages/DuplicateReviewPage";
 import { LoginPage } from "../pages/LoginPage";
+import { SourcesPage } from "../pages/SourcesPage";
 import { ForbiddenPage, NotFoundPage, RouteErrorPage } from "../pages/StatusPages";
 import { RequireAnyRole, RequireAuthenticated } from "../routing/guards";
 
@@ -30,6 +32,7 @@ export const routes: RouteObject[] = [
           { index: true, element: <CatalogPage /> },
           { path: "/components/:slug", element: <CatalogComponentPage /> },
           { path: "/about", element: <AboutPage /> },
+          { path: "/sources", element: <SourcesPage /> },
         ],
       },
       {
@@ -47,6 +50,7 @@ export const routes: RouteObject[] = [
                 element: <RequireAnyRole roles={["administrator"]} />,
                 children: [
                   { path: "jobs", element: <AdminJobsPage /> },
+                  { path: "import", element: <AdminImportPage /> },
                   { path: "duplicates", element: <DuplicateReviewPage /> },
                   { path: "duplicates/:candidateId", element: <DuplicateReviewPage /> },
                 ],

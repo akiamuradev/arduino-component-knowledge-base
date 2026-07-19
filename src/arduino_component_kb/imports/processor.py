@@ -102,7 +102,14 @@ async def process_import_job(job_id: UUID, settings: Settings) -> None:
                     )
                     await adapter.validate_revision(acquired_entry.snapshot.revision)
                     parsed_repository = await adapter.parse_entry(
-                        acquired_entry.snapshot, entry, parsed_at=datetime.now(UTC)
+                        acquired_entry.snapshot,
+                        entry,
+                        parsed_at=datetime.now(UTC),
+                        source_tag=(
+                            requested_revision
+                            if requested_revision != acquired_entry.snapshot.revision
+                            else None
+                        ),
                     )
                 except RepositoryAcquisitionError as error:
                     if error.retryable:
