@@ -8,6 +8,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field, field_validator
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,6 +23,7 @@ from arduino_component_kb.auth.repository import AuthRepository
 from arduino_component_kb.catalog.domain import (
     CatalogCard,
     CatalogError,
+    CatalogValidationError,
     CodeExample,
     CodeExampleVisibility,
     CompatibilityItem,
@@ -29,9 +31,11 @@ from arduino_component_kb.catalog.domain import (
     Difficulty,
     DraftData,
     RevisionConflictError,
+    SourceSnapshot,
     TechnicalSpecification,
 )
 from arduino_component_kb.catalog.service import CatalogService
+from arduino_component_kb.imports.models import Source
 from arduino_component_kb.logging import current_request_id
 
 router = APIRouter(prefix="/api/v1/workspace", tags=["catalog-workspace"])
@@ -45,6 +49,22 @@ class CategoryResponse(BaseModel):
     id: str
     slug: str
     name: str
+
+
+class CatalogSourceResponse(BaseModel):
+    key: str
+    display_name: str
+    repository_url: str | None
+    source_type: str
+    status: str
+    content_policy: str
+    license_name: str | None
+    license_spdx: str | None
+    license_url: str | None
+    attribution_template: str | None
+    adapter_version: str
+    default_revision_policy: str
+    disable_reason: str | None
 
 
 class CategoryCreateRequest(BaseModel):
@@ -181,6 +201,24 @@ class LifecycleRequest(BaseModel):
     revision: int = Field(ge=1)
 
 
+class SourceSnapshotResponse(BaseModel):
+    display_name: str
+    original_url: str | None
+    repository_url: str | None
+    license_name: str
+    license_spdx: str
+    license_url: str
+    source_revision: str
+    source_tag: str | None
+    source_file_path: str | None
+    source_entry_name: str | None
+    modifications_notice: str
+    imported_at: datetime
+    attribution: str
+    parser_name: str
+    parser_version: str
+
+
 class ComponentResponse(BaseModel):
     id: str
     slug: str
@@ -206,6 +244,7 @@ class ComponentResponse(BaseModel):
     specifications: list[SpecificationResponse]
     compatibility: list[CompatibilityResponse]
     code_examples: list[CodeExampleResponse]
+    sources: list[SourceSnapshotResponse]
 
 
 class ComponentListResponse(BaseModel):
@@ -232,6 +271,7 @@ class PublicComponentResponse(BaseModel):
     specifications: list[SpecificationResponse]
     compatibility: list[CompatibilityResponse]
     code_examples: list[CodeExampleResponse]
+    sources: list[SourceSnapshotResponse]
 
 
 class PublicComponentListResponse(BaseModel):
@@ -274,6 +314,10 @@ def code_example_response(item: CodeExample) -> CodeExampleResponse:
     )
 
 
+def source_snapshot_response(item: SourceSnapshot) -> SourceSnapshotResponse:
+    return SourceSnapshotResponse.model_validate(item, from_attributes=True)
+
+
 def response(card: CatalogCard) -> ComponentResponse:
     data = card.data
     return ComponentResponse(
@@ -291,6 +335,7 @@ def response(card: CatalogCard) -> ComponentResponse:
         specifications=[specification_response(item) for item in data.specifications],
         compatibility=[compatibility_response(item) for item in data.compatibility],
         code_examples=[code_example_response(item) for item in data.code_examples],
+        sources=[source_snapshot_response(item) for item in card.sources],
         **{
             key: getattr(data, key)
             for key in (
@@ -336,6 +381,7 @@ def public_response(card: CatalogCard) -> PublicComponentResponse:
         specifications=[specification_response(item) for item in data.specifications],
         compatibility=[compatibility_response(item) for item in data.compatibility],
         code_examples=[code_example_response(item) for item in data.code_examples],
+        sources=[source_snapshot_response(item) for item in card.sources],
     )
 
 
@@ -347,6 +393,19 @@ async def public_categories(
     return [
         CategoryResponse(id=str(x.id), slug=x.slug, name=x.name)
         for x in await CatalogService(session).categories()
+    ]
+
+
+@public_router.get("/sources", response_model=list[CatalogSourceResponse])
+async def public_sources(
+    _: Annotated[Principal, Depends(current_principal)],
+    session: Annotated[AsyncSession, Depends(database_session)],
+) -> list[CatalogSourceResponse]:
+    sources = (
+        await session.scalars(select(Source).order_by(Source.status, Source.display_name))
+    ).all()
+    return [
+        CatalogSourceResponse.model_validate(source, from_attributes=True) for source in sources
     ]
 
 
@@ -394,6 +453,8 @@ async def _commit(session: AsyncSession, action: str, actor: Principal, card: Ca
 def _error(error: Exception) -> HTTPException:
     if isinstance(error, RevisionConflictError):
         return HTTPException(409, detail={"code": "revision_conflict"})
+    if isinstance(error, CatalogValidationError):
+        return HTTPException(409, detail={"code": error.code})
     return HTTPException(409, detail={"code": "catalog_conflict"})
 
 

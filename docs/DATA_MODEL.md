@@ -122,34 +122,46 @@ revision `20260716_11`.
 
 ### `sources`
 
-`id`, `key`, `seed_url`, `allowed_host`, `adapter`, `adapter_version`,
-`policy(metadata_only|licensed_content)`, `rights_note?`, `attribution_template?`,
+Основные поля: `id`, `key`, `display_name`,
+`source_type(website|git_repository|official_library)`, `status(active|inactive|disabled)`,
+`seed_url`, `allowed_host?`, `repository_url?`, `repository_owner?`, `repository_name?`,
+`default_revision_policy(immutable_commit|release_tag)`, `adapter`, `adapter_version`,
+`policy`, `content_policy`, `license_name?`, `license_spdx?`, `license_url?`,
+`attribution_template?`, `permission_status(unknown|denied|license_granted)`, `disable_reason?`,
+`allow_text_import(none|limited|full)`, отдельные allow flags для facts/media/code/attachments,
 `is_enabled`, `created_by`, `updated_at`.
 
-В baseline существуют `arduino_tex`, `portal_pk`, `alexgyver`. Изменение policy доступно
-только administrator и аудитируется.
+`seeed_wiki` и `kicad_symbols` активны и имеют immutable repository/license policy.
+`alexgyver` disabled/denied с `owner_denied_usage`; `arduino_tex` и `portal_pk` inactive/unknown.
+Исторические rows не удаляются. Partial unique index защищает `repository_url`.
 
 ### `component_sources`
 
-`id`, `component_id`, `source_id`, `submitted_url`, `canonical_url`, `source_item_id?`,
-`retrieved_at`, `adapter_version`, `content_sha256`, `attribution?`, `raw_snapshot_key?`.
+Сохраняет прежние URL/hash поля и immutable repository snapshot:
+`source_revision?`, `source_tag?`, `source_file_path?`, `source_entry_name?`, `original_url?`,
+`imported_at?`, `imported_fields`, `provenance_json`, `modifications_notice?`,
+`license_snapshot_name?`, `license_snapshot_spdx?`, `license_snapshot_url?`,
+`attribution_snapshot?`, `parser_name?`, `parser_version?`.
 
-Unique: `(source_id, canonical_url)` и partial unique `(source_id, source_item_id)` при
-непустом identifier. `raw_snapshot_key` допустим только policy `licensed_content` и указывает
-на private MinIO object.
+Repository unique identity: `(source_id, source_revision, source_file_path, source_entry_name)`.
+Старый `(source_id, source_item_id)` применяется только к website rows без revision. Полный
+commit имеет 40 lowercase hex symbols. License snapshot не вычисляется заново при чтении.
 
 ### `import_jobs`
 
-`id`, `source_id`, `submitted_url`, `canonical_url?`,
+`id`, `source_id`, `submitted_url`, `canonical_url?`, `repository_url?`,
+`requested_revision?`, `source_revision?`, `source_file_path?`, `source_entry_name?`,
 `status(queued|running|retrying|succeeded|failed)`, `requested_by`, `idempotency_key`, `attempts`,
-`max_attempts`, `parser_version`, `draft_component_id?`, `error_code?`, `created_at`,
+`max_attempts`, `parser_name?`, `parser_version?`, `parse_status?`, `warnings_json`,
+`draft_component_id?`, `error_code?`, `created_at`,
 `started_at?`, `next_retry_at?`, `finished_at?`, `updated_at`.
 
 Unique: `(requested_by, idempotency_key)`. `succeeded` требует `draft_component_id`;
 `failed` требует typed `error_code`. Job result никогда не указывает на автоматически
 published component.
 
-Revision `20260716_08` создаёт эти таблицы и exact UNIQUE indexes. `ParsedComponent` фиксирует
+Revision `20260716_08` создаёт baseline URL tables. Revision `20260716_13` расширяет их для
+repository/license snapshots и seed policy без удаления истории. `ParsedComponent` фиксирует
 persistence contract: `status=draft`, `source_policy=metadata_only`, `source_host`,
 `source_url`, `canonical_url`, `source_item_id`, `source_content_sha256`, `parser_name`,
 `parser_version`, `parsed_at`,
@@ -157,6 +169,12 @@ bounded `title/summary/description`, aliases/model/category hint/tags. Поля 
 binary body отсутствуют. Нормализованные `components.normalized_manufacturer` и
 `components.normalized_model` заполняются application service; parser worker сохраняет только
 draft и provenance. Любое DDL выполняется только Alembic.
+
+`ParsedRepositoryComponent` всегда имеет `draft_status=draft`, full commit, registered
+repository, typed parse status, normalized fields, provenance каждого поля, license snapshot,
+attribution и modifications notice. Seeed idempotency включает source/repository/commit/file;
+KiCad дополнительно включает entry name. Новая revision не обновляет существующую published
+revision автоматически.
 
 Каждый adapter имеет стабильные `parser_name` и semantic `parser_version`; fixture update,
 который меняет извлечение полей, требует новой parser version. Drift diagnostic является

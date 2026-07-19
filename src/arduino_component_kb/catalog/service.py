@@ -26,6 +26,7 @@ from arduino_component_kb.catalog.domain import (
     Difficulty,
     DraftData,
     RevisionConflictError,
+    SourceSnapshot,
     TechnicalSpecification,
 )
 from arduino_component_kb.catalog.models import (
@@ -257,13 +258,8 @@ class CatalogService:
         if target is ComponentStatus.PUBLISHED:
             from arduino_component_kb.deduplication.models import DuplicateCandidate
             from arduino_component_kb.deduplication.scoring import HIGH_SCORE_THRESHOLD
-            from arduino_component_kb.imports.models import ComponentSource
 
-            source_count = await self.session.scalar(
-                select(func.count())
-                .select_from(ComponentSource)
-                .where(ComponentSource.component_id == row.id)
-            )
+            source_rows = await self._component_source_rows(row.id)
             high_duplicates = await self.session.scalar(
                 select(func.count())
                 .select_from(DuplicateCandidate)
@@ -278,11 +274,13 @@ class CatalogService:
             )
             if (
                 row.status != ComponentStatus.DRAFT.value
-                or (not row.manual_original and source_count == 0)
+                or (not row.manual_original and not source_rows)
                 or high_duplicates != 0
                 or not row.description.strip()
             ):
                 raise CatalogValidationError
+            if not row.manual_original:
+                self._validate_publish_sources(source_rows)
             row.published_at = datetime.now(UTC)
         elif target is ComponentStatus.ARCHIVED:
             if row.status != ComponentStatus.PUBLISHED.value:
@@ -827,6 +825,7 @@ class CatalogService:
             row.revision,
             row.updated_at,
             row.published_at,
+            await self._source_snapshots(row.id),
         )
 
     async def _snapshot(
@@ -875,6 +874,10 @@ class CatalogService:
                     }
                     for item in data.code_examples
                 ],
+                "sources": [
+                    self._source_snapshot_dict(item)
+                    for item in await self._source_snapshots(row.id)
+                ],
             }
         )
         self.session.add(
@@ -909,6 +912,7 @@ class CatalogService:
         specifications = _snapshot_records(content.get("specifications", []))
         compatibility = _snapshot_records(content.get("compatibility", []))
         code_examples = _snapshot_records(content.get("code_examples", []))
+        source_records = _snapshot_records(content.get("sources", []))
         data = DraftData(
             slug=str(content["slug"]),
             title=str(content["title"]),
@@ -974,4 +978,130 @@ class CatalogService:
             snapshot.revision,
             snapshot.created_at,
             snapshot.created_at,
+            tuple(self._source_snapshot_from_dict(item) for item in source_records),
+        )
+
+    async def _component_source_rows(self, component_id: UUID) -> list[tuple[object, object]]:
+        from arduino_component_kb.imports.models import ComponentSource, Source
+
+        rows = await self.session.execute(
+            select(ComponentSource, Source)
+            .join(Source, Source.id == ComponentSource.source_id)
+            .where(ComponentSource.component_id == component_id)
+            .order_by(ComponentSource.imported_at, ComponentSource.id)
+        )
+        return [(row[0], row[1]) for row in rows]
+
+    def _validate_publish_sources(self, rows: list[tuple[object, object]]) -> None:
+        from arduino_component_kb.imports.models import ComponentSource, Source
+
+        for raw_relation, raw_source in rows:
+            relation = cast(ComponentSource, raw_relation)
+            source = cast(Source, raw_source)
+            if source.permission_status == "denied":
+                raise CatalogValidationError("source_permission_denied")
+            if source.status != "active" or not source.is_enabled:
+                raise CatalogValidationError("source_inactive")
+            if source.permission_status != "license_granted":
+                raise CatalogValidationError("source_license_unknown")
+            if not relation.source_revision:
+                raise CatalogValidationError("source_revision_missing")
+            if not relation.original_url and not source.repository_url:
+                raise CatalogValidationError("source_origin_missing")
+            if not all(
+                (
+                    relation.license_snapshot_name,
+                    relation.license_snapshot_spdx,
+                    relation.license_snapshot_url,
+                )
+            ):
+                raise CatalogValidationError("source_license_missing")
+            if not relation.attribution_snapshot:
+                raise CatalogValidationError("source_attribution_missing")
+            if not relation.modifications_notice:
+                raise CatalogValidationError("source_modifications_notice_missing")
+
+    async def _source_snapshots(self, component_id: UUID) -> tuple[SourceSnapshot, ...]:
+        from arduino_component_kb.imports.models import ComponentSource, Source
+
+        result: list[SourceSnapshot] = []
+        for raw_relation, raw_source in await self._component_source_rows(component_id):
+            relation = cast(ComponentSource, raw_relation)
+            source = cast(Source, raw_source)
+            if not all(
+                (
+                    source.display_name,
+                    relation.source_revision,
+                    relation.license_snapshot_name,
+                    relation.license_snapshot_spdx,
+                    relation.license_snapshot_url,
+                    relation.modifications_notice,
+                    relation.imported_at,
+                    relation.attribution_snapshot,
+                    relation.parser_name,
+                    relation.parser_version,
+                )
+            ):
+                continue
+            result.append(
+                SourceSnapshot(
+                    display_name=source.display_name,
+                    original_url=relation.original_url,
+                    repository_url=source.repository_url,
+                    license_name=cast(str, relation.license_snapshot_name),
+                    license_spdx=cast(str, relation.license_snapshot_spdx),
+                    license_url=cast(str, relation.license_snapshot_url),
+                    source_revision=cast(str, relation.source_revision),
+                    source_tag=relation.source_tag,
+                    source_file_path=relation.source_file_path,
+                    source_entry_name=relation.source_entry_name,
+                    modifications_notice=cast(str, relation.modifications_notice),
+                    imported_at=cast(datetime, relation.imported_at),
+                    attribution=cast(str, relation.attribution_snapshot),
+                    parser_name=cast(str, relation.parser_name),
+                    parser_version=cast(str, relation.parser_version),
+                )
+            )
+        return tuple(result)
+
+    def _source_snapshot_dict(self, item: SourceSnapshot) -> dict[str, object]:
+        return {
+            "display_name": item.display_name,
+            "original_url": item.original_url,
+            "repository_url": item.repository_url,
+            "license_name": item.license_name,
+            "license_spdx": item.license_spdx,
+            "license_url": item.license_url,
+            "source_revision": item.source_revision,
+            "source_tag": item.source_tag,
+            "source_file_path": item.source_file_path,
+            "source_entry_name": item.source_entry_name,
+            "modifications_notice": item.modifications_notice,
+            "imported_at": item.imported_at.isoformat(),
+            "attribution": item.attribution,
+            "parser_name": item.parser_name,
+            "parser_version": item.parser_version,
+        }
+
+    def _source_snapshot_from_dict(self, item: dict[str, object]) -> SourceSnapshot:
+        return SourceSnapshot(
+            display_name=str(item["display_name"]),
+            original_url=str(item["original_url"]) if item.get("original_url") else None,
+            repository_url=str(item["repository_url"]) if item.get("repository_url") else None,
+            license_name=str(item["license_name"]),
+            license_spdx=str(item["license_spdx"]),
+            license_url=str(item["license_url"]),
+            source_revision=str(item["source_revision"]),
+            source_tag=str(item["source_tag"]) if item.get("source_tag") else None,
+            source_file_path=(
+                str(item["source_file_path"]) if item.get("source_file_path") else None
+            ),
+            source_entry_name=(
+                str(item["source_entry_name"]) if item.get("source_entry_name") else None
+            ),
+            modifications_notice=str(item["modifications_notice"]),
+            imported_at=datetime.fromisoformat(str(item["imported_at"])),
+            attribution=str(item["attribution"]),
+            parser_name=str(item["parser_name"]),
+            parser_version=str(item["parser_version"]),
         )

@@ -34,7 +34,7 @@ export function CatalogComponentPage() {
         {card.usage_notes ? <section><h2>Использование</h2><p className="preserve-lines">{card.usage_notes}</p></section> : null}
         {card.safety_notes ? <section className="safety-callout"><p className="section-kicker">Важно</p><h2>Безопасность</h2><p className="preserve-lines">{card.safety_notes}</p></section> : null}
         {card.code_examples.length > 0 ? <section><p className="section-kicker">Практикум</p><h2>Попробуйте сами</h2>{card.code_examples.map((example) => <LearningExample example={example} key={`${String(example.position)}:${example.title}`} />)}</section> : null}
-        {card.provenance !== undefined ? <SourceAttributionBlock provenance={card.provenance} /> : null}
+        <SourceAttributionBlock sources={card.sources} />
       </div>
       <aside className="component-facts" aria-label="Краткие сведения"><p className="eyebrow">Кратко</p><dl><div><dt>Производитель</dt><dd>{card.manufacturer ?? "Не указан"}</dd></div><div><dt>Модель</dt><dd>{card.model ?? "Не указана"}</dd></div><div><dt>Уровень</dt><dd>{difficultyLabels[card.difficulty]}</dd></div><div><dt>Категория</dt><dd>{card.primary_category.name}</dd></div></dl></aside>
     </div>

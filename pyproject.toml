@@ -28,6 +28,9 @@ dependencies = [
 ackb-bootstrap-admin = "arduino_component_kb.bootstrap:main"
 ackb-provision-media = "arduino_component_kb.media.provision:main"
 ackb-explain-search = "arduino_component_kb.catalog.explain:main"
+ackb-import-dry-run = "arduino_component_kb.imports.dry_run:main"
+ackb-validate-repository-samples = "arduino_component_kb.imports.sample_validation:main"
+ackb-validate-repository-jobs = "arduino_component_kb.imports.job_validation:main"
 
 [project.optional-dependencies]
 dev = [
@@ -42,7 +45,7 @@ dev = [
 where = ["src"]
 
 [tool.setuptools.data-files]
-"share/arduino-component-kb" = ["alembic.ini"]
+"share/arduino-component-kb" = ["alembic.ini", "THIRD_PARTY_NOTICES.md"]
 "share/arduino-component-kb/docs" = ["docs/*.md"]
 "share/arduino-component-kb/migrations" = ["migrations/*.py"]
 "share/arduino-component-kb/migrations/versions" = ["migrations/versions/*.py"]

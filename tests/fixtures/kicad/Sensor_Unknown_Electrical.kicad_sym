@@ -1,0 +1,7 @@
+(kicad_symbol_lib
+  (version 20231120)
+  (symbol "FutureSensor"
+    (property "Reference" "U")
+    (property "Value" "FutureSensor")
+    (property "Description" "Fixture with a future electrical type")
+    (pin quantum line (name "DATA") (number "1"))))

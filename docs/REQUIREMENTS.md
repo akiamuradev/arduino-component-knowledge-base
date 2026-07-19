@@ -13,47 +13,58 @@
 
 ## Источники импорта
 
-| Код | Пилотный URL | Разрешённый host | Назначение адаптера |
-|---|---|---|---|
-| `arduino_tex` | <https://arduino-tex.ru/> | `arduino-tex.ru` | Уроки, модули и проекты Arduino |
-| `portal_pk` | <https://portal-pk.ru/> | `portal-pk.ru` | Уроки и проекты Arduino |
-| `alexgyver` | <https://alexgyver.ru/ardu-proj/> | `alexgyver.ru` | Каталог Arduino-проектов |
+Активные источники являются только заранее зарегистрированными immutable Git repositories:
 
-REQ-SRC-001. Каждый источник реализуется отдельным versioned adapter. Произвольный URL
-не выбирает парсер по содержимому страницы.
+| Код | Repository | Тип | Лицензия | Политика |
+|---|---|---|---|---|
+| `seeed_wiki` | <https://github.com/Seeed-Studio/wiki-documents> | `git_repository` | `GPL-3.0-only` | факты и ограниченная адаптация текста |
+| `kicad_symbols` | <https://gitlab.com/kicad/libraries/kicad-symbols> | `official_library` | `CC-BY-SA-4.0` | структурированные свойства и выводы |
 
-REQ-SRC-002. Backend принимает только HTTPS URL с host из allowlist и повторно проверяет
-каждый redirect. Credentials, нестандартные порты и URL с неоднозначной canonicalization
-отклоняются.
+Исторические website sources не удаляются. `alexgyver` имеет `status=disabled`,
+`permission_status=denied`, `disable_reason=owner_denied_usage`. `arduino_tex` и `portal_pk`
+имеют `status=inactive`, `permission_status=unknown`. Для них запрещены новые jobs и
+публикация старых draft до появления разрешённого license snapshot.
 
-REQ-SRC-003. Источник по умолчанию работает в режиме `metadata_only`. Загрузка и
-долговременное хранение исходного текста или binary media включаются администратором
-только после фиксации прав, объёма использования и правил атрибуции.
+REQ-SRC-001. Каждый источник реализуется отдельным versioned adapter. Произвольный URL или
+Git repository от пользователя запрещён и не выбирает parser по содержимому.
 
-REQ-SRC-004. Успешный parser job всегда создаёт или обновляет `draft`; parser не может
-установить `published` и не может объединить компоненты.
+REQ-SRC-002. Repository import принимает только зарегистрированный repository и полный
+40-символьный commit SHA. Branch/tag разрешается backend в commit до создания durable job;
+resolved SHA сохраняется в job, provenance и source snapshot.
 
-REQ-SRC-005. Для каждой импортированной карточки сохраняются source URL, canonical URL,
-время получения, adapter/version, source identifier при наличии, content hash и атрибуция.
+REQ-SRC-003. `seeed-wiki-git-v1` читает Markdown/MDX как данные: frontmatter, headings,
+таблицы и ссылки. MDX/JSX, imports, code blocks, images и attachments не выполняются и не
+импортируются. Неизвестный необязательный раздел даёт warning, а не сбой всего документа.
 
-REQ-SRC-006. Первым реализован `arduino-tex.ru` adapter для `/news/{id}/{slug}.html`.
-Его versioned fixture проверяет DOM contract; результат содержит только metadata/plain text,
-имеет `status=draft` и `source_policy=metadata_only`. Revision `20260716_08` сохраняет этот
-результат как draft и source provenance через durable import job.
+REQ-SRC-004. `kicad-symbols-v1` разбирает `.kicad_sym` собственным bounded S-expression
+reader без shell/external commands. Backend allowlist ограничивает библиотеки; пользователь
+не может расширить allowlist параметром job.
 
-REQ-SRC-007. Fetcher повторно разрешает все A/AAAA для initial URL и каждого redirect,
-отклоняет запрос, если хотя бы один адрес non-global, и подключается к выбранному проверенному
-IP с исходными Host/SNI и TLS verification. System proxy, cookies, credentials и automatic
-redirects запрещены; decoded HTML ограничен 2 MiB, headers — 32 KiB, redirects — тремя.
+REQ-SRC-005. Parser result имеет status `parsed`, `parsed_with_warnings`,
+`unsupported_document`, `source_drift`, `invalid_metadata`, `license_missing` или `failed`.
+Каждое сохранённое поле имеет repository, commit, file, section/property, confidence и
+transformation.
 
-REQ-SRC-008. `portal-pk.ru` использует отдельный adapter v1 для `/news/{id}-{slug}.html`,
-а `alexgyver.ru` — отдельный adapter v1 для detail page `/{project}/`; индекс
-`/ardu-proj/` не считается карточкой компонента. Оба возвращают тот же metadata-only draft
-contract и не импортируют article body, downloads, scripts или media.
+REQ-SRC-006. Успешный parser job всегда создаёт только `draft`; parser не может установить
+`published`, изменить published snapshot или объединить компоненты.
 
-REQ-SRC-009. Parser drift возвращает bounded diagnostic с typed code, source host,
-parser name/version и logical field. Raw HTML, URL query, remote text и внутренний traceback
-в diagnostic не включаются; отсутствие и неоднозначность обязательных metadata различаются.
+REQ-SRC-007. Идентичность Seeed включает source/repository/commit/file. Идентичность KiCad
+дополнительно включает symbol name. Повтор той же revision переиспользует draft; новая revision
+создаёт отдельный review candidate и не меняет опубликованную revision.
+
+REQ-SRC-008. `component_sources` сохраняет immutable license snapshot, attribution,
+modifications notice, repository/file/entry, parser version, imported fields и field provenance.
+Изменение настроек `sources` не меняет уже опубликованный snapshot.
+
+REQ-SRC-009. Imported draft нельзя опубликовать без display name, original/repository URL,
+immutable revision, SPDX, license URL, attribution и modifications notice. Backend возвращает
+typed error code. Manual original остаётся отдельным явно отмеченным типом материала.
+
+REQ-SRC-010. Лицензия приложения не заменяет лицензию импортированных данных. Seeed media/code
+и KiCad media/code/attachments не импортируются текущей политикой.
+
+REQ-SRC-011. Одна повреждённая запись или необязательное поле не останавливает bounded batch;
+warning и failure содержат безопасный code без raw document и traceback.
 
 ## Роли и авторизация
 
@@ -204,13 +215,14 @@ REQ-MEDIA-004. Download производится через короткожив
 
 ## Импорт и дедупликация
 
-1. Teacher отправляет один URL через backend.
-2. Backend валидирует роль, source policy и URL, создаёт durable import job в PostgreSQL
-   и публикует его identifier в Dramatiq через Redis.
-3. Worker повторно валидирует target, запускает ровно один source adapter и нормализует
-   данные без исполнения remote HTML/JavaScript.
-4. Результат сохраняется как draft и source record; media candidates остаются ссылками
-   либо попадают в quarantine согласно source policy.
+1. Administrator выбирает registered source, revision и discovered file/entry. Исторический
+   URL endpoint остаётся только для совместимости и отклоняет все inactive/denied sources.
+2. Backend проверяет роль и source/license policy, разрешает revision в полный commit,
+   создаёт durable import job в PostgreSQL и публикует identifier в Dramatiq через Redis.
+3. Worker повторно проверяет source status, repository identity и immutable revision, запускает
+   ровно один repository adapter и не выполняет MDX, JavaScript, Git hooks или KiCad commands.
+4. Результат сохраняется как draft, source relation, provenance и license snapshot. Remote
+   images, code, archives и attachments не загружаются.
 5. Exact и fuzzy dedup формируют объяснимые candidates с evidence.
 6. Teacher редактирует draft. Administrator отдельно выбирает merge/attach/create/reject.
 7. После разрешения конфликтов teacher или administrator публикует revision.
