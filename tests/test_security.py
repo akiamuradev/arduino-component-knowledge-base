@@ -106,8 +106,7 @@ def test_repository_discovery_requires_administrator_role() -> None:
     route = next(
         route
         for route in imports_router.routes
-        if isinstance(route, APIRoute)
-        and route.path == "/api/v1/import-jobs/repository/discovery"
+        if isinstance(route, APIRoute) and route.path == "/api/v1/import-jobs/repository/discovery"
     )
     role_sets = {
         frozenset(roles)
