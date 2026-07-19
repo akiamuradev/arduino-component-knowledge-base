@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from arduino_component_kb.api.dependencies import csrf_principal
 from arduino_component_kb.api.imports import get_import
+from arduino_component_kb.api.imports import router as imports_router
 from arduino_component_kb.auth.domain import Principal, Role
 from arduino_component_kb.config import Settings
 from arduino_component_kb.imports.models import ImportJob
@@ -99,6 +100,21 @@ def test_sensitive_route_groups_keep_backend_role_dependencies() -> None:
         if required not in role_sets:
             missing.append(route.path)
     assert missing == []
+
+
+def test_repository_discovery_requires_administrator_role() -> None:
+    route = next(
+        route
+        for route in imports_router.routes
+        if isinstance(route, APIRoute)
+        and route.path == "/api/v1/import-jobs/repository/discovery"
+    )
+    role_sets = {
+        frozenset(roles)
+        for call in _dependency_calls(route.dependant)
+        if (roles := inspect.getclosurevars(call).nonlocals.get("allowed")) is not None
+    }
+    assert frozenset({Role.ADMINISTRATOR}) in role_sets
 
 
 def test_security_headers_are_present_without_permissive_cors() -> None:

@@ -79,14 +79,14 @@ class Settings(DatabaseSettings):
     repository_read_timeout_seconds: float = Field(default=20.0, ge=2, le=60)
     repository_total_timeout_seconds: float = Field(default=30.0, ge=5, le=120)
     repository_max_response_bytes: int = Field(
-        default=3 * 1024 * 1024, ge=64 * 1024, le=8 * 1024 * 1024
+        default=8 * 1024 * 1024, ge=64 * 1024, le=8 * 1024 * 1024
     )
     repository_max_file_bytes: int = Field(
         default=2 * 1024 * 1024, ge=16 * 1024, le=4 * 1024 * 1024
     )
     kicad_library_allowlist: str = (
-        "Sensor_,MCU_,Display_,Relay,Switch,Connector,Motor,Driver_Motor,Regulator_,"
-        "Transistor_,Diode,LED,Memory,Interface_"
+        "Sensor_,MCU_,Display_,74xx,Relay,Switch,Connector,Motor,Driver_Motor,Regulator_,"
+        "Transistor_,Transistor_Array,Timer,Diode,LED,Memory,Interface_"
     )
     ffprobe_path: str = "ffprobe"
     ffmpeg_path: str = "ffmpeg"

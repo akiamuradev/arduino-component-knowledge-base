@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Annotated, Literal, cast
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,6 +14,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from arduino_component_kb.api.dependencies import csrf_principal, database_session, require_roles
 from arduino_component_kb.auth.domain import Principal, Role
 from arduino_component_kb.config import Settings
+from arduino_component_kb.imports.acquisition import (
+    AcquisitionPolicy,
+    RepositoryAcquirer,
+    RepositoryAcquisitionError,
+)
 from arduino_component_kb.imports.domain import SourcePolicyError
 from arduino_component_kb.imports.models import ImportJob
 from arduino_component_kb.imports.queue import ImportQueue
@@ -59,12 +64,37 @@ class RepositoryImportRequest(BaseModel):
     entry_name: str | None = Field(default=None, min_length=1, max_length=300)
 
 
+class RepositoryFileResponse(BaseModel):
+    file_path: str
+    size: int | None
+
+
+class RepositoryDiscoveryResponse(BaseModel):
+    source_key: Literal["seeed_wiki", "kicad_symbols"]
+    repository_url: str
+    revision: str
+    files_scanned: int
+    files: list[RepositoryFileResponse]
+
+
 def _response(job: ImportJob) -> ImportJobResponse:
     return ImportJobResponse.model_validate(job, from_attributes=True)
 
 
 def queue_from_request(request: Request) -> ImportQueue:
     return cast(ImportQueue, request.app.state.import_queue)
+
+
+def _acquirer(settings: Settings) -> RepositoryAcquirer:
+    return RepositoryAcquirer(
+        policy=AcquisitionPolicy(
+            connect_timeout_seconds=settings.repository_connect_timeout_seconds,
+            read_timeout_seconds=settings.repository_read_timeout_seconds,
+            total_timeout_seconds=settings.repository_total_timeout_seconds,
+            max_response_bytes=settings.repository_max_response_bytes,
+            max_file_bytes=settings.repository_max_file_bytes,
+        )
+    )
 
 
 @router.post("", response_model=ImportJobResponse, status_code=status.HTTP_202_ACCEPTED)
@@ -114,6 +144,46 @@ async def create_import(
             raise HTTPException(503, detail={"code": "import_enqueue_failed"}) from error
     response.headers["Cache-Control"] = "no-store"
     return _response(job)
+
+
+@router.get("/repository/discovery", response_model=RepositoryDiscoveryResponse)
+async def discover_repository_files(
+    request: Request,
+    response: Response,
+    source_key: Annotated[Literal["seeed_wiki", "kicad_symbols"], Query()],
+    revision: Annotated[str, Query(min_length=1, max_length=100)],
+    actor: Annotated[Principal, Depends(administrator)],
+    session: Annotated[AsyncSession, Depends(database_session)],
+    query: Annotated[str | None, Query(alias="q", min_length=2, max_length=100)] = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+) -> RepositoryDiscoveryResponse:
+    del actor
+    source = await ImportRepository(session).source_for_key(source_key)
+    if source is None or source.repository_url is None:
+        raise HTTPException(422, detail={"code": "source_disabled"})
+    settings = cast(Settings, request.app.state.settings)
+    try:
+        result = await _acquirer(settings).discover_files(
+            source.key,
+            source.repository_url,
+            revision,
+            query=query,
+            limit=limit,
+        )
+    except RepositoryAcquisitionError as error:
+        status_code = 503 if error.retryable else 422
+        raise HTTPException(status_code, detail={"code": error.code}) from error
+    response.headers["Cache-Control"] = "no-store"
+    return RepositoryDiscoveryResponse(
+        source_key=source_key,
+        repository_url=result.repository_url,
+        revision=result.revision,
+        files_scanned=result.files_scanned,
+        files=[
+            RepositoryFileResponse(file_path=item.file_path, size=item.size)
+            for item in result.files
+        ],
+    )
 
 
 @router.post("/repository", response_model=ImportJobResponse, status_code=status.HTTP_202_ACCEPTED)

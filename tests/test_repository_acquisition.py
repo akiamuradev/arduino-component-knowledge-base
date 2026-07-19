@@ -53,7 +53,7 @@ async def test_github_revision_and_file_are_pinned_and_bounded() -> None:
             {
                 "type": "file",
                 "encoding": "base64",
-                "content": base64.b64encode(content).decode(),
+                "content": base64.b64encode(content).decode() + "\n",
             }
         )
 
@@ -153,3 +153,115 @@ async def test_path_traversal_is_rejected_before_network() -> None:
             "main",
             "../secret",
         )
+
+
+async def test_github_discovery_is_bounded_and_normalizes_query() -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        if "/commits/" in request.url.path:
+            return response({"sha": "d" * 40})
+        treeish = request.url.path.rsplit("/", 1)[-1]
+        if treeish == "d" * 40:
+            return response(
+                {"truncated": False, "tree": [{"path": "sites", "type": "tree", "sha": "1" * 40}]}
+            )
+        if treeish == "1" * 40:
+            return response(
+                {"truncated": False, "tree": [{"path": "en", "type": "tree", "sha": "2" * 40}]}
+            )
+        if treeish == "2" * 40:
+            return response(
+                {"truncated": False, "tree": [{"path": "docs", "type": "tree", "sha": "3" * 40}]}
+            )
+        return response(
+            {
+                "truncated": False,
+                "tree": [
+                    {
+                        "path": "Sensor/Grove-Button.md",
+                        "type": "blob",
+                        "size": 1234,
+                    },
+                    {
+                        "path": "Sensor/Grove-Relay.mdx",
+                        "type": "blob",
+                        "size": 2345,
+                    },
+                    {"path": "Sensor/button.png", "type": "blob", "size": 99},
+                    {"path": "Sensor", "type": "tree"},
+                ],
+            }
+        )
+
+    result = await RepositoryAcquirer(
+        resolver=StaticResolver("93.184.216.34"), transport=transport(handler)
+    ).discover_files(
+        "seeed_wiki",
+        "https://github.com/Seeed-Studio/wiki-documents",
+        "main",
+        query="Grove Button",
+        limit=1,
+    )
+    assert result.revision == "d" * 40
+    assert result.files_scanned == 4
+    assert [item.file_path for item in result.files] == ["sites/en/docs/Sensor/Grove-Button.md"]
+    assert result.files[0].size == 1234
+
+
+async def test_github_truncated_tree_is_rejected() -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        if "/commits/" in request.url.path:
+            return response({"sha": "e" * 40})
+        treeish = request.url.path.rsplit("/", 1)[-1]
+        if treeish == "e" * 40:
+            return response(
+                {"truncated": False, "tree": [{"path": "sites", "type": "tree", "sha": "1" * 40}]}
+            )
+        if treeish == "1" * 40:
+            return response(
+                {"truncated": False, "tree": [{"path": "en", "type": "tree", "sha": "2" * 40}]}
+            )
+        if treeish == "2" * 40:
+            return response(
+                {"truncated": False, "tree": [{"path": "docs", "type": "tree", "sha": "3" * 40}]}
+            )
+        return response({"truncated": True, "tree": []})
+
+    with pytest.raises(RepositoryAcquisitionError, match="repository_discovery_truncated"):
+        await RepositoryAcquirer(
+            resolver=StaticResolver("93.184.216.34"), transport=transport(handler)
+        ).discover_files(
+            "seeed_wiki",
+            "https://github.com/Seeed-Studio/wiki-documents",
+            "main",
+        )
+
+
+async def test_gitlab_discovery_returns_only_symbol_files() -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        if "/commits/" in request.url.path:
+            return response({"id": "f" * 40})
+        assert "recursive" not in request.url.params
+        assert request.url.params["page"] == "1"
+        return httpx2.Response(
+            200,
+            headers={"Content-Type": "application/json"},
+            content=json.dumps(
+                [
+                    {"path": "Sensor_Temperature.kicad_sym", "type": "blob"},
+                    {"path": "README.md", "type": "blob"},
+                    {"path": "symbols", "type": "tree"},
+                ]
+            ).encode(),
+        )
+
+    result = await RepositoryAcquirer(
+        resolver=StaticResolver("93.184.216.34"), transport=transport(handler)
+    ).discover_files(
+        "kicad_symbols",
+        "https://gitlab.com/kicad/libraries/kicad-symbols",
+        "master",
+        query="sensor temperature",
+    )
+    assert result.revision == "f" * 40
+    assert result.files_scanned == 3
+    assert [item.file_path for item in result.files] == ["Sensor_Temperature.kicad_sym"]

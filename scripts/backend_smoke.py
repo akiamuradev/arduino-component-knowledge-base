@@ -58,6 +58,8 @@ def main() -> int:
             "/api/v1/admin/jobs",
             "/api/v1/admin/jobs/{job_id}/retry",
             "/api/v1/import-jobs",
+            "/api/v1/import-jobs/repository",
+            "/api/v1/import-jobs/repository/discovery",
             "/api/v1/import-jobs/{job_id}",
             "/api/v1/workspace/categories",
             "/api/v1/workspace/components",
