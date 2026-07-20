@@ -71,10 +71,12 @@ def test_compose_isolates_data_and_media_processing_from_parser_egress() -> None
     )
     assert 'command: ["dramatiq", "arduino_component_kb.worker", "--queues", "imports"]' in compose
     parser_worker = compose.split("  parser-worker:", 1)[1].split("\n  frontend:", 1)[0]
+    backend = compose.split("  backend:", 1)[1].split("\n  worker:", 1)[0]
     media_worker = compose.split("  worker:", 1)[1].split("\n  parser-worker:", 1)[0]
     frontend = compose.split("  frontend:", 1)[1].split("\n  reverse-proxy:", 1)[0]
     reverse_proxy = compose.split("  reverse-proxy:", 1)[1].split("\nvolumes:", 1)[0]
     assert "- parser-egress" in parser_worker
+    assert "- parser-egress" in backend
     assert "- parser-egress" not in media_worker
     assert "- ingress" not in frontend
     assert "- edge" in reverse_proxy

@@ -16,7 +16,7 @@ from arduino_component_kb.catalog.domain import CatalogValidationError
 from arduino_component_kb.catalog.service import CatalogService
 from arduino_component_kb.imports.adapters.seeed_wiki import SeeedWikiAdapter
 from arduino_component_kb.imports.models import ComponentSource, ImportJob, Source
-from arduino_component_kb.imports.repository import ImportRepository
+from arduino_component_kb.imports.repository import ImportRepository, _technical_specifications
 from arduino_component_kb.imports.repository_domain import (
     ParsedRepositoryComponent,
     RepositoryEntry,
@@ -89,6 +89,24 @@ async def test_repository_idempotency_reuses_same_revision_component() -> None:
 
 async def test_new_revision_has_a_different_idempotency_identity() -> None:
     assert (await parsed("b" * 40)).idempotency_key != (await parsed("c" * 40)).idempotency_key
+
+
+def test_repository_specifications_are_unique_and_bounded_for_catalog() -> None:
+    raw = [
+        {"key": "Raspberry pi", "value": "first"},
+        {"key": "Raspberry pi", "value": "duplicate"},
+        {"key": "Get ONE Now", "value": "first"},
+        {"key": "Get ONE Now", "value": "duplicate"},
+        *({"key": f"Property {index}", "value": str(index)} for index in range(60)),
+    ]
+
+    specifications = _technical_specifications({"specifications": raw})
+
+    assert len(specifications) == 50
+    assert len({item.key for item in specifications}) == 50
+    assert [item.position for item in specifications] == list(range(50))
+    assert specifications[0].key == "raspberry-pi"
+    assert specifications[0].value_text == "first"
 
 
 async def test_preview_is_a_non_persisted_draft_with_source_snapshot() -> None:

@@ -231,6 +231,10 @@ published snapshot. На publication backend копирует source/license dat
 
 ## Deployment boundaries
 
+`parser-egress` is shared by the parser worker and backend repository acquisition boundary.
+The backend uses it only for administrator-only bounded discovery and preview; durable imports
+continue to run in the dedicated parser worker. Media processing remains without external egress.
+
 Reverse proxy — единственная опубликованная точка входа. PostgreSQL, Redis, MinIO admin API,
 backend и media worker остаются в internal container networks без внешнего egress. Только
 parser worker подключён к отдельной egress network для allowlisted HTTPS fetch. Internal TLS,

@@ -84,4 +84,22 @@ describe("apiRequest", () => {
     expect(options?.method).toBe("POST");
     expect(new Headers(options?.headers).get("X-CSRF-Token")).toBe("job-csrf");
   });
+
+  it("protects manual import retry with CSRF", async () => {
+    document.cookie = "ackb_csrf=import-csrf; Path=/";
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ id: "import-id", status: "queued" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.retryImportJob("import-id");
+
+    const [url, options] = fetchMock.mock.calls[0] ?? [];
+    expect(url).toBe("/api/v1/admin/jobs/imports/import-id/retry");
+    expect(options?.method).toBe("POST");
+    expect(new Headers(options?.headers).get("X-CSRF-Token")).toBe("import-csrf");
+  });
 });

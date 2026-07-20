@@ -65,6 +65,33 @@ export interface BackgroundJobListResponse {
   offset: number;
 }
 
+export interface ImportBackgroundJob {
+  id: string;
+  requested_by: string;
+  status: JobStatus;
+  attempts: number;
+  max_attempts: number;
+  error_code: string | null;
+  next_retry_at: string | null;
+  heartbeat_at: string | null;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+  updated_at: string;
+  repository_url: string | null;
+  source_file_path: string | null;
+  source_entry_name: string | null;
+  draft_component_id: string | null;
+  retryable: boolean;
+}
+
+export interface ImportBackgroundJobListResponse {
+  items: ImportBackgroundJob[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 export interface JobMutationResponse {
   id: string;
   status: "queued";

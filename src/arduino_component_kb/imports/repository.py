@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import UTC, datetime
+from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime, timedelta
 from hashlib import sha256
 from typing import cast
 from uuid import UUID, uuid4
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from arduino_component_kb.catalog.domain import Difficulty, DraftData, TechnicalSpecification
@@ -66,6 +67,57 @@ class ImportRepository:
         if lock:
             query = query.with_for_update()
         return cast(ImportJob | None, await self.session.scalar(query))
+
+    async def list_jobs(
+        self, *, status: str | None, limit: int, offset: int
+    ) -> tuple[Sequence[ImportJob], int]:
+        filters = (ImportJob.status == status,) if status is not None else ()
+        total = int(
+            await self.session.scalar(select(func.count()).select_from(ImportJob).where(*filters))
+            or 0
+        )
+        jobs = tuple(
+            (
+                await self.session.scalars(
+                    select(ImportJob)
+                    .where(*filters)
+                    .order_by(ImportJob.updated_at.desc(), ImportJob.id.desc())
+                    .limit(limit)
+                    .offset(offset)
+                )
+            ).all()
+        )
+        return jobs, total
+
+    @staticmethod
+    def is_manually_retryable(job: ImportJob, now: datetime, lease_seconds: int) -> bool:
+        if job.status == "failed":
+            return True
+        lease_reference = job.heartbeat_at or job.updated_at
+        stale_before = now - timedelta(seconds=lease_seconds)
+        if job.status == "running":
+            return lease_reference <= stale_before
+        return (
+            job.status == "retrying"
+            and job.next_retry_at is not None
+            and job.next_retry_at <= stale_before
+            and lease_reference <= stale_before
+        )
+
+    def prepare_manual_retry(self, job: ImportJob, now: datetime, lease_seconds: int) -> bool:
+        if job.status == "queued":
+            return False
+        if not self.is_manually_retryable(job, now, lease_seconds):
+            raise ValueError("job_not_retryable")
+        job.status = "queued"
+        job.attempts = 0
+        job.error_code = None
+        job.started_at = None
+        job.next_retry_at = None
+        job.finished_at = None
+        job.heartbeat_at = None
+        job.updated_at = now
+        return True
 
     async def active_source(self, source_id: UUID) -> Source | None:
         return cast(
@@ -286,26 +338,7 @@ class ImportRepository:
             category = await self.session.scalar(select(Category).where(Category.key == "other"))
         if category is None:
             raise RuntimeError("catalog_category_seed_missing")
-        specifications: list[TechnicalSpecification] = []
-        raw_specifications = fields.get("specifications", [])
-        if isinstance(raw_specifications, list):
-            for position, item in enumerate(raw_specifications[:100]):
-                if not isinstance(item, dict) or not item.get("key") or not item.get("value"):
-                    continue
-                label = str(item["key"])[:160]
-                key = _SLUG_PART.sub("-", label.casefold()).strip("-")[:100]
-                if not key:
-                    continue
-                specifications.append(
-                    TechnicalSpecification(
-                        key=key,
-                        label=label,
-                        value_text=str(item["value"])[:2_000],
-                        value_number=None,
-                        unit=None,
-                        position=position,
-                    )
-                )
+        specifications = _technical_specifications(fields)
         slug_identity = (
             f"{source.key}-{parsed.source_file_path}-{parsed.source_entry_name or ''}"
         ).casefold()
@@ -393,3 +426,32 @@ class ImportRepository:
         job.error_code = None
         job.finished_at = now
         job.updated_at = now
+
+
+def _technical_specifications(fields: Mapping[str, object]) -> list[TechnicalSpecification]:
+    raw_specifications = fields.get("specifications", [])
+    if not isinstance(raw_specifications, list):
+        return []
+    specifications: list[TechnicalSpecification] = []
+    keys: set[str] = set()
+    for item in raw_specifications:
+        if not isinstance(item, dict) or not item.get("key") or not item.get("value"):
+            continue
+        label = str(item["key"])[:160]
+        key = _SLUG_PART.sub("-", label.casefold()).strip("-")[:100]
+        if not key or key in keys:
+            continue
+        keys.add(key)
+        specifications.append(
+            TechnicalSpecification(
+                key=key,
+                label=label,
+                value_text=str(item["value"])[:2_000],
+                value_number=None,
+                unit=None,
+                position=len(specifications),
+            )
+        )
+        if len(specifications) == 50:
+            break
+    return specifications
