@@ -115,6 +115,11 @@ manufacturer/model в PostgreSQL transaction; UNIQUE indexes окончател�
 
 ## Repository source safety
 
+Local Compose attaches both the parser worker and backend to `parser-egress`. Backend egress is
+limited in application code to administrator-only bounded repository discovery and preview using
+the same allowlist, public-address validation, connection pinning, byte limits and timeouts as the
+worker. Durable imports still execute only in the parser worker; media workers have no egress.
+
 - Пользователь не передаёт произвольный Git URL. Допустимы только зарегистрированные exact
   repositories Seeed Studio Wiki и Official KiCad Symbols.
 - Adapter принимает только полный commit SHA; branch/tag должен быть заранее разрешён backend.
