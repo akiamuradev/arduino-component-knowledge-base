@@ -22,6 +22,7 @@ import type {
   JobMutationResponse,
   JobStatus,
   ImportJob,
+  ImportBackgroundJobListResponse,
   RepositoryDiscoveryResponse,
   RepositoryEntryDiscoveryResponse,
   RepositoryImportInput,
@@ -156,8 +157,17 @@ export const api = {
     const query = status === undefined ? "" : `?status=${encodeURIComponent(status)}`;
     return apiRequest<BackgroundJobListResponse>(`/admin/jobs${query}`);
   },
+  listImportJobs: (status?: JobStatus): Promise<ImportBackgroundJobListResponse> => {
+    const query = status === undefined ? "" : `?status=${encodeURIComponent(status)}`;
+    return apiRequest<ImportBackgroundJobListResponse>(`/admin/jobs/imports${query}`);
+  },
   retryJob: (jobId: string): Promise<JobMutationResponse> =>
     apiRequest<JobMutationResponse>(`/admin/jobs/${encodeURIComponent(jobId)}/retry`, {
+      method: "POST",
+      csrf: true,
+    }),
+  retryImportJob: (jobId: string): Promise<JobMutationResponse> =>
+    apiRequest<JobMutationResponse>(`/admin/jobs/imports/${encodeURIComponent(jobId)}/retry`, {
       method: "POST",
       csrf: true,
     }),

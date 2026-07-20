@@ -125,6 +125,7 @@ services:
     networks:
       - edge
       - data
+      - parser-egress
 
   worker:
     <<: *app-image

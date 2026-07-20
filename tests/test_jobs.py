@@ -11,6 +11,8 @@ from uuid import uuid4
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from arduino_component_kb.imports.models import ImportJob
+from arduino_component_kb.imports.repository import ImportRepository
 from arduino_component_kb.media.domain import MediaJobStatus, MediaStatus
 from arduino_component_kb.media.models import MediaAsset, MediaJob
 from arduino_component_kb.media.repository import MediaRepository
@@ -145,3 +147,41 @@ async def test_expired_running_lease_can_be_reclaimed() -> None:
     assert job.status == MediaJobStatus.RUNNING.value
     assert job.attempts == 2
     assert job.heartbeat_at == now
+
+
+def import_job(status: str, updated_at: datetime) -> ImportJob:
+    return ImportJob(
+        id=uuid4(),
+        source_id=uuid4(),
+        submitted_url="https://github.com/Seeed-Studio/wiki-documents",
+        status=status,
+        requested_by=uuid4(),
+        idempotency_key=str(uuid4()),
+        attempts=1,
+        max_attempts=4,
+        created_at=updated_at,
+        updated_at=updated_at,
+    )
+
+
+def test_stale_import_job_can_be_reset_by_admin() -> None:
+    now = datetime.now(UTC)
+    job = import_job("running", now - timedelta(seconds=61))
+    job.heartbeat_at = now - timedelta(seconds=61)
+    repository = ImportRepository(Mock(spec=AsyncSession))
+
+    reset = repository.prepare_manual_retry(job, now, 60)
+
+    assert reset is True
+    assert job.status == "queued"
+    assert job.attempts == 0
+    assert job.heartbeat_at is None
+
+
+def test_fresh_running_import_job_is_not_retryable() -> None:
+    now = datetime.now(UTC)
+    job = import_job("running", now)
+    repository = ImportRepository(Mock(spec=AsyncSession))
+
+    with pytest.raises(ValueError, match="job_not_retryable"):
+        repository.prepare_manual_retry(job, now, 60)

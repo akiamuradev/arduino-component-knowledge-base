@@ -60,6 +60,32 @@ function renderRoute(path: string, user: User) {
     limit: 50,
     offset: 0,
   });
+  queryClient.setQueryData(jobKeys.imports(), {
+    items: [
+      {
+        id: "00000000-0000-0000-0000-000000000020",
+        requested_by: student.id,
+        status: "failed",
+        attempts: 1,
+        max_attempts: 4,
+        error_code: "catalog_conflict",
+        next_retry_at: null,
+        heartbeat_at: "2026-07-15T12:00:20Z",
+        created_at: "2026-07-15T12:00:00Z",
+        started_at: "2026-07-15T12:00:01Z",
+        finished_at: "2026-07-15T12:00:20Z",
+        updated_at: "2026-07-15T12:00:20Z",
+        repository_url: "https://github.com/Seeed-Studio/wiki-documents",
+        source_file_path: "sites/en/docs/Sensor/Grove/Grove-Button.md",
+        source_entry_name: null,
+        draft_component_id: null,
+        retryable: true,
+      },
+    ],
+    total: 1,
+    limit: 50,
+    offset: 0,
+  });
   queryClient.setQueryData(duplicateKeys.all, { items: [], total: 0 });
   const router = createMemoryRouter(routes, { initialEntries: [path] });
   return render(
@@ -101,7 +127,9 @@ describe("application routes", () => {
     expect(await screen.findByRole("heading", { name: "Фоновые задачи" })).toBeVisible();
     expect(screen.getByText("process_media_video")).toBeVisible();
     expect(screen.getByText("media_storage_failed")).toBeVisible();
-    expect(screen.getByRole("button", { name: "Повторить" })).toBeEnabled();
+    expect(screen.getByText(/Grove-Button\.md/)).toBeVisible();
+    expect(screen.getByText("catalog_conflict")).toBeVisible();
+    expect(screen.getAllByRole("button", { name: "Повторить" })).toHaveLength(2);
   });
 
   it("does not expose the job monitor to a teacher", async () => {

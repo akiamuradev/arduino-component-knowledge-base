@@ -12,6 +12,7 @@ from redis.asyncio import Redis
 from redis.exceptions import LockError, RedisError
 from sqlalchemy.exc import IntegrityError
 
+from arduino_component_kb.catalog.domain import CatalogValidationError
 from arduino_component_kb.config import Settings
 from arduino_component_kb.db import Database
 from arduino_component_kb.imports.acquisition import (
@@ -213,7 +214,16 @@ async def process_import_job(job_id: UUID, settings: Settings) -> None:
                 await session.rollback()
                 await _record_transient(repository, job_id)
                 raise RetryableImportError(_backoff_ms(job.attempts)) from error
+            except CatalogValidationError as error:
+                async with session.begin():
+                    locked = await repository.get_job(job_id, lock=True)
+                    if locked is not None:
+                        _mark_failed(locked, error.code)
+                return
             except RedisError as error:
+                await _record_transient(repository, job_id)
+                raise RetryableImportError(_backoff_ms(job.attempts)) from error
+            except Exception as error:
                 await _record_transient(repository, job_id)
                 raise RetryableImportError(_backoff_ms(job.attempts)) from error
             finally:
