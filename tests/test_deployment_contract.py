@@ -182,6 +182,7 @@ def test_project_declares_exact_requested_license() -> None:
 
     backend_dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
     assert (
-        "COPY pyproject.toml README.md LICENCE THIRD_PARTY_NOTICES.md MANIFEST.in alembic.ini ./"
-        in backend_dockerfile
+        "COPY pyproject.toml requirements.lock README.md LICENCE THIRD_PARTY_NOTICES.md "
+        "MANIFEST.in alembic.ini ./" in backend_dockerfile
     )
+    assert "python -m pip wheel --require-hashes" in backend_dockerfile
