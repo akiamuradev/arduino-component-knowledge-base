@@ -143,7 +143,7 @@ async def reserve_upload(
             request_id=current_request_id(),
         )
     except MediaQuotaError as error:
-        raise HTTPException(429, detail={"code": "media_pending_quota_exceeded"}) from error
+        raise HTTPException(429, detail={"code": error.code}) from error
     except MediaValidationError as error:
         raise HTTPException(422, detail={"code": error.code}) from error
     await session.commit()
@@ -270,7 +270,7 @@ async def reserve_video_upload(
             request_id=current_request_id(),
         )
     except MediaQuotaError as error:
-        raise HTTPException(429, detail={"code": "media_pending_quota_exceeded"}) from error
+        raise HTTPException(429, detail={"code": error.code}) from error
     except MediaValidationError as error:
         raise HTTPException(422, detail={"code": error.code}) from error
     await session.commit()

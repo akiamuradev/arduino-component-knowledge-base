@@ -89,6 +89,8 @@ async def test_search_document_upsert_uses_allowed_published_fields_only() -> No
     parameter_values = " ".join(str(value) for value in compiled.params.values())
     assert "ON CONFLICT" in sql
     assert "to_tsvector" in sql
+    assert "setweight" in sql
+    assert "'A'" in sql and "'B'" in sql and "'C'" in sql
     assert "UNO" in parameter_values
     assert "A000066" in parameter_values
     assert "private answer" not in parameter_values

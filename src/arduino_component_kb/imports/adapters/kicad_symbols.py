@@ -69,7 +69,7 @@ class KicadSymbolsAdapter:
     source_key = "kicad_symbols"
     repository_url = _REPOSITORY
     parser_name = "kicad-symbols-v1"
-    parser_version = "1.0.0"
+    parser_version = "1.1.0"
 
     def __init__(self, library_allowlist: tuple[str, ...] = DEFAULT_LIBRARY_ALLOWLIST) -> None:
         if (
@@ -218,6 +218,7 @@ class KicadSymbolsAdapter:
             "footprint_filters": footprint_filters,
             "pins": pins,
             "format_version": child_value(root, "version") or "unknown",
+            "category_hint": self._category(library),
         }
         datasheet = properties.get("Datasheet")
         if datasheet:
@@ -275,6 +276,23 @@ class KicadSymbolsAdapter:
             unit = int(match.group("unit")) if match else 1
             result.extend((pin, unit) for pin in child_lists(nested, "pin"))
         return tuple(result)
+
+    @staticmethod
+    def _category(library: str) -> str:
+        for prefixes, category in (
+            (("Sensor_",), "sensors"),
+            (("Display_", "LED"), "displays"),
+            (("Relay", "Motor", "Driver_Motor"), "actuators"),
+            (("Switch",), "input"),
+            (("Regulator_",), "power"),
+            (("Interface_",), "communication"),
+            (("Connector",), "prototyping"),
+            (("MCU_", "74xx", "Timer", "Memory"), "integrated-circuits"),
+            (("Transistor_", "Transistor_Array", "Diode"), "semiconductors"),
+        ):
+            if any(library == prefix or library.startswith(prefix) for prefix in prefixes):
+                return category
+        return "other"
 
     def _list_atom(self, expression: SExpression, index: int) -> str | None:
         children = expression.children

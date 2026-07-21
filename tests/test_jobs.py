@@ -125,6 +125,16 @@ async def test_running_job_is_not_manually_retryable() -> None:
         )
 
 
+async def test_cleaned_media_job_cannot_be_retried() -> None:
+    job, asset = job_pair(MediaJobStatus.FAILED.value)
+    asset.storage_cleaned_at = datetime.now(UTC)
+
+    with pytest.raises(ValueError, match="media was cleaned"):
+        await MediaRepository(Mock(spec=AsyncSession)).prepare_manual_retry(
+            job, asset, datetime.now(UTC)
+        )
+
+
 async def test_duplicate_delivery_waits_for_durable_retry_deadline() -> None:
     job, asset = job_pair(MediaJobStatus.RETRYING.value)
     now = datetime.now(UTC)

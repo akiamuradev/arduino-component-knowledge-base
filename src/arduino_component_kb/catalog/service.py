@@ -10,7 +10,7 @@ from hashlib import sha256
 from typing import cast
 from uuid import UUID, uuid4
 
-from sqlalchemy import delete, func, or_, select, update
+from sqlalchemy import delete, func, literal_column, or_, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -435,9 +435,13 @@ class CatalogService:
         content_text = " ".join((data.summary, *data.tags))
         search_text = _normalized(" ".join((data.title, identity_text, content_text)))
         search_vector = (
-            func.setweight(func.to_tsvector("simple", data.title), "A")
-            .op("||")(func.setweight(func.to_tsvector("simple", identity_text), "B"))
-            .op("||")(func.setweight(func.to_tsvector("simple", content_text), "C"))
+            func.setweight(func.to_tsvector("simple", data.title), literal_column("'A'"))
+            .op("||")(
+                func.setweight(func.to_tsvector("simple", identity_text), literal_column("'B'"))
+            )
+            .op("||")(
+                func.setweight(func.to_tsvector("simple", content_text), literal_column("'C'"))
+            )
         )
         values: dict[str, object] = {
             "component_id": row.id,
@@ -765,6 +769,7 @@ class CatalogService:
                 )
             )
         return DraftData(
+            difficulty=Difficulty(row.difficulty),
             aliases=tuple(aliases),
             tags=tuple(tags),
             specifications=tuple(
@@ -806,7 +811,6 @@ class CatalogService:
                     "purpose",
                     "usage_notes",
                     "safety_notes",
-                    "difficulty",
                     "teacher_notes",
                     "manual_original",
                 )

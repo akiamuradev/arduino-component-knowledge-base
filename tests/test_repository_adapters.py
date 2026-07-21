@@ -46,7 +46,17 @@ async def test_seeed_complete_document_has_license_provenance_and_no_code() -> N
     assert parsed.draft_status == "draft"
     assert parsed.license_snapshot.spdx == "GPL-3.0-only"
     assert parsed.normalized_fields["title"] == "Grove - Temperature Sensor"
-    assert "125 °C" in str(parsed.normalized_fields["specifications"])
+    specifications = parsed.normalized_fields["specifications"]
+    assert isinstance(specifications, list)
+    assert "125 °C" in str(specifications)
+    assert {item["key"] for item in specifications if isinstance(item, dict)} == {
+        "accuracy",
+        "connector",
+        "measurement-range",
+        "operating-current",
+        "supply-voltage",
+    }
+    assert parsed.normalized_fields["category_hint"] == "sensors"
     assert set(parsed.normalized_fields) == set(parsed.provenance)
     rendered = str(parsed.as_dict())
     assert "system(" not in rendered
@@ -101,6 +111,7 @@ async def test_kicad_symbol_extracts_properties_filters_and_pins() -> None:
     assert isinstance(datasheet, str) and datasheet.startswith("https://")
     assert isinstance(pins, list)
     assert parsed.normalized_fields["footprint_filters"] == ["TO?92*"]
+    assert parsed.normalized_fields["category_hint"] == "sensors"
     assert len(pins) == 3
     assert set(parsed.normalized_fields) == set(parsed.provenance)
 
@@ -113,6 +124,7 @@ async def test_kicad_extends_and_multiple_units_are_preserved() -> None:
         parsed_at=datetime.now(UTC),
     )
     assert parsed.normalized_fields["extends"] == "ATmega8"
+    assert parsed.normalized_fields["category_hint"] == "integrated-circuits"
     pins = parsed.normalized_fields["pins"]
     assert isinstance(pins, list)
     assert {pin["unit"] for pin in pins if isinstance(pin, dict)} == {1, 2}
@@ -127,6 +139,59 @@ async def test_kicad_missing_optional_datasheet_is_not_a_parse_failure() -> None
     )
     assert parsed.status is ParseStatus.PARSED
     assert "datasheet_url" not in parsed.normalized_fields
+    assert parsed.normalized_fields["category_hint"] == "actuators"
+
+
+@pytest.mark.parametrize(
+    ("title", "path", "expected"),
+    [
+        ("Grove - Relay", "sites/en/docs/Sensor/Grove/Actuator/Grove-Relay.md", "actuators"),
+        ("Grove Button", "sites/en/docs/Sensor/Grove/Grove-Button.md", "input"),
+        ("Grove OLED Display", "sites/en/docs/Sensor/Grove/OLED.md", "displays"),
+        ("Grove Ultrasonic Ranger", "sites/en/docs/Sensor/Grove/Proximity/Ranger.md", "sensors"),
+    ],
+)
+def test_seeed_category_prefers_component_identity_over_generic_parent_path(
+    title: str, path: str, expected: str
+) -> None:
+    assert SeeedWikiAdapter()._category(title, path) == expected
+
+
+async def test_seeed_rejects_markdown_noise_as_global_specifications() -> None:
+    content = b"""---
+title: Grove Light Sensor
+description: A bounded light sensor example for parser regression tests.
+---
+# Grove Light Sensor
+## Hardware Overview
+| Property | Value |
+| --- | --- |
+| Operating voltage | 3.3~5 volts |
+| Operating temperature | -10~60 degree C |
+| Get ONE Now | [Buy](https://example.com) |
+| !enter image description here | Raspberry pi |
+"""
+    source = RepositorySnapshot(
+        SeeedWikiAdapter.repository_url,
+        REVISION,
+        {"sites/en/docs/Sensor/Grove-Light-Sensor.md": content},
+    )
+
+    parsed = await SeeedWikiAdapter().parse_entry(
+        source,
+        RepositoryEntry("sites/en/docs/Sensor/Grove-Light-Sensor.md"),
+        parsed_at=datetime.now(UTC),
+    )
+
+    assert parsed.normalized_fields["specifications"] == [
+        {"key": "operating-voltage", "label": "Operating voltage", "value": "3.3–5 V"},
+        {
+            "key": "operating-temperature",
+            "label": "Operating temperature",
+            "value": "-10–60 °C",
+        },
+    ]
+    assert "untrusted_specification_ignored" in parsed.warnings
 
 
 async def test_kicad_unknown_electrical_type_is_a_warning() -> None:

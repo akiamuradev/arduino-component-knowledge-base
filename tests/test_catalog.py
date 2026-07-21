@@ -17,6 +17,7 @@ from arduino_component_kb.auth.domain import Principal, Role
 from arduino_component_kb.catalog.domain import (
     CatalogValidationError,
     ComponentStatus,
+    Difficulty,
     RevisionConflictError,
 )
 from arduino_component_kb.catalog.models import Category, Component, ComponentRevision
@@ -164,6 +165,39 @@ async def test_stale_revision_is_rejected_before_mutation() -> None:
     service = CatalogService(cast(AsyncSession, session))
     with pytest.raises(RevisionConflictError):
         await service.transition(uuid4(), 2, target=ComponentStatus.PUBLISHED, actor_id=uuid4())
+
+
+async def test_orm_difficulty_is_restored_to_domain_enum_before_publish() -> None:
+    component = Component(
+        id=uuid4(),
+        slug="imported-sensor",
+        status="draft",
+        title="Imported sensor",
+        manufacturer=None,
+        model=None,
+        summary="A sufficiently detailed imported sensor summary.",
+        description="Imported sensor description.",
+        purpose=None,
+        usage_notes=None,
+        safety_notes=None,
+        difficulty="beginner",
+        teacher_notes=None,
+        primary_category_id=uuid4(),
+        manual_original=False,
+        created_by=uuid4(),
+        updated_by=uuid4(),
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+        revision=1,
+    )
+    session = Mock(spec=AsyncSession)
+    session.scalars = AsyncMock(side_effect=[[], [], [], []])
+    session.execute = AsyncMock(return_value=[])
+
+    data = await CatalogService(cast(AsyncSession, session))._data(component)
+
+    assert data.difficulty is Difficulty.BEGINNER
+    assert data.difficulty.value == "beginner"
 
 
 async def test_student_card_uses_published_snapshot_and_hides_teacher_notes() -> None:

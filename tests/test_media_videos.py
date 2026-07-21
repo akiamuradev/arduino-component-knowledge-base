@@ -18,6 +18,7 @@ from arduino_component_kb.media.domain import MediaValidationError
 from arduino_component_kb.media.models import MediaJob
 from arduino_component_kb.media.repository import MediaRepository
 from arduino_component_kb.media.videos import (
+    MAX_TOOL_OUTPUT_BYTES,
     CommandResult,
     MediaToolError,
     SubprocessCommandRunner,
@@ -151,6 +152,18 @@ async def test_subprocess_runner_enforces_timeout_without_shell() -> None:
     runner = SubprocessCommandRunner()
     with pytest.raises(MediaToolError, match="timed out"):
         await runner.run(sys.executable, ("-c", "import time; time.sleep(2)"), 0.01)
+
+
+async def test_subprocess_runner_stops_as_soon_as_output_limit_is_exceeded() -> None:
+    runner = SubprocessCommandRunner()
+    script = (
+        "import sys,time;"
+        f"sys.stdout.buffer.write(b'x'*{MAX_TOOL_OUTPUT_BYTES + 65536});"
+        "sys.stdout.buffer.flush();time.sleep(2)"
+    )
+
+    with pytest.raises(MediaToolError, match="output exceeded limit"):
+        await runner.run(sys.executable, ("-c", script), 1.0)
 
 
 async def test_durable_progress_never_moves_backwards() -> None:

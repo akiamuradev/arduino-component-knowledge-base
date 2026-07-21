@@ -24,6 +24,7 @@ from arduino_component_kb.imports.repository_domain import (
     ParsedRepositoryComponent,
     ParseStatus,
 )
+from arduino_component_kb.imports.specifications import canonical_specification
 
 _SLUG_PART = re.compile(r"[^a-z0-9]+")
 _CATEGORY_KEYS = {
@@ -437,16 +438,17 @@ def _technical_specifications(fields: Mapping[str, object]) -> list[TechnicalSpe
     for item in raw_specifications:
         if not isinstance(item, dict) or not item.get("key") or not item.get("value"):
             continue
-        label = str(item["key"])[:160]
-        key = _SLUG_PART.sub("-", label.casefold()).strip("-")[:100]
-        if not key or key in keys:
+        specification = canonical_specification(
+            str(item.get("label") or item["key"]), str(item["value"])
+        )
+        if specification is None or specification.key in keys:
             continue
-        keys.add(key)
+        keys.add(specification.key)
         specifications.append(
             TechnicalSpecification(
-                key=key,
-                label=label,
-                value_text=str(item["value"])[:2_000],
+                key=specification.key,
+                label=specification.label,
+                value_text=specification.value,
                 value_number=None,
                 unit=None,
                 position=len(specifications),

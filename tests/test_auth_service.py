@@ -11,6 +11,8 @@ import pytest
 
 from arduino_component_kb.auth.domain import (
     InvalidCredentialsError,
+    LastAdministratorError,
+    Principal,
     Role,
     TooManyAttemptsError,
     UserIdentity,
@@ -146,3 +148,93 @@ async def test_valid_login_creates_hashed_opaque_session_and_audit() -> None:
 
 def test_repository_mock_is_not_a_real_database() -> None:
     assert datetime.now(UTC).tzinfo is UTC
+
+
+def administrator_identity() -> UserIdentity:
+    return UserIdentity(
+        id=uuid4(),
+        login="administrator",
+        display_name="Administrator",
+        password_hash=uuid4().hex,
+        status=UserStatus.ACTIVE,
+        roles=frozenset({Role.ADMINISTRATOR}),
+    )
+
+
+def administrator_principal(user: UserIdentity) -> Principal:
+    return Principal(
+        user_id=user.id,
+        login=user.login,
+        display_name=user.display_name,
+        roles=user.roles,
+        session_id=uuid4(),
+        csrf_hash="not-used",
+        expires_at=datetime.now(UTC),
+    )
+
+
+async def test_removing_last_administrator_is_checked_under_global_lock() -> None:
+    user = administrator_identity()
+    call_order: list[str] = []
+
+    def lock_administrators() -> None:
+        call_order.append("lock")
+
+    def find_user(_: object) -> UserIdentity:
+        call_order.append("find")
+        return user
+
+    def count_administrators() -> int:
+        call_order.append("count")
+        return 1
+
+    repository = repository_mock()
+    repository.lock_administrator_membership = AsyncMock(side_effect=lock_administrators)
+    repository.find_user = AsyncMock(side_effect=find_user)
+    repository.count_active_administrators = AsyncMock(side_effect=count_administrators)
+    repository.set_roles = AsyncMock()
+    service = AuthService(repository, settings(), PasswordManager())
+
+    with pytest.raises(LastAdministratorError):
+        await service.set_roles(
+            actor=administrator_principal(user),
+            user_id=user.id,
+            roles=frozenset({Role.TEACHER}),
+            request_id="request-role-change",
+        )
+
+    assert call_order == ["lock", "find", "count"]
+    repository.set_roles.assert_not_awaited()
+
+
+async def test_disabling_last_administrator_is_checked_under_global_lock() -> None:
+    user = administrator_identity()
+    call_order: list[str] = []
+
+    def lock_administrators() -> None:
+        call_order.append("lock")
+
+    def find_user(_: object) -> UserIdentity:
+        call_order.append("find")
+        return user
+
+    def count_administrators() -> int:
+        call_order.append("count")
+        return 1
+
+    repository = repository_mock()
+    repository.lock_administrator_membership = AsyncMock(side_effect=lock_administrators)
+    repository.find_user = AsyncMock(side_effect=find_user)
+    repository.count_active_administrators = AsyncMock(side_effect=count_administrators)
+    repository.disable_user = AsyncMock()
+    service = AuthService(repository, settings(), PasswordManager())
+
+    with pytest.raises(LastAdministratorError):
+        await service.disable_user(
+            actor=administrator_principal(user),
+            user_id=user.id,
+            request_id="request-disable-user",
+        )
+
+    assert call_order == ["lock", "find", "count"]
+    repository.disable_user.assert_not_awaited()

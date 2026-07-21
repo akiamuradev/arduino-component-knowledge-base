@@ -36,6 +36,10 @@ class AuthRepository:
         """Serialize creation of one normalized login in PostgreSQL."""
         await self.session.execute(select(func.pg_advisory_xact_lock(func.hashtext(login))))
 
+    async def lock_administrator_membership(self) -> None:
+        """Serialize changes that can remove the final active administrator."""
+        await self.session.execute(select(func.pg_advisory_xact_lock(0x41434B42, 0x41444D49)))
+
     async def is_blocked(self, key_hashes: tuple[str, str], now: datetime) -> bool:
         result = await self.session.scalar(
             select(func.count())
@@ -255,13 +259,14 @@ class AuthRepository:
         request_id: str | None,
         outcome: str,
         details: dict[str, object] | None = None,
+        actor_type: str | None = None,
     ) -> None:
         self.session.add(
             AuditEvent(
                 id=uuid4(),
                 occurred_at=now,
                 actor_user_id=actor_user_id,
-                actor_type="user" if actor_user_id else "anonymous",
+                actor_type=actor_type or ("user" if actor_user_id else "anonymous"),
                 action=action,
                 object_type=object_type,
                 object_id=object_id,

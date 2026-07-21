@@ -70,6 +70,10 @@ class Settings(DatabaseSettings):
     minio_variants_bucket: str = "ackb-media-variants"
     media_presign_ttl_seconds: int = Field(default=600, ge=60, le=900)
     media_pending_upload_limit: int = Field(default=5, ge=1, le=20)
+    media_global_pending_upload_limit: int = Field(default=100, ge=10, le=1000)
+    media_retention_grace_hours: int = Field(default=24, ge=1, le=720)
+    media_retention_batch_size: int = Field(default=200, ge=10, le=1000)
+    media_retention_scan_limit: int = Field(default=5000, ge=100, le=100_000)
     media_job_max_attempts: int = Field(default=4, ge=2, le=10)
     media_job_lease_seconds: int = Field(default=1800, ge=60, le=7200)
     import_job_max_attempts: int = Field(default=4, ge=2, le=10)

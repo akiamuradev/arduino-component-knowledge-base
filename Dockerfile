@@ -34,4 +34,4 @@ COPY --chown=ackb:ackb migrations ./migrations
 USER ackb
 EXPOSE 8000
 
-CMD ["uvicorn", "arduino_component_kb.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]
+CMD ["uvicorn", "arduino_component_kb.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*", "--no-access-log"]

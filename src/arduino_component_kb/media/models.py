@@ -57,7 +57,17 @@ class MediaAsset(Base):
             "status != 'rejected' OR failure_code IS NOT NULL",
             name="ck_media_rejected_failure",
         ),
+        CheckConstraint(
+            "storage_cleaned_at IS NULL OR status = 'rejected'",
+            name="ck_media_storage_cleaned_rejected",
+        ),
         Index("ix_media_assets_owner_status", "owner_user_id", "status"),
+        Index(
+            "ix_media_assets_retention",
+            "storage_cleaned_at",
+            "status",
+            "upload_expires_at",
+        ),
         UniqueConstraint("bucket", "object_key", name="uq_media_assets_object"),
     )
 
@@ -91,6 +101,7 @@ class MediaAsset(Base):
     upload_expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    storage_cleaned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class MediaVariant(Base):
