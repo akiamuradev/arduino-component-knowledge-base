@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 from functools import partial
 from io import BytesIO
 from pathlib import Path
@@ -26,6 +26,12 @@ class ObjectMetadata:
     content_type: str | None
 
 
+@dataclass(frozen=True, slots=True)
+class StorageObject:
+    object_key: str
+    last_modified: datetime
+
+
 class MediaStorage(Protocol):
     async def presigned_put(self, bucket: str, object_key: str, expires_seconds: int) -> str: ...
     async def stat(self, bucket: str, object_key: str) -> ObjectMetadata: ...
@@ -42,6 +48,7 @@ class MediaStorage(Protocol):
         self, bucket: str, object_key: str, source: Path, content_type: str
     ) -> None: ...
     async def delete(self, bucket: str, object_key: str) -> None: ...
+    async def list_objects(self, bucket: str, max_items: int) -> tuple[StorageObject, ...]: ...
 
 
 class MinioStorage:
@@ -149,3 +156,16 @@ class MinioStorage:
 
     async def delete(self, bucket: str, object_key: str) -> None:
         await self._run(lambda: self.client.remove_object(bucket, object_key))
+
+    async def list_objects(self, bucket: str, max_items: int) -> tuple[StorageObject, ...]:
+        def collect() -> tuple[StorageObject, ...]:
+            objects: list[StorageObject] = []
+            for item in self.client.list_objects(bucket, recursive=True):
+                if item.is_dir or item.object_name is None or item.last_modified is None:
+                    continue
+                objects.append(StorageObject(item.object_name, item.last_modified))
+                if len(objects) >= max_items:
+                    break
+            return tuple(objects)
+
+        return await self._run(collect)

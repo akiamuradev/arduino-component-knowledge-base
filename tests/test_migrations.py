@@ -19,7 +19,7 @@ def alembic_config() -> Config:
 
 def test_alembic_has_one_backend_head() -> None:
     scripts = ScriptDirectory.from_config(alembic_config())
-    assert scripts.get_heads() == ["20260716_14"]
+    assert scripts.get_heads() == ["20260721_16"]
 
 
 def test_alembic_upgrade_renders_offline_postgresql_sql(
@@ -85,6 +85,12 @@ def test_alembic_upgrade_renders_offline_postgresql_sql(
     assert "ADD COLUMN heartbeat_at" in sql
     assert "ADD COLUMN metrics_json" in sql
     assert "20260716_14" in sql
+    assert "integrated-circuits" in sql
+    assert "semiconductors" in sql
+    assert "20260716_15" in sql
+    assert "ADD COLUMN storage_cleaned_at" in sql
+    assert "ix_media_assets_retention" in sql
+    assert "20260721_16" in sql
 
 
 def test_runtime_has_no_create_all_escape_hatch() -> None:

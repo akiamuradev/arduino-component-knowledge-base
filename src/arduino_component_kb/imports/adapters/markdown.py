@@ -61,6 +61,7 @@ def load_markdown(content: bytes) -> MarkdownDocument:
 
 def clean_text(value: str) -> str:
     value = _LINK.sub(lambda match: match.group(1), value)
+    value = re.sub(r"(?<=\d)\s*[~～]\s*(?=[+-]?\d)", "–", value)
     value = re.sub(r"[*_`~]", "", value)
     return _SPACE.sub(" ", value).strip()
 
@@ -114,15 +115,27 @@ def normalize_unit(value: str) -> str:
         "microamps": "µA",
         "milliamps": "mA",
         "millivolts": "mV",
+        "millimeters": "mm",
+        "centimeters": "cm",
+        "grams": "g",
         "volts": "V",
         "volt": "V",
         "kilohms": "kΩ",
         "kohm": "kΩ",
         "degrees celsius": "°C",
+        "degree celsius": "°C",
+        "degree c": "°C",
     }
     normalized = clean_text(value).replace("μ", "µ")
     for source, target in replacements.items():
         normalized = re.sub(rf"\b{re.escape(source)}\b", target, normalized, flags=re.IGNORECASE)
+    normalized = re.sub(r"(?<=\d)\s*-\s*(?=\d)", "–", normalized)
+    normalized = re.sub(
+        r"(?<=\d)(?=(?:°C|µA|mA|mV|kΩ|kHz|MHz|Hz|cm|mm|V|A|g)(?:\b|$))",
+        " ",
+        normalized,
+    )
+    normalized = re.sub(r"\s+[xX]\s+", " × ", normalized)
     return normalized
 
 

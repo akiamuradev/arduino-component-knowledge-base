@@ -15,6 +15,9 @@ MAX_VIDEO_DURATION_SECONDS = 600.0
 MAX_VIDEO_WIDTH = 1920
 MAX_VIDEO_HEIGHT = 1080
 MAX_VIDEO_FRAME_RATE = 30.0
+MAX_COMPONENT_IMAGES = 12
+MAX_COMPONENT_VIDEOS = 2
+MAX_COMPONENT_ORIGINAL_BYTES = 600 * 1024 * 1024
 VARIANT_WIDTHS = (320, 800, 1600)
 ALLOWED_IMAGE_MIMES = frozenset({"image/jpeg", "image/png", "image/webp"})
 ALLOWED_VIDEO_MIMES = frozenset({"video/mp4", "video/quicktime", "video/webm"})
@@ -61,6 +64,10 @@ class MediaStateConflictError(MediaError):
 class MediaQuotaError(MediaError):
     """Per-user pending upload quota is exhausted."""
 
+    def __init__(self, code: str = "media_pending_quota_exceeded") -> None:
+        super().__init__(code)
+        self.code = code
+
 
 class RetryableJobError(MediaError):
     """Ask Dramatiq to redeliver after the durable backoff delay."""
@@ -77,6 +84,13 @@ class UploadReservation:
     object_key: str
     declared_mime: str
     expires_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class ComponentMediaUsage:
+    images: int
+    videos: int
+    original_bytes: int
 
 
 @dataclass(frozen=True, slots=True)

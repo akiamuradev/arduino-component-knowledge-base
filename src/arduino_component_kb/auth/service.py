@@ -187,6 +187,7 @@ class AuthService:
         roles: frozenset[Role],
         request_id: str | None,
     ) -> None:
+        await self.repository.lock_administrator_membership()
         user = await self._existing_user(user_id)
         if Role.ADMINISTRATOR in user.roles and Role.ADMINISTRATOR not in roles:
             if await self.repository.count_active_administrators() <= 1:
@@ -214,6 +215,7 @@ class AuthService:
         user_id: UUID,
         request_id: str | None,
     ) -> None:
+        await self.repository.lock_administrator_membership()
         user = await self._existing_user(user_id)
         if (
             Role.ADMINISTRATOR in user.roles

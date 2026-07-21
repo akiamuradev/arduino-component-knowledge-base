@@ -97,16 +97,17 @@ def test_repository_specifications_are_unique_and_bounded_for_catalog() -> None:
         {"key": "Raspberry pi", "value": "duplicate"},
         {"key": "Get ONE Now", "value": "first"},
         {"key": "Get ONE Now", "value": "duplicate"},
-        *({"key": f"Property {index}", "value": str(index)} for index in range(60)),
+        {"key": "Operating voltage", "value": "3.3 V"},
+        {"key": "Operation voltage", "value": "duplicate"},
+        {"key": "Accuracy", "value": "1%"},
     ]
 
     specifications = _technical_specifications({"specifications": raw})
 
-    assert len(specifications) == 50
-    assert len({item.key for item in specifications}) == 50
-    assert [item.position for item in specifications] == list(range(50))
-    assert specifications[0].key == "raspberry-pi"
-    assert specifications[0].value_text == "first"
+    assert [item.key for item in specifications] == ["operating-voltage", "accuracy"]
+    assert [item.label for item in specifications] == ["Operating voltage", "Accuracy"]
+    assert [item.position for item in specifications] == [0, 1]
+    assert specifications[0].value_text == "3.3 V"
 
 
 async def test_preview_is_a_non_persisted_draft_with_source_snapshot() -> None:

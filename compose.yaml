@@ -17,6 +17,10 @@ x-app-environment: &app-environment
   ACKB_FFMPEG_THREADS: ${ACKB_FFMPEG_THREADS:-2}
   ACKB_MEDIA_JOB_MAX_ATTEMPTS: ${ACKB_MEDIA_JOB_MAX_ATTEMPTS:-4}
   ACKB_MEDIA_JOB_LEASE_SECONDS: ${ACKB_MEDIA_JOB_LEASE_SECONDS:-1800}
+  ACKB_MEDIA_GLOBAL_PENDING_UPLOAD_LIMIT: ${ACKB_MEDIA_GLOBAL_PENDING_UPLOAD_LIMIT:-100}
+  ACKB_MEDIA_RETENTION_GRACE_HOURS: ${ACKB_MEDIA_RETENTION_GRACE_HOURS:-24}
+  ACKB_MEDIA_RETENTION_BATCH_SIZE: ${ACKB_MEDIA_RETENTION_BATCH_SIZE:-200}
+  ACKB_MEDIA_RETENTION_SCAN_LIMIT: ${ACKB_MEDIA_RETENTION_SCAN_LIMIT:-5000}
   ACKB_IMPORT_JOB_MAX_ATTEMPTS: ${ACKB_IMPORT_JOB_MAX_ATTEMPTS:-4}
   ACKB_IMPORT_LOCK_TTL_SECONDS: ${ACKB_IMPORT_LOCK_TTL_SECONDS:-60}
   ACKB_IMPORT_LOCK_WAIT_SECONDS: ${ACKB_IMPORT_LOCK_WAIT_SECONDS:-10}
@@ -104,6 +108,24 @@ services:
       minio:
         condition: service_healthy
 
+  media-retention:
+    <<: *app-image
+    profiles: ["maintenance"]
+    command: ["ackb-retain-media", "--apply"]
+    restart: "no"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
   backend:
     <<: *app-image
     depends_on:
@@ -129,7 +151,17 @@ services:
 
   worker:
     <<: *app-image
-    command: ["dramatiq", "arduino_component_kb.worker", "--queues", "images", "videos"]
+    command: ["dramatiq", "arduino_component_kb.worker", "--queues", "images", "videos", "--processes", "2", "--threads", "1"]
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=1g,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 2g
+    cpus: "4.0"
     depends_on:
       migrate:
         condition: service_completed_successfully

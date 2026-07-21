@@ -13,6 +13,9 @@ from arduino_component_kb.config import Settings
 from arduino_component_kb.media.domain import (
     ALLOWED_IMAGE_MIMES,
     ALLOWED_VIDEO_MIMES,
+    MAX_COMPONENT_IMAGES,
+    MAX_COMPONENT_ORIGINAL_BYTES,
+    MAX_COMPONENT_VIDEOS,
     MAX_IMAGE_BYTES,
     MAX_VIDEO_BYTES,
     MediaKind,
@@ -70,11 +73,25 @@ class MediaService:
             raise MediaValidationError(f"{kind.value}_declared_mime_not_allowed")
         if not 0 < declared_size_bytes <= max_bytes:
             raise MediaValidationError(f"{kind.value}_size_not_allowed")
+        await self.repository.lock_upload_reservations()
         if (
             await self.repository.count_pending(actor.user_id)
             >= self.settings.media_pending_upload_limit
         ):
             raise MediaQuotaError
+        if (
+            await self.repository.count_all_pending()
+            >= self.settings.media_global_pending_upload_limit
+        ):
+            raise MediaQuotaError
+        if component_id is not None:
+            usage = await self.repository.component_usage(component_id)
+            count = usage.images if kind is MediaKind.IMAGE else usage.videos
+            max_count = MAX_COMPONENT_IMAGES if kind is MediaKind.IMAGE else MAX_COMPONENT_VIDEOS
+            if count >= max_count:
+                raise MediaQuotaError("media_component_count_exceeded")
+            if usage.original_bytes + declared_size_bytes > MAX_COMPONENT_ORIGINAL_BYTES:
+                raise MediaQuotaError("media_component_size_exceeded")
         now = datetime.now(UTC)
         expires_at = now + timedelta(seconds=self.settings.media_presign_ttl_seconds)
         asset_id = uuid4()

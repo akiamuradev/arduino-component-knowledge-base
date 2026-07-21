@@ -24,6 +24,7 @@ from arduino_component_kb.imports.repository_domain import (
     normalize_repository_url,
     require_commit_sha,
 )
+from arduino_component_kb.imports.specifications import canonical_specification
 
 _REPOSITORY = "https://github.com/Seeed-Studio/wiki-documents"
 _SECTION_ALIASES = {
@@ -46,7 +47,7 @@ class SeeedWikiAdapter:
     source_key = "seeed_wiki"
     repository_url = _REPOSITORY
     parser_name = "seeed-wiki-git-v1"
-    parser_version = "1.0.0"
+    parser_version = "1.1.0"
 
     async def validate_revision(self, revision: str) -> str:
         return require_commit_sha(revision)
@@ -152,10 +153,26 @@ class SeeedWikiAdapter:
         summary = summary[:500]
         specifications: list[dict[str, str]] = []
         specification_provenance: list[FieldProvenance] = []
-        for kind in ("specifications", "hardware", "pinout", "features"):
+        ignored_specifications = False
+        seen_specifications: set[str] = set()
+        for kind in ("specifications", "hardware", "features"):
             for heading, lines, line_number in sections.get(kind, []):
                 for key, value in key_values(lines):
-                    specifications.append({"key": key[:100], "value": normalize_unit(value)[:300]})
+                    specification = canonical_specification(key, normalize_unit(value))
+                    if specification is None:
+                        ignored_specifications = True
+                        continue
+                    if specification.key in seen_specifications:
+                        ignored_specifications = True
+                        continue
+                    seen_specifications.add(specification.key)
+                    specifications.append(
+                        {
+                            "key": specification.key,
+                            "label": specification.label,
+                            "value": specification.value[:300],
+                        }
+                    )
                     specification_provenance.append(
                         self._provenance(
                             snapshot,
@@ -165,6 +182,8 @@ class SeeedWikiAdapter:
                             "table_or_key_value_normalization",
                         )
                     )
+        if ignored_specifications:
+            warnings.append("untrusted_specification_ignored")
         resources: list[dict[str, str]] = []
         resource_provenance: list[FieldProvenance] = []
         for heading, lines, line_number in sections.get("resources", []):
@@ -251,17 +270,42 @@ class SeeedWikiAdapter:
         )
 
     def _category(self, title: str, path: str) -> str:
-        value = f"{title} {path}".casefold()
-        for token, category in (
-            ("sensor", "sensors"),
-            ("display", "displays"),
-            ("oled", "displays"),
-            ("relay", "actuators"),
-            ("motor", "actuators"),
-            ("button", "input"),
-            ("board", "boards"),
-        ):
-            if token in value:
+        file_name = PurePosixPath(path).stem.replace("_", " ")
+        primary = f"{title} {file_name}".casefold()
+        rules = (
+            (("relay", "motor", "servo", "solenoid", "pump", "actuator", "buzzer"), "actuators"),
+            (("button", "switch", "joystick", "keypad", "encoder", "potentiometer"), "input"),
+            (("display", "oled", "lcd", "e ink", "epaper", "screen"), "displays"),
+            (("battery", "charger", "power supply", "dc dc", "converter"), "power"),
+            (
+                ("wifi", "bluetooth", "lora", "can bus", "ethernet", "communication"),
+                "communication",
+            ),
+            (("board", "shield", "seeeduino", "wio terminal"), "boards"),
+            (
+                (
+                    "sensor",
+                    "temperature",
+                    "humidity",
+                    "light",
+                    "ultrasonic",
+                    "distance",
+                    "proximity",
+                    "accelerometer",
+                    "gyroscope",
+                    "pressure",
+                    "sound",
+                    "gas",
+                ),
+                "sensors",
+            ),
+        )
+        for tokens, category in rules:
+            if any(token in primary for token in tokens):
+                return category
+        path_parts = " ".join(reversed(PurePosixPath(path).parts[-4:-1])).casefold()
+        for tokens, category in rules:
+            if any(token in path_parts for token in tokens):
                 return category
         return "other"
 

@@ -27,6 +27,7 @@ dependencies = [
 [project.scripts]
 ackb-bootstrap-admin = "arduino_component_kb.bootstrap:main"
 ackb-provision-media = "arduino_component_kb.media.provision:main"
+ackb-retain-media = "arduino_component_kb.media.retention:main"
 ackb-explain-search = "arduino_component_kb.catalog.explain:main"
 ackb-import-dry-run = "arduino_component_kb.imports.dry_run:main"
 ackb-validate-repository-samples = "arduino_component_kb.imports.sample_validation:main"

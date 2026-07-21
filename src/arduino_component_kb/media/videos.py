@@ -31,6 +31,10 @@ class MediaToolError(RuntimeError):
     """FFmpeg execution failed without exposing untrusted stderr."""
 
 
+class _OutputLimitExceeded(Exception):
+    """Internal signal used to terminate a noisy media subprocess early."""
+
+
 @dataclass(frozen=True, slots=True)
 class CommandResult:
     returncode: int
@@ -59,15 +63,60 @@ class SubprocessCommandRunner:
             )
         except OSError as error:
             raise MediaToolError("media tool is unavailable") from error
+        if process.stdout is None or process.stderr is None:
+            await _terminate(process)
+            raise MediaToolError("media tool output pipes are unavailable")
+        stdout_task = asyncio.create_task(_read_bounded(process.stdout))
+        stderr_task = asyncio.create_task(_read_bounded(process.stderr))
+        readers = (stdout_task, stderr_task)
         try:
-            stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout)
+            async with asyncio.timeout(timeout):
+                stdout, stderr = await asyncio.gather(*readers)
+                await process.wait()
         except TimeoutError as error:
-            process.kill()
-            await process.wait()
+            await _terminate_and_drain(process, readers)
             raise MediaToolError("media tool timed out") from error
-        if len(stdout) > MAX_TOOL_OUTPUT_BYTES or len(stderr) > MAX_TOOL_OUTPUT_BYTES:
-            raise MediaToolError("media tool output exceeded limit")
+        except _OutputLimitExceeded as error:
+            await _terminate_and_drain(process, readers)
+            raise MediaToolError("media tool output exceeded limit") from error
+        except BaseException:
+            await _terminate_and_drain(process, readers)
+            raise
         return CommandResult(process.returncode or 0, stdout, stderr)
+
+
+async def _read_bounded(stream: asyncio.StreamReader) -> bytes:
+    output = bytearray()
+    while chunk := await stream.read(64 * 1024):
+        if len(output) + len(chunk) > MAX_TOOL_OUTPUT_BYTES:
+            raise _OutputLimitExceeded
+        output.extend(chunk)
+    return bytes(output)
+
+
+async def _terminate(process: asyncio.subprocess.Process) -> None:
+    if process.returncode is None:
+        try:
+            process.kill()
+        except ProcessLookupError:
+            pass
+    await process.wait()
+
+
+async def _terminate_and_drain(
+    process: asyncio.subprocess.Process,
+    readers: tuple[asyncio.Task[bytes], asyncio.Task[bytes]],
+) -> None:
+    if process.returncode is None:
+        try:
+            process.kill()
+        except ProcessLookupError:
+            pass
+    for reader in readers:
+        if not reader.done():
+            reader.cancel()
+    await asyncio.gather(*readers, return_exceptions=True)
+    await process.wait()
 
 
 @dataclass(frozen=True, slots=True)

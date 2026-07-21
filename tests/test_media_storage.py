@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from unittest.mock import Mock
 
 import pytest
@@ -40,3 +41,18 @@ async def test_provisioning_fails_closed_when_bucket_has_a_policy() -> None:
 
     with pytest.raises(RuntimeError, match="private default required"):
         await storage.ensure_private_buckets()
+
+
+async def test_object_listing_is_bounded_and_ignores_directories() -> None:
+    storage = MinioStorage(settings())
+    client = Mock()
+    directory = Mock(is_dir=True, object_name="prefix/", last_modified=datetime.now(UTC))
+    first = Mock(is_dir=False, object_name="first.bin", last_modified=datetime.now(UTC))
+    second = Mock(is_dir=False, object_name="second.bin", last_modified=datetime.now(UTC))
+    client.list_objects.return_value = iter((directory, first, second))
+    storage.client = client
+
+    objects = await storage.list_objects("ackb-media-quarantine", max_items=1)
+
+    assert [item.object_key for item in objects] == ["first.bin"]
+    client.list_objects.assert_called_once_with("ackb-media-quarantine", recursive=True)

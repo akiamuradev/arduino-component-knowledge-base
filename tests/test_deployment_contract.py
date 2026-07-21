@@ -11,6 +11,7 @@ REQUIRED_SERVICES = {
     "minio",
     "migrate",
     "media-init",
+    "media-retention",
     "backend",
     "worker",
     "parser-worker",
@@ -54,6 +55,10 @@ def test_compose_has_migrations_private_media_and_health_gates() -> None:
     compose = (ROOT / "compose.yaml").read_text(encoding="utf-8")
     assert 'command: ["alembic", "upgrade", "head"]' in compose
     assert 'command: ["ackb-provision-media"]' in compose
+    assert 'command: ["ackb-retain-media", "--apply"]' in compose
+    retention = compose.split("  media-retention:", 1)[1].split("\n  backend:", 1)[0]
+    assert 'profiles: ["maintenance"]' in retention
+    assert "read_only: true" in retention
     assert compose.count("healthcheck:") >= 7
     assert "condition: service_completed_successfully" in compose
     assert "condition: service_healthy" in compose
@@ -65,10 +70,11 @@ def test_compose_isolates_data_and_media_processing_from_parser_egress() -> None
     assert "edge:\n    internal: true" in compose
     assert "data:\n    internal: true" in compose
     assert "parser-egress:" in compose
-    assert (
-        'command: ["dramatiq", "arduino_component_kb.worker", "--queues", "images", "videos"]'
-        in compose
+    media_command = (
+        'command: ["dramatiq", "arduino_component_kb.worker", "--queues", '
+        '"images", "videos", "--processes", "2", "--threads", "1"]'
     )
+    assert media_command in compose
     assert 'command: ["dramatiq", "arduino_component_kb.worker", "--queues", "imports"]' in compose
     parser_worker = compose.split("  parser-worker:", 1)[1].split("\n  frontend:", 1)[0]
     backend = compose.split("  backend:", 1)[1].split("\n  worker:", 1)[0]
@@ -83,12 +89,43 @@ def test_compose_isolates_data_and_media_processing_from_parser_egress() -> None
     assert "- ingress" in reverse_proxy
 
 
+def test_media_worker_has_a_bounded_runtime_profile() -> None:
+    compose = (ROOT / "compose.yaml").read_text(encoding="utf-8")
+    worker = compose.split("  worker:", 1)[1].split("\n  parser-worker:", 1)[0]
+    tmp_mount = f"{Path('/').joinpath('tmp')}:rw,noexec,nosuid,nodev,size=1g,mode=1777"
+    for control in (
+        "read_only: true",
+        "no-new-privileges:true",
+        "cap_drop:",
+        "- ALL",
+        "pids_limit: 128",
+        "mem_limit: 2g",
+        'cpus: "4.0"',
+        tmp_mount,
+    ):
+        assert control in worker
+
+
 def test_nginx_healthchecks_use_explicit_ipv4_loopback() -> None:
     compose = (ROOT / "compose.yaml").read_text(encoding="utf-8")
     assert "http://127.0.0.1:8080/container-health" in compose
     assert "http://127.0.0.1:8080/health" in compose
     assert "http://localhost:8080" not in compose
     assert compose.count("start_period: 10s") == 2
+
+
+def test_reverse_proxy_overwrites_forwarded_client_address() -> None:
+    for path in (
+        ROOT / "deploy" / "reverse-proxy" / "default.conf",
+        ROOT / "deploy" / "reverse-proxy" / "internal-https.conf.template",
+    ):
+        nginx = path.read_text(encoding="utf-8")
+        assert "proxy_set_header X-Forwarded-For $remote_addr;" in nginx
+        assert "$proxy_add_x_forwarded_for" not in nginx
+
+    backend_dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+    assert '"--proxy-headers"' in backend_dockerfile
+    assert '"--forwarded-allow-ips", "*"' in backend_dockerfile
 
 
 def test_images_are_versioned_and_env_example_contains_only_placeholders() -> None:

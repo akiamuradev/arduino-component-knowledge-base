@@ -6,16 +6,40 @@ from datetime import datetime, timedelta
 from typing import cast
 from uuid import UUID, uuid4
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.elements import ColumnElement
 
-from arduino_component_kb.media.domain import MediaJobStatus, MediaStatus, UploadReservation
+from arduino_component_kb.media.domain import (
+    ComponentMediaUsage,
+    MediaJobStatus,
+    MediaStatus,
+    UploadReservation,
+)
 from arduino_component_kb.media.models import MediaAsset, MediaJob, MediaVariant
+
+
+def _active_upload_filter() -> ColumnElement[bool]:
+    return or_(
+        MediaAsset.status == MediaStatus.PROCESSING.value,
+        and_(
+            MediaAsset.status == MediaStatus.PENDING.value,
+            MediaAsset.upload_expires_at > func.now(),
+        ),
+    )
+
+
+def _component_quota_filter() -> ColumnElement[bool]:
+    return or_(MediaAsset.status == MediaStatus.READY.value, _active_upload_filter())
 
 
 class MediaRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
+
+    async def lock_upload_reservations(self) -> None:
+        """Serialize global and per-owner quota checks with reservation inserts."""
+        await self.session.execute(select(func.pg_advisory_xact_lock(0x4D454449, 0x4155504C)))
 
     async def count_pending(self, owner_id: UUID) -> int:
         count = await self.session.scalar(
@@ -23,10 +47,82 @@ class MediaRepository:
             .select_from(MediaAsset)
             .where(
                 MediaAsset.owner_user_id == owner_id,
-                MediaAsset.status.in_((MediaStatus.PENDING.value, MediaStatus.PROCESSING.value)),
+                _active_upload_filter(),
             )
         )
         return int(count or 0)
+
+    async def count_all_pending(self) -> int:
+        count = await self.session.scalar(
+            select(func.count()).select_from(MediaAsset).where(_active_upload_filter())
+        )
+        return int(count or 0)
+
+    async def component_usage(self, component_id: UUID) -> ComponentMediaUsage:
+        row = (
+            await self.session.execute(
+                select(
+                    func.count().filter(MediaAsset.kind == "image"),
+                    func.count().filter(MediaAsset.kind == "video"),
+                    func.coalesce(func.sum(MediaAsset.declared_size_bytes), 0),
+                ).where(
+                    MediaAsset.component_id == component_id,
+                    _component_quota_filter(),
+                )
+            )
+        ).one()
+        images, videos, original_bytes = row
+        return ComponentMediaUsage(int(images), int(videos), int(original_bytes))
+
+    async def retention_candidates(
+        self, cutoff: datetime, limit: int, *, lock: bool
+    ) -> tuple[MediaAsset, ...]:
+        statement = (
+            select(MediaAsset)
+            .where(
+                MediaAsset.storage_cleaned_at.is_(None),
+                or_(
+                    and_(
+                        MediaAsset.status == MediaStatus.REJECTED.value,
+                        MediaAsset.updated_at <= cutoff,
+                    ),
+                    and_(
+                        MediaAsset.status == MediaStatus.PENDING.value,
+                        MediaAsset.upload_expires_at <= cutoff,
+                    ),
+                ),
+            )
+            .order_by(MediaAsset.updated_at, MediaAsset.id)
+            .limit(limit)
+        )
+        if lock:
+            statement = statement.with_for_update(skip_locked=True)
+        values = await self.session.scalars(statement)
+        return tuple(values)
+
+    def mark_storage_cleaned(self, asset: MediaAsset, *, reason: str, now: datetime) -> None:
+        if asset.status == MediaStatus.PENDING.value:
+            asset.status = MediaStatus.REJECTED.value
+            asset.failure_code = reason
+        asset.storage_cleaned_at = now
+        asset.updated_at = now
+
+    async def referenced_object_keys(self, bucket: str, object_keys: frozenset[str]) -> set[str]:
+        if not object_keys:
+            return set()
+        asset_keys = await self.session.scalars(
+            select(MediaAsset.object_key).where(
+                MediaAsset.bucket == bucket,
+                MediaAsset.object_key.in_(object_keys),
+            )
+        )
+        variant_keys = await self.session.scalars(
+            select(MediaVariant.object_key).where(
+                MediaVariant.bucket == bucket,
+                MediaVariant.object_key.in_(object_keys),
+            )
+        )
+        return set(asset_keys) | set(variant_keys)
 
     async def create_reservation(
         self,
@@ -226,6 +322,8 @@ class MediaRepository:
             return False
         if job.status != MediaJobStatus.FAILED.value:
             raise ValueError("job is not retryable")
+        if asset.storage_cleaned_at is not None:
+            raise ValueError("job media was cleaned")
         job.status = MediaJobStatus.QUEUED.value
         job.phase = "queued"
         job.progress_percent = 0

@@ -118,3 +118,26 @@ firewall deny. Результаты, DNS TTL, certificate serial/expiry и opera
 Не проверяются автоматически: корректность выбранного static IP/gateway, распространение root
 CA на все управляемые ПК, правила физического firewall и доступность после отказа VM. Это
 инфраструктурные решения колледжа и требуют администратора сети.
+
+## 6. Media retention
+
+Retention не запускается вместе с обычным application profile. Сначала выполните безопасный
+dry-run и сохраните только итоговые счётчики без object keys:
+
+```bash
+docker compose --env-file .env.production \
+  -f compose.yaml -f compose.production.yaml run --rm backend ackb-retain-media
+```
+
+После проверки backup/MinIO monitoring запустите maintenance profile с явным удалением:
+
+```bash
+docker compose --env-file .env.production \
+  -f compose.yaml -f compose.production.yaml --profile maintenance \
+  run --rm media-retention
+```
+
+Этот вызов эквивалентен `ackb-retain-media --apply`: он очищает original у expired/rejected
+assets, детерминированные partial variants и не привязанные к PostgreSQL objects старше
+`ACKB_MEDIA_RETENTION_GRACE_HOURS`. Ready originals и зарегистрированные variants сохраняются.
+Запускайте dry-run ежедневно, а apply — по утверждённому расписанию после мониторинга и backup.

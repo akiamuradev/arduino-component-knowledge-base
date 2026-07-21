@@ -78,6 +78,13 @@ def test_media_limits_are_unambiguous() -> None:
     assert "не более 600 MiB" in requirements
 
 
+def test_media_retention_requires_explicit_apply_mode() -> None:
+    deployment = (ROOT / "docs" / "DEPLOYMENT.md").read_text(encoding="utf-8")
+    assert "ackb-retain-media" in deployment
+    assert "--apply" in deployment
+    assert "dry-run" in deployment
+
+
 def test_only_administrator_can_confirm_merge() -> None:
     requirements = read_documents()["REQUIREMENTS.md"]
     security = read_documents()["SECURITY.md"]
