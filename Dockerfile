@@ -6,11 +6,12 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1
 WORKDIR /build
 
-COPY pyproject.toml README.md LICENCE THIRD_PARTY_NOTICES.md MANIFEST.in alembic.ini ./
+COPY pyproject.toml requirements.lock README.md LICENCE THIRD_PARTY_NOTICES.md MANIFEST.in alembic.ini ./
 COPY docs ./docs
 COPY migrations ./migrations
 COPY src ./src
-RUN python -m pip wheel --wheel-dir /wheels .
+RUN python -m pip wheel --require-hashes --wheel-dir /wheels --requirement requirements.lock \
+    && python -m pip wheel --no-deps --wheel-dir /wheels .
 
 FROM python:3.13-slim-bookworm@sha256:9d7f287598e1a5a978c015ee176d8216435aaf335ed69ac3c38dd1bbb10e8d64 AS runtime
 
@@ -27,7 +28,8 @@ RUN apt-get update \
 
 WORKDIR /app
 COPY --from=builder /wheels /wheels
-RUN python -m pip install /wheels/*.whl && rm -rf /wheels
+RUN python -m pip install --no-index --find-links=/wheels arduino-component-knowledge-base \
+    && rm -rf /wheels
 COPY --chown=ackb:ackb alembic.ini ./alembic.ini
 COPY --chown=ackb:ackb migrations ./migrations
 

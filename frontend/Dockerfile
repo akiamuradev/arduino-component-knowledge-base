@@ -8,7 +8,7 @@ RUN npm ci
 COPY index.html tsconfig.json tsconfig.app.json tsconfig.node.json vite.config.ts ./
 COPY public ./public
 COPY src ./src
-ARG VITE_APP_VERSION=0.20.0
+ARG VITE_APP_VERSION=0.21.0
 ARG VITE_COMMIT_SHA=unknown
 ARG VITE_BUILD_DATE=unknown
 ENV VITE_APP_VERSION=${VITE_APP_VERSION} \

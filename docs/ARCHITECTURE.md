@@ -236,16 +236,19 @@ The backend uses it only for administrator-only bounded discovery and preview; d
 continue to run in the dedicated parser worker. Media processing remains without external egress.
 
 Reverse proxy — единственная опубликованная точка входа. PostgreSQL, Redis, MinIO admin API,
-backend и media worker остаются в internal container networks без внешнего egress. Только
-parser worker подключён к отдельной egress network для allowlisted HTTPS fetch. Internal TLS,
-firewall, backups, monitoring и restore drill обязательны перед production. Credentials поступают
-через secrets/environment mechanism и не хранятся в Git.
+backend и media worker остаются в internal container networks без внешнего egress. Parser worker
+и backend repository boundary подключены к отдельной egress network для allowlisted HTTPS fetch.
+Эта Docker network не является destination firewall: independent host/network egress rules,
+internal TLS, backups, monitoring и restore drill обязательны перед production. Credentials
+поступают через secrets/environment mechanism и не хранятся в Git; default Compose ещё не
+разделяет PostgreSQL owner и MinIO root на отдельные runtime identities.
 
 ## Решения, отложенные до следующих этапов
 
 Локальные opaque server-side sessions утверждены как MVP baseline. Возможная интеграция с
 колледжным SSO не должна менять backend RBAC, отзыв сессий и audit invariants. Outbox
-implementation, merge/review UI, backup tooling и orchestrator остаются отложенными.
+implementation, production credential provisioning, backup tooling и orchestrator остаются
+отложенными. Merge/review UI уже реализован.
 
 ## Поиск опубликованного каталога
 
