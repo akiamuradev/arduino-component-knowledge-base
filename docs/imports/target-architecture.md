@@ -164,9 +164,9 @@ Stage 11 may connect the new orchestrator behind a disabled feature flag and run
 Only the explicit switch stage may make the new flow authoritative. Existing models and adapters
 are removed only after acceptance metrics and rollback requirements are satisfied.
 
-## Stage 2 hand-off
+## Stage 2 implementation
 
-The next stage defines `ExtractedFacts` and evidence/provenance models. It should implement the
-concrete output type of `FactExtractor` without changing the stage interface or wiring the package
-to production. The facts model must preserve raw and unmapped data and must not contain UI/card
-fields.
+Stage 2 defines `ExtractedFacts` and evidence/provenance models as the concrete future output of
+`FactExtractor`. The model preserves raw and unmapped data, contains no UI/card fields and remains
+unwired from production. Its complete contract is documented in
+[`extracted-facts.md`](extracted-facts.md).
