@@ -66,6 +66,9 @@ _UNIT_SUFFIX = re.compile(r"_(?P<unit>[1-9][0-9]*)_(?P<convert>[0-9]+)$")
 
 
 class KicadSymbolsAdapter:
+    """Deprecated KiCad-to-card adapter retained behind a rollback feature flag."""
+
+    legacy_card_source_deprecated = True
     source_key = "kicad_symbols"
     repository_url = _REPOSITORY
     parser_name = "kicad-symbols-v1"

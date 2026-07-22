@@ -92,6 +92,7 @@ class Settings(DatabaseSettings):
         "Sensor_,MCU_,Display_,74xx,Relay,Switch,Connector,Motor,Driver_Motor,Regulator_,"
         "Transistor_,Transistor_Array,Timer,Diode,LED,Memory,Interface_"
     )
+    legacy_kicad_card_import_enabled: bool = True
     ffprobe_path: str = "ffprobe"
     ffmpeg_path: str = "ffmpeg"
     ffprobe_timeout_seconds: float = Field(default=15.0, ge=1, le=60)

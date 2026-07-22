@@ -5,7 +5,9 @@ from __future__ import annotations
 import pytest
 from pydantic import SecretStr, ValidationError
 
+from arduino_component_kb.api.imports import _adapter
 from arduino_component_kb.config import Settings
+from arduino_component_kb.imports.adapters.kicad_symbols import KicadSymbolsAdapter
 
 
 def test_settings_require_database_url() -> None:
@@ -113,3 +115,24 @@ def test_kicad_library_allowlist_is_bounded_backend_configuration() -> None:
             database_url="postgresql+asyncpg://ackb:placeholder@localhost/ackb",
             kicad_library_allowlist="../untrusted",
         )
+
+
+def test_legacy_kicad_card_import_flag_defaults_on_for_rollback() -> None:
+    settings = Settings(
+        _env_file=None,
+        environment="test",
+        database_url="postgresql+asyncpg://ackb:placeholder@localhost/ackb",
+    )
+    assert settings.legacy_kicad_card_import_enabled is True
+    assert isinstance(_adapter(settings, "kicad_symbols"), KicadSymbolsAdapter)
+
+
+def test_legacy_kicad_card_import_can_be_disabled() -> None:
+    settings = Settings(
+        _env_file=None,
+        environment="test",
+        database_url="postgresql+asyncpg://ackb:placeholder@localhost/ackb",
+        legacy_kicad_card_import_enabled=False,
+    )
+    with pytest.raises(ValueError, match="legacy_kicad_card_import_disabled"):
+        _adapter(settings, "kicad_symbols")

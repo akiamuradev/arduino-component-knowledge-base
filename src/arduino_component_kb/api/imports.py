@@ -155,7 +155,13 @@ def _acquirer(settings: Settings) -> RepositoryAcquirer:
 def _adapter(settings: Settings, source_key: str) -> RepositorySourceAdapter:
     if source_key == "seeed_wiki":
         return SeeedWikiAdapter()
+    _require_legacy_kicad_card_import(settings, source_key)
     return KicadSymbolsAdapter(settings.kicad_library_prefixes)
+
+
+def _require_legacy_kicad_card_import(settings: Settings, source_key: str) -> None:
+    if source_key == "kicad_symbols" and not settings.legacy_kicad_card_import_enabled:
+        raise ValueError("legacy_kicad_card_import_disabled")
 
 
 def _validated_entry(payload: RepositoryImportRequest) -> RepositoryEntry:
@@ -324,6 +330,7 @@ async def discover_repository_entries(
         raise HTTPException(422, detail={"code": "source_disabled"})
     settings = cast(Settings, request.app.state.settings)
     try:
+        _require_legacy_kicad_card_import(settings, source.key)
         acquired = await _acquirer(settings).acquire(
             source.key, source.repository_url, revision, safe_path
         )
@@ -366,6 +373,7 @@ async def preview_repository_import(
         raise HTTPException(422, detail={"code": "source_disabled"})
     settings = cast(Settings, request.app.state.settings)
     try:
+        _require_legacy_kicad_card_import(settings, source.key)
         acquired = await _acquirer(settings).acquire(
             source.key,
             source.repository_url,
@@ -400,13 +408,17 @@ async def create_repository_import(
 ) -> ImportJobResponse:
     entry = _validated_entry(payload)
     file_path = entry.file_path
+    settings = cast(Settings, request.app.state.settings)
+    try:
+        _require_legacy_kicad_card_import(settings, payload.source_key)
+    except ValueError as error:
+        raise HTTPException(422, detail={"code": _safe_value_code(error)}) from error
     repository = ImportRepository(session)
     source = await repository.source_for_key(payload.source_key)
     if source is None:
         raise HTTPException(422, detail={"code": "source_disabled"})
     job = await repository.get_idempotent_job(actor.user_id, idempotency_key)
     if job is None:
-        settings = cast(Settings, request.app.state.settings)
         job = repository.add_repository_job(
             source,
             payload.revision,

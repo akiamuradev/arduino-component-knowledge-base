@@ -1,0 +1,12 @@
+(kicad_symbol_lib
+  (version 20231120)
+  (symbol "Connector_Generic_01x04"
+    (property "Reference" "J")
+    (property "Value" "Connector_Generic_01x04")
+    (property "Aliases" "Connector")
+    (property "Description" "Generic four-pin connector")
+    (property "ki_keywords" "connector generic")
+    (pin passive line (name "Pin_1") (number "1"))
+    (pin passive line (name "Pin_2") (number "2"))
+    (pin passive line (name "Pin_3") (number "3"))
+    (pin passive line (name "Pin_4") (number "4"))))

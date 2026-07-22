@@ -22,6 +22,7 @@ from arduino_component_kb.imports.acquisition import (
 )
 from arduino_component_kb.imports.adapters import DEFAULT_ADAPTERS
 from arduino_component_kb.imports.adapters.kicad_symbols import KicadSymbolsAdapter
+from arduino_component_kb.imports.adapters.repository import RepositorySourceAdapter
 from arduino_component_kb.imports.adapters.seeed_wiki import SeeedWikiAdapter
 from arduino_component_kb.imports.domain import (
     ParserError,
@@ -96,11 +97,13 @@ async def process_import_job(job_id: UUID, settings: Settings) -> None:
                         source_file_path,
                     )
                     entry = RepositoryEntry(acquired_entry.file_path, source_entry_name)
-                    adapter = (
-                        SeeedWikiAdapter()
-                        if source.key == "seeed_wiki"
-                        else KicadSymbolsAdapter(settings.kicad_library_prefixes)
-                    )
+                    adapter: RepositorySourceAdapter
+                    if source.key == "seeed_wiki":
+                        adapter = SeeedWikiAdapter()
+                    else:
+                        if not settings.legacy_kicad_card_import_enabled:
+                            raise ValueError("legacy_kicad_card_import_disabled")
+                        adapter = KicadSymbolsAdapter(settings.kicad_library_prefixes)
                     await adapter.validate_revision(acquired_entry.snapshot.revision)
                     parsed_repository = await adapter.parse_entry(
                         acquired_entry.snapshot,
