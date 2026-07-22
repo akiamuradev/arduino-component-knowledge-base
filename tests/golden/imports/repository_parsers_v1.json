@@ -1,0 +1,253 @@
+{
+  "kicad": {
+    "Audio_Outside.kicad_sym#AudioOnly": {
+      "normalized_fields": {},
+      "status": "unsupported_document",
+      "warnings": ["library_not_allowlisted"]
+    },
+    "Display_Graphic.kicad_sym#SSD1306": {
+      "normalized_fields": {
+        "category_hint": "displays",
+        "datasheet_url": "https://cdn-shop.adafruit.com/datasheets/SSD1306.pdf",
+        "description": "128x64 OLED display controller",
+        "footprint": "",
+        "footprint_filters": ["SOIC*", "QFN*"],
+        "format_version": "20231120",
+        "keywords": "OLED display I2C SPI",
+        "library_name": "Display_Graphic",
+        "pins": [
+          {"electrical_type": "power_in", "name": "VDD", "number": "1", "unit": 1},
+          {"electrical_type": "input", "name": "SCL", "number": "2", "unit": 1},
+          {"electrical_type": "bidirectional", "name": "SDA", "number": "3", "unit": 1},
+          {"electrical_type": "power_in", "name": "VSS", "number": "4", "unit": 1}
+        ],
+        "reference": "U",
+        "symbol_name": "SSD1306",
+        "value": "SSD1306"
+      },
+      "status": "parsed",
+      "warnings": []
+    },
+    "MCU_Test.kicad_sym#ATmega328P": {
+      "normalized_fields": {
+        "category_hint": "integrated-circuits",
+        "description": "8-bit AVR microcontroller",
+        "extends": "ATmega8",
+        "footprint": "",
+        "footprint_filters": [],
+        "format_version": "20231120",
+        "keywords": "",
+        "library_name": "MCU_Test",
+        "pins": [
+          {"electrical_type": "input", "name": "RESET", "number": "1", "unit": 1},
+          {"electrical_type": "bidirectional", "name": "PB0", "number": "14", "unit": 2}
+        ],
+        "reference": "U",
+        "symbol_name": "ATmega328P",
+        "value": "ATmega328P"
+      },
+      "status": "parsed",
+      "warnings": []
+    },
+    "Relay_Missing_Datasheet.kicad_sym#Relay_SPDT": {
+      "normalized_fields": {
+        "category_hint": "actuators",
+        "description": "Single pole double throw relay",
+        "footprint": "",
+        "footprint_filters": [],
+        "format_version": "20231120",
+        "keywords": "",
+        "library_name": "Relay_Missing_Datasheet",
+        "pins": [
+          {"electrical_type": "passive", "name": "A1", "number": "1", "unit": 1}
+        ],
+        "reference": "K",
+        "symbol_name": "Relay_SPDT",
+        "value": "Relay_SPDT"
+      },
+      "status": "parsed",
+      "warnings": []
+    },
+    "Sensor_Broken.kicad_sym#Broken": {
+      "normalized_fields": {},
+      "status": "invalid_metadata",
+      "warnings": ["sexpression_unbalanced"]
+    },
+    "Sensor_Temperature.kicad_sym#LM35": {
+      "normalized_fields": {
+        "category_hint": "sensors",
+        "datasheet_url": "https://www.ti.com/lit/ds/symlink/lm35.pdf",
+        "description": "Precision centigrade temperature sensor",
+        "footprint": "Package_TO_SOT_THT:TO-92_Inline",
+        "footprint_filters": ["TO?92*"],
+        "format_version": "20231120",
+        "keywords": "temperature sensor analog",
+        "library_name": "Sensor_Temperature",
+        "pins": [
+          {"electrical_type": "power_in", "name": "V+", "number": "1", "unit": 1},
+          {"electrical_type": "output", "name": "VOUT", "number": "2", "unit": 1},
+          {"electrical_type": "power_in", "name": "GND", "number": "3", "unit": 1}
+        ],
+        "reference": "U",
+        "symbol_name": "LM35",
+        "value": "LM35"
+      },
+      "status": "parsed",
+      "warnings": []
+    },
+    "Sensor_Unknown_Electrical.kicad_sym#FutureSensor": {
+      "normalized_fields": {
+        "category_hint": "sensors",
+        "description": "Fixture with a future electrical type",
+        "footprint": "",
+        "footprint_filters": [],
+        "format_version": "20231120",
+        "keywords": "",
+        "library_name": "Sensor_Unknown_Electrical",
+        "pins": [
+          {"electrical_type": "quantum", "name": "DATA", "number": "1", "unit": 1}
+        ],
+        "reference": "U",
+        "symbol_name": "FutureSensor",
+        "value": "FutureSensor"
+      },
+      "status": "parsed_with_warnings",
+      "warnings": ["unknown_electrical_type:quantum"]
+    },
+    "Switch_Filters.kicad_sym#SW_Push": {
+      "normalized_fields": {
+        "category_hint": "input",
+        "description": "Push button switch",
+        "footprint": "",
+        "footprint_filters": ["Button*", "Switch*"],
+        "format_version": "20231120",
+        "keywords": "",
+        "library_name": "Switch_Filters",
+        "pins": [
+          {"electrical_type": "passive", "name": "1", "number": "1", "unit": 1}
+        ],
+        "reference": "SW",
+        "symbol_name": "SW_Push",
+        "value": "SW_Push"
+      },
+      "status": "parsed",
+      "warnings": []
+    }
+  },
+  "seeed": {
+    "alternative_headings.mdx": {
+      "normalized_fields": {
+        "category_hint": "displays",
+        "description": "Compact display module with an I2C interface for educational projects.",
+        "specifications": [
+          {"key": "supply-voltage", "label": "Supply voltage", "value": "5 V"}
+        ],
+        "summary": "Compact display module with an I2C interface for educational projects.",
+        "title": "Grove OLED Display"
+      },
+      "status": "parsed",
+      "warnings": []
+    },
+    "broken_frontmatter.mdx": {
+      "normalized_fields": {
+        "category_hint": "actuators",
+        "description": "--- title: Unsafe &anchor description without separator",
+        "summary": "--- title: Unsafe &anchor description without separator",
+        "title": "Grove Relay"
+      },
+      "status": "parsed_with_warnings",
+      "warnings": ["frontmatter_unterminated", "unknown_section:Unknown Legacy Block"]
+    },
+    "communication_module.md": {
+      "normalized_fields": {
+        "category_hint": "communication",
+        "description": "A long-range radio module for low-power communication projects.",
+        "resource_links": [
+          {"label": "Library", "url": "https://github.com/Seeed-Studio/Grove_LoRa_868MHz"}
+        ],
+        "specifications": [
+          {"key": "interface", "label": "Interface", "value": "UART"},
+          {"key": "frequency", "label": "Frequency", "value": "868 MHz"},
+          {"key": "supply-voltage", "label": "Supply voltage", "value": "3.3 to 5 V"}
+        ],
+        "summary": "A long-range radio module for low-power communication projects.",
+        "title": "Grove - LoRa Radio 868MHz"
+      },
+      "status": "parsed_with_warnings",
+      "warnings": ["untrusted_specification_ignored"]
+    },
+    "complete.md": {
+      "normalized_fields": {
+        "category_hint": "sensors",
+        "description": "A Grove module for measuring ambient temperature with Arduino-compatible boards.",
+        "resource_links": [
+          {"label": "Datasheet", "url": "https://files.seeedstudio.com/example-datasheet.pdf"},
+          {"label": "Arduino library", "url": "https://github.com/Seeed-Studio/example-library"}
+        ],
+        "specifications": [
+          {"key": "measurement-range", "label": "Measurement range", "value": "-40 to 125 °C"},
+          {"key": "accuracy", "label": "Accuracy", "value": "±0.5 °C"},
+          {"key": "connector", "label": "Connector", "value": "Grove 4-pin"},
+          {"key": "supply-voltage", "label": "Supply voltage", "value": "3.3 to 5 V"},
+          {"key": "operating-current", "label": "Operating current", "value": "20 mA"}
+        ],
+        "summary": "A Grove module for measuring ambient temperature with Arduino-compatible boards.",
+        "title": "Grove - Temperature Sensor"
+      },
+      "status": "parsed",
+      "warnings": []
+    },
+    "development_board.md": {
+      "normalized_fields": {
+        "category_hint": "boards",
+        "description": "A compact development board with Wi-Fi and Bluetooth connectivity.",
+        "resource_links": [
+          {"label": "Datasheet", "url": "https://files.seeedstudio.com/wiki/XIAO_WiFi/esp32-c3_datasheet.pdf"}
+        ],
+        "specifications": [
+          {"key": "dimensions", "label": "Dimensions", "value": "21 × 17.8 mm"},
+          {"key": "connector", "label": "Connector", "value": "USB Type-C"},
+          {"key": "supply-voltage", "label": "Supply voltage", "value": "5 V"},
+          {"key": "interface", "label": "Interface", "value": "Wi-Fi and Bluetooth"}
+        ],
+        "summary": "A compact development board with Wi-Fi and Bluetooth connectivity.",
+        "title": "Seeed Studio XIAO ESP32C3"
+      },
+      "status": "parsed_with_warnings",
+      "warnings": ["untrusted_specification_ignored"]
+    },
+    "power_module.md": {
+      "normalized_fields": {
+        "category_hint": "power",
+        "description": "A regulated power module for supplying low-voltage classroom prototypes.",
+        "specifications": [
+          {"key": "supply-voltage", "label": "Supply voltage", "value": "6 to 12 V"}
+        ],
+        "summary": "A regulated power module for supplying low-voltage classroom prototypes.",
+        "title": "Grove - DC-DC Converter"
+      },
+      "status": "parsed_with_warnings",
+      "warnings": ["untrusted_specification_ignored"]
+    },
+    "unknown_structure.md": {
+      "normalized_fields": {
+        "category_hint": "sensors",
+        "description": "Distance sensor documentation using an older and mostly unstructured layout.",
+        "summary": "Distance sensor documentation using an older and mostly unstructured layout.",
+        "title": "Grove Ultrasonic Ranger"
+      },
+      "status": "parsed_with_warnings",
+      "warnings": ["unknown_section:Historical Notes"]
+    },
+    "without_specifications.md": {
+      "normalized_fields": {
+        "category_hint": "input",
+        "description": "A momentary input module intended for introductory Arduino exercises.",
+        "summary": "A momentary input module intended for introductory Arduino exercises.",
+        "title": "Grove Button"
+      },
+      "status": "parsed",
+      "warnings": []
+    }
+  }
+}
