@@ -1,5 +1,6 @@
 """Infrastructure-free domain models used by the evidence-first import pipeline."""
 
+from arduino_component_kb.imports.pipeline.models.artifact import SourceArtifact
 from arduino_component_kb.imports.pipeline.models.extracted_facts import (
     DescriptionSection,
     ExtractedFacts,
@@ -33,6 +34,7 @@ __all__ = [
     "RawSpecification",
     "ResourceKind",
     "ResourceReference",
+    "SourceArtifact",
     "SourceArtifactMetadata",
     "SourceReference",
     "UnknownFact",
