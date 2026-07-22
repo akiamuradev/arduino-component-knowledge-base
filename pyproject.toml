@@ -37,6 +37,7 @@ ackb-validate-repository-jobs = "arduino_component_kb.imports.job_validation:mai
 dev = [
   "bandit>=1.9,<2",
   "build>=1.2,<2",
+  "hypothesis>=6.100,<7",
   "mypy>=1.11,<2",
   "pip-audit>=2.9,<3",
   "pytest>=8.3,<9",

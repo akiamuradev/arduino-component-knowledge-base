@@ -1,0 +1,652 @@
+{
+  "actuator_module.md": {
+    "conflicts": [],
+    "identifiers": [
+      [
+        "sku",
+        "105020010"
+      ]
+    ],
+    "input_sha256": "7b1213455969010d619a2b98f54bed9b26b7e12630e7674f87da84d84cbdc8ff",
+    "interfaces": [
+      "I2C"
+    ],
+    "manufacturers": [],
+    "payload_sha256": "5217a0cd17b35486e56e8b74bf3449a459187933d601434812b8f17af62b7b58",
+    "primary_ics": [
+      [
+        "part_number",
+        "DRV8830"
+      ]
+    ],
+    "profile": "actuator",
+    "source_unmapped": [],
+    "specifications": [
+      {
+        "confidence": "high",
+        "label": "Supply Voltage",
+        "normalized": "2.75–6.8 V",
+        "original": "2.75V-6.8V",
+        "path": "electrical.voltage.supply",
+        "rule": "quantity.voltage.range.v1",
+        "unit": "V"
+      },
+      {
+        "confidence": "high",
+        "label": "Communication Interface",
+        "normalized": "I2C",
+        "original": "I2C",
+        "path": "communication.interface",
+        "rule": "interface.aliases.v1",
+        "unit": null
+      },
+      {
+        "confidence": "high",
+        "label": "Current",
+        "normalized": "1 A per channel",
+        "original": "1 ampere per channel",
+        "path": "electrical.current.operating",
+        "rule": "quantity.current.scalar.v1",
+        "unit": "A"
+      }
+    ],
+    "unmapped_interfaces": [],
+    "unmapped_specifications": [
+      {
+        "label": "Peak channel behavior",
+        "reason": "taxonomy.alias-unmapped.v1",
+        "value": "internally limited"
+      }
+    ],
+    "warnings": [
+      "unmapped_specification"
+    ]
+  },
+  "alternative_headings.mdx": {
+    "conflicts": [],
+    "identifiers": [],
+    "input_sha256": "5ed75918d2cbea850fdca4d09d3a1b504934097dd06d1c5e6a897cf69770d002",
+    "interfaces": [],
+    "manufacturers": [],
+    "payload_sha256": "183fe6318d43a3ec335fd53dc4f58428e95a867cd18e1782aafbb91bd3302417",
+    "primary_ics": [],
+    "profile": "display",
+    "source_unmapped": [],
+    "specifications": [
+      {
+        "confidence": "high",
+        "label": "Supply",
+        "normalized": "5 V",
+        "original": "5 volts",
+        "path": "electrical.voltage.supply",
+        "rule": "quantity.voltage.scalar.v1",
+        "unit": "V"
+      }
+    ],
+    "unmapped_interfaces": [],
+    "unmapped_specifications": [],
+    "warnings": []
+  },
+  "broken_frontmatter.mdx": {
+    "conflicts": [],
+    "identifiers": [],
+    "input_sha256": "60bf33f238ec738d8d98945ca5f865718ae35c8f2fd86e9bb6f157e9537bfb32",
+    "interfaces": [],
+    "manufacturers": [],
+    "payload_sha256": "c5be4600afbe15f5777329c9d4419d2bee46894ab172db452e41188dc0877c40",
+    "primary_ics": [],
+    "profile": "actuator",
+    "source_unmapped": [
+      "Unknown Legacy Block"
+    ],
+    "specifications": [],
+    "unmapped_interfaces": [],
+    "unmapped_specifications": [],
+    "warnings": []
+  },
+  "can_bus_module.md": {
+    "conflicts": [],
+    "identifiers": [],
+    "input_sha256": "d28ded9e27ffefa6887bd10d5f36e5c9d6c54bb0335d005b998bffcdf0e9552d",
+    "interfaces": [
+      "SPI"
+    ],
+    "manufacturers": [],
+    "payload_sha256": "613fc907ed5d8872c316d94b04b30b93852c4ebe38162030844bffb5fa61f4b6",
+    "primary_ics": [
+      [
+        "part_number",
+        "MCP2515"
+      ]
+    ],
+    "profile": "communication",
+    "source_unmapped": [],
+    "specifications": [
+      {
+        "confidence": "low",
+        "label": "Main IC",
+        "normalized": "MCP2515",
+        "original": "MCP2515",
+        "path": "identity.primary_ic",
+        "rule": "text.nfkc-whitespace.v1",
+        "unit": null
+      },
+      {
+        "confidence": "high",
+        "label": "Interface",
+        "normalized": "SPI",
+        "original": "SPI",
+        "path": "communication.interface",
+        "rule": "interface.aliases.v1",
+        "unit": null
+      },
+      {
+        "confidence": "low",
+        "label": "Connector",
+        "normalized": "Grove 4-pin",
+        "original": "Grove 4-pin",
+        "path": "mechanical.connector",
+        "rule": "text.nfkc-whitespace.v1",
+        "unit": null
+      },
+      {
+        "confidence": "high",
+        "label": "Frequency",
+        "normalized": "16 MHz",
+        "original": "16MHz",
+        "path": "communication.frequency.carrier",
+        "rule": "quantity.frequency.scalar.v1",
+        "unit": "MHz"
+      }
+    ],
+    "unmapped_interfaces": [],
+    "unmapped_specifications": [],
+    "warnings": []
+  },
+  "communication_module.md": {
+    "conflicts": [],
+    "identifiers": [],
+    "input_sha256": "1b7dace93ef403b5e33814e48d94a726a4eb5871aa946637b1956897d21bb0c8",
+    "interfaces": [
+      "UART"
+    ],
+    "manufacturers": [],
+    "payload_sha256": "3c404cfb98dde49824c7704194f680e9f7f0110aee2e6702a6f1cc84260752fe",
+    "primary_ics": [],
+    "profile": "communication",
+    "source_unmapped": [],
+    "specifications": [
+      {
+        "confidence": "high",
+        "label": "Communication interface",
+        "normalized": "UART",
+        "original": "UART",
+        "path": "communication.interface",
+        "rule": "interface.aliases.v1",
+        "unit": null
+      },
+      {
+        "confidence": "low",
+        "label": "Link budget",
+        "normalized": "148 dB",
+        "original": "148 dB",
+        "path": "communication.link_budget",
+        "rule": "text.nfkc-whitespace.v1",
+        "unit": null
+      },
+      {
+        "confidence": "high",
+        "label": "Frequency",
+        "normalized": "868 MHz",
+        "original": "868 MHz",
+        "path": "communication.frequency.carrier",
+        "rule": "quantity.frequency.scalar.v1",
+        "unit": "MHz"
+      },
+      {
+        "confidence": "high",
+        "label": "Supply voltage",
+        "normalized": "3.3–5 V",
+        "original": "3.3 to 5 volts",
+        "path": "electrical.voltage.supply",
+        "rule": "quantity.voltage.range.v1",
+        "unit": "V"
+      }
+    ],
+    "unmapped_interfaces": [],
+    "unmapped_specifications": [],
+    "warnings": []
+  },
+  "complete.md": {
+    "conflicts": [],
+    "identifiers": [],
+    "input_sha256": "fa058c6595ac17474203cee628783507c99e9076778df7b6a7be2395f750270a",
+    "interfaces": [],
+    "manufacturers": [],
+    "payload_sha256": "1e96b3992a24ad56623b1cf00535e91e54c8abfe1c1b9e05c0f618c5f801a7b1",
+    "primary_ics": [],
+    "profile": "sensor",
+    "source_unmapped": [],
+    "specifications": [
+      {
+        "confidence": "high",
+        "label": "Operating range",
+        "normalized": "-40–125 °C",
+        "original": "-40 to 125 degrees celsius",
+        "path": "measurement.range",
+        "rule": "quantity.temperature.range.v1",
+        "unit": "°C"
+      },
+      {
+        "confidence": "high",
+        "label": "Accuracy",
+        "normalized": "±0.5 °C",
+        "original": "±0.5 degrees celsius",
+        "path": "measurement.accuracy",
+        "rule": "quantity.temperature.tolerance.v1",
+        "unit": "°C"
+      },
+      {
+        "confidence": "low",
+        "label": "Connector",
+        "normalized": "Grove 4-pin",
+        "original": "Grove 4-pin",
+        "path": "mechanical.connector",
+        "rule": "text.nfkc-whitespace.v1",
+        "unit": null
+      },
+      {
+        "confidence": "high",
+        "label": "Supply Voltage",
+        "normalized": "3.3–5 V",
+        "original": "3.3 to 5 volts",
+        "path": "electrical.voltage.supply",
+        "rule": "quantity.voltage.range.v1",
+        "unit": "V"
+      },
+      {
+        "confidence": "high",
+        "label": "Current",
+        "normalized": "20 mA",
+        "original": "20 milliamps",
+        "path": "electrical.current.operating",
+        "rule": "quantity.current.scalar.v1",
+        "unit": "mA"
+      }
+    ],
+    "unmapped_interfaces": [],
+    "unmapped_specifications": [],
+    "warnings": []
+  },
+  "connector_module.md": {
+    "conflicts": [],
+    "identifiers": [
+      [
+        "sku",
+        "103020007"
+      ]
+    ],
+    "input_sha256": "adfd4635d88a900ca3c3e1acb697585a2523f5eb70654d44a3fc447408fde097",
+    "interfaces": [],
+    "manufacturers": [
+      "Seeed Studio"
+    ],
+    "payload_sha256": "dbf7ac3404f5b9c8815ebba450e2f91f9e0f033878cbf54c027f4e2536bb9648",
+    "primary_ics": [],
+    "profile": "generic",
+    "source_unmapped": [],
+    "specifications": [
+      {
+        "confidence": "low",
+        "label": "Connector",
+        "normalized": "Grove 4-pin and screw terminal",
+        "original": "Grove 4-pin and screw terminal",
+        "path": "mechanical.connector",
+        "rule": "text.nfkc-whitespace.v1",
+        "unit": null
+      }
+    ],
+    "unmapped_interfaces": [],
+    "unmapped_specifications": [
+      {
+        "label": "Wire range",
+        "reason": "taxonomy.alias-unmapped.v1",
+        "value": "16-30 AWG"
+      }
+    ],
+    "warnings": [
+      "unmapped_specification"
+    ]
+  },
+  "development_board.md": {
+    "conflicts": [],
+    "identifiers": [],
+    "input_sha256": "42f6b70efe8f2e5eadef34d1c518fac20093e2c97dab0e1ad8511bc60f02c58d",
+    "interfaces": [
+      "Wi-Fi",
+      "Bluetooth"
+    ],
+    "manufacturers": [],
+    "payload_sha256": "7046068b7599c866d44a0cf1b4bdec26fb7083694f067abb1be73cdd4517013d",
+    "primary_ics": [],
+    "profile": "board",
+    "source_unmapped": [],
+    "specifications": [
+      {
+        "confidence": "high",
+        "label": "Dimensions",
+        "normalized": "21 × 17.8 mm",
+        "original": "21 x 17.8 millimeters",
+        "path": "physical.dimensions",
+        "rule": "dimensions.axes.v1",
+        "unit": "mm"
+      },
+      {
+        "confidence": "low",
+        "label": "Processor",
+        "normalized": "ESP32-C3",
+        "original": "ESP32-C3",
+        "path": "board.processor",
+        "rule": "text.nfkc-whitespace.v1",
+        "unit": null
+      },
+      {
+        "confidence": "low",
+        "label": "Connector",
+        "normalized": "USB Type-C",
+        "original": "USB Type-C",
+        "path": "mechanical.connector",
+        "rule": "text.nfkc-whitespace.v1",
+        "unit": null
+      },
+      {
+        "confidence": "high",
+        "label": "Supply voltage",
+        "normalized": "5 V",
+        "original": "5 volts",
+        "path": "electrical.voltage.supply",
+        "rule": "quantity.voltage.scalar.v1",
+        "unit": "V"
+      },
+      {
+        "confidence": "high",
+        "label": "Interface",
+        "normalized": "Wi-Fi, Bluetooth",
+        "original": "Wi-Fi and Bluetooth",
+        "path": "communication.interface",
+        "rule": "interface.aliases.v1",
+        "unit": null
+      }
+    ],
+    "unmapped_interfaces": [],
+    "unmapped_specifications": [],
+    "warnings": []
+  },
+  "display_spi.md": {
+    "conflicts": [],
+    "identifiers": [
+      [
+        "model",
+        "OLED-128X64"
+      ]
+    ],
+    "input_sha256": "5c61aaea905c6f0d7fe288fd14faddcb2a4082a8945c5bfc00ae1e762d9944cf",
+    "interfaces": [
+      "I2C"
+    ],
+    "manufacturers": [],
+    "payload_sha256": "02158748a3fced1c9f4f6ab41233942e96090a49025593e9592057bbd482c051",
+    "primary_ics": [
+      [
+        "part_number",
+        "SSD1306"
+      ]
+    ],
+    "profile": "display",
+    "source_unmapped": [],
+    "specifications": [
+      {
+        "confidence": "high",
+        "label": "Resolution",
+        "normalized": "128 × 64",
+        "original": "128x64",
+        "path": "display.resolution",
+        "rule": "dimensions.axes.v1",
+        "unit": null
+      },
+      {
+        "confidence": "low",
+        "label": "Display color",
+        "normalized": "monochrome",
+        "original": "monochrome",
+        "path": "display.color",
+        "rule": "text.nfkc-whitespace.v1",
+        "unit": null
+      },
+      {
+        "confidence": "high",
+        "label": "Supply Voltage",
+        "normalized": "3.3–5 V",
+        "original": "3.3V to 5V",
+        "path": "electrical.voltage.supply",
+        "rule": "quantity.voltage.range.v1",
+        "unit": "V"
+      },
+      {
+        "confidence": "high",
+        "label": "Interface",
+        "normalized": "I2C",
+        "original": "I2C",
+        "path": "communication.interface",
+        "rule": "interface.aliases.v1",
+        "unit": null
+      }
+    ],
+    "unmapped_interfaces": [],
+    "unmapped_specifications": [],
+    "warnings": []
+  },
+  "environmental_sensor.md": {
+    "conflicts": [],
+    "identifiers": [
+      [
+        "product_id",
+        "SEN-BME280"
+      ]
+    ],
+    "input_sha256": "cb6e44cab6f89fc80f7861db33e8aa0779e8bfb9b150e9ff77364de9b165a475",
+    "interfaces": [
+      "I2C"
+    ],
+    "manufacturers": [],
+    "payload_sha256": "3dc62bb2366a1d923c87c543e9df8dbd11b751eefa5eacc8d753d4d1fd770a01",
+    "primary_ics": [
+      [
+        "part_number",
+        "BME280"
+      ]
+    ],
+    "profile": "sensor",
+    "source_unmapped": [],
+    "specifications": [
+      {
+        "confidence": "high",
+        "label": "Temperature range",
+        "normalized": "-40–85 °C",
+        "original": "-40 to 85 degrees celsius",
+        "path": "sensor.temperature.measurement_range",
+        "rule": "quantity.temperature.range.v1",
+        "unit": "°C"
+      },
+      {
+        "confidence": "high",
+        "label": "Humidity range",
+        "normalized": "0–100 %",
+        "original": "0 to 100 percent",
+        "path": "sensor.humidity.measurement_range",
+        "rule": "quantity.percent.range.v1",
+        "unit": "%"
+      },
+      {
+        "confidence": "high",
+        "label": "Pressure range",
+        "normalized": "300–1100 hPa",
+        "original": "300 to 1100 hPa",
+        "path": "sensor.pressure.measurement_range",
+        "rule": "quantity.pressure.range.v1",
+        "unit": "hPa"
+      },
+      {
+        "confidence": "high",
+        "label": "Interface",
+        "normalized": "I2C",
+        "original": "I2C",
+        "path": "communication.interface",
+        "rule": "interface.aliases.v1",
+        "unit": null
+      }
+    ],
+    "unmapped_interfaces": [],
+    "unmapped_specifications": [],
+    "warnings": []
+  },
+  "minimal_no_summary.md": {
+    "conflicts": [],
+    "identifiers": [],
+    "input_sha256": "429645d7ea8fad53e02030431df189aac46759e1ab731890baa939c8f0cd734b",
+    "interfaces": [],
+    "manufacturers": [],
+    "payload_sha256": "d812dec9ab7b82db5734e84951e4b1ae0911b961ecf510abbc6dc91b369ad961",
+    "primary_ics": [],
+    "profile": "generic",
+    "source_unmapped": [
+      "Prototype Notes"
+    ],
+    "specifications": [],
+    "unmapped_interfaces": [],
+    "unmapped_specifications": [
+      {
+        "label": "Vendor tuning code",
+        "reason": "taxonomy.alias-unmapped.v1",
+        "value": "X-17"
+      }
+    ],
+    "warnings": [
+      "unmapped_specification"
+    ]
+  },
+  "motor_shield.md": {
+    "conflicts": [],
+    "identifiers": [],
+    "input_sha256": "de7fde91520f2abf29b2473349460f28587b0e7ee547f3685e78c2e571cc6a1d",
+    "interfaces": [],
+    "manufacturers": [],
+    "payload_sha256": "05e252f0fc59ee9e5c0bb5e8a518a490c990674bd63c0c17240e66e8f33a1fc0",
+    "primary_ics": [
+      [
+        "part_number",
+        "L298P"
+      ]
+    ],
+    "profile": "actuator",
+    "source_unmapped": [],
+    "specifications": [
+      {
+        "confidence": "low",
+        "label": "Main Chip",
+        "normalized": "L298P",
+        "original": "L298P",
+        "path": "identity.primary_ic",
+        "rule": "text.nfkc-whitespace.v1",
+        "unit": null
+      },
+      {
+        "confidence": "high",
+        "label": "Maximum current",
+        "normalized": "2 A per channel",
+        "original": "2A per channel",
+        "path": "actuator.current.maximum_output",
+        "rule": "quantity.current.scalar.v1",
+        "unit": "A"
+      },
+      {
+        "confidence": "high",
+        "label": "Supply Voltage",
+        "normalized": "6–15 V",
+        "original": "6V to 15V",
+        "path": "electrical.voltage.supply",
+        "rule": "quantity.voltage.range.v1",
+        "unit": "V"
+      }
+    ],
+    "unmapped_interfaces": [],
+    "unmapped_specifications": [],
+    "warnings": []
+  },
+  "power_module.md": {
+    "conflicts": [],
+    "identifiers": [],
+    "input_sha256": "04f87b1d353e7eb6783839e035a34713e20892518365257c9f4bb14a7091b578",
+    "interfaces": [],
+    "manufacturers": [],
+    "payload_sha256": "da0aee0e2aaca34ea1a9bdf71c8d78497a814e329d08aca1b50e781338266e4e",
+    "primary_ics": [],
+    "profile": "generic",
+    "source_unmapped": [],
+    "specifications": [
+      {
+        "confidence": "high",
+        "label": "Maximum current",
+        "normalized": "1 A",
+        "original": "1 A",
+        "path": "electrical.current.maximum",
+        "rule": "quantity.current.scalar.v1",
+        "unit": "A"
+      },
+      {
+        "confidence": "high",
+        "label": "Efficiency",
+        "normalized": "85 %",
+        "original": "85%",
+        "path": "electrical.efficiency",
+        "rule": "quantity.percent.scalar.v1",
+        "unit": "%"
+      }
+    ],
+    "unmapped_interfaces": [],
+    "unmapped_specifications": [],
+    "warnings": []
+  },
+  "unknown_structure.md": {
+    "conflicts": [],
+    "identifiers": [],
+    "input_sha256": "471a7863f8d21cb6fc0c1fb206d2fa4eb32686539e375ef5b40f547dc387beb1",
+    "interfaces": [],
+    "manufacturers": [],
+    "payload_sha256": "7246d398c8a70d0aa5ec2a1f0c5dc18ec1321129879be8c3f248f4c20dae8faa",
+    "primary_ics": [],
+    "profile": "sensor",
+    "source_unmapped": [
+      "Historical Notes"
+    ],
+    "specifications": [],
+    "unmapped_interfaces": [],
+    "unmapped_specifications": [],
+    "warnings": []
+  },
+  "without_specifications.md": {
+    "conflicts": [],
+    "identifiers": [],
+    "input_sha256": "4a7b5c76aabde7d602b75de2fe5ef55f9e8260460d99e9507f05289a71e4ad8c",
+    "interfaces": [],
+    "manufacturers": [],
+    "payload_sha256": "dcbdbd54535c80fb7879088f7992500aa951facca783b45d24ff0196b88a0ba9",
+    "primary_ics": [],
+    "profile": "generic",
+    "source_unmapped": [],
+    "specifications": [],
+    "unmapped_interfaces": [],
+    "unmapped_specifications": [],
+    "warnings": []
+  }
+}
