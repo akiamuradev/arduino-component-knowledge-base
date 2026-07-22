@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools==80.9.0"]
+requires = ["setuptools==83.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -38,10 +38,10 @@ dev = [
   "bandit>=1.9,<2",
   "build>=1.2,<2",
   "hypothesis>=6.100,<7",
-  "mypy>=1.11,<2",
+  "mypy>=1.11,<3",
   "pip-audit>=2.9,<3",
-  "pytest>=8.3,<9",
-  "pytest-asyncio>=0.25,<1",
+  "pytest>=8.3,<10",
+  "pytest-asyncio>=0.25,<2",
   "ruff>=0.9,<1",
 ]
 
