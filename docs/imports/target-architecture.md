@@ -1,8 +1,8 @@
 # Target import architecture
 
-Status: stage 4 semantic normalization implementation. The package described here exists in parallel with the release
-`0.21.0` import flow and is not connected to HTTP endpoints, Dramatiq jobs, adapters, ORM models or
-catalogue persistence.
+Status: stage 5 identity resolution implementation. The package described here exists in parallel
+with the release `0.21.0` import flow and is not connected to HTTP endpoints, Dramatiq jobs,
+adapters, ORM models or catalogue persistence.
 
 The current implementation and compatibility surface are documented in
 [`current-state.md`](current-state.md).
@@ -26,9 +26,9 @@ Seeed Wiki is the primary source for a component card. KiCad is an enrichment pr
 identity extracted from Seeed; it is not a bulk card source. Composition is the first stage allowed
 to shape publication-facing fields.
 
-Stages 1–4 establish the boundaries, raw fact model, Seeed extractor and semantic normalizer.
-Component identity, enrichment relations, quality reports and review drafts are introduced by
-their dedicated later stages.
+Stages 1–5 establish the boundaries, raw fact model, Seeed extractor, semantic normalizer and
+weighted identity resolution. Enrichment relations, quality reports and review drafts are
+introduced by their dedicated later stages.
 
 ## Package tree
 
@@ -57,9 +57,14 @@ src/arduino_component_kb/imports/pipeline/
 │   ├── registry.py
 │   ├── semantic.py
 │   └── values.py
+├── identity/
+│   ├── __init__.py
+│   ├── resolver.py
+│   └── rules.py
 └── models/
     ├── __init__.py
     ├── artifact.py
+    ├── component_identity.py
     ├── extracted_facts.py
     ├── normalized_facts.py
     └── provenance.py
@@ -201,3 +206,11 @@ deterministic quantity/interface/identity rules, profile-aware alias disambiguat
 retention and explicit conflict records. The complete raw extraction result remains embedded and
 hash-protected. Rules and corpus metrics are documented in
 [`normalization.md`](normalization.md).
+
+## Stage 5 implementation
+
+Stage 5 provides immutable `ComponentIdentity`, separate module/discrete/board/IC/connector kind
+candidates, weighted category candidates, explicit auto/review/unresolved thresholds and a guard
+against promoting a module's primary IC into the module identity. Every score contribution contains
+a rule id, reason and evidence. The scoring model and 15 worked examples are documented in
+[`identity-resolution.md`](identity-resolution.md).

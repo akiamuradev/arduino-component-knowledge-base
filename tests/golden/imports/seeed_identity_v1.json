@@ -1,0 +1,924 @@
+{
+  "actuator_module.md": {
+    "aliases": [],
+    "canonical_name": "Grove - Mini I2C Motor Driver",
+    "category_candidates": [
+      {
+        "breakdown": [
+          [
+            "category.actuators.title.v1",
+            55
+          ],
+          [
+            "category.actuators.summary.v1",
+            20
+          ],
+          [
+            "category.actuators.details.v1",
+            10
+          ],
+          [
+            "category.actuators.profile.v1",
+            15
+          ]
+        ],
+        "category": "actuators",
+        "score": 100
+      }
+    ],
+    "component_kind": "module",
+    "confidence": "high",
+    "kind_candidates": [
+      {
+        "breakdown": [
+          [
+            "kind.module.title.v1",
+            35
+          ],
+          [
+            "kind.module.body.v1",
+            20
+          ],
+          [
+            "kind.module.registered-seeed-source.v1",
+            15
+          ]
+        ],
+        "kind": "module",
+        "score": 70
+      }
+    ],
+    "manufacturer": null,
+    "part_numbers": [],
+    "payload_sha256": "0d93a8ac56a6276c6a82d9cc3a072e98a2ac7cc6c777d08d63f9b97864877803",
+    "primary_ics": [
+      "DRV8830"
+    ],
+    "product_identifiers": [
+      [
+        "sku",
+        "105020010"
+      ]
+    ],
+    "resolution_status": "auto_resolved",
+    "selected_category": "actuators",
+    "warnings": []
+  },
+  "alternative_headings.mdx": {
+    "aliases": [],
+    "canonical_name": "Grove OLED Display",
+    "category_candidates": [
+      {
+        "breakdown": [
+          [
+            "category.displays.title.v1",
+            55
+          ],
+          [
+            "category.displays.summary.v1",
+            20
+          ],
+          [
+            "category.displays.profile.v1",
+            15
+          ]
+        ],
+        "category": "displays",
+        "score": 90
+      }
+    ],
+    "component_kind": "module",
+    "confidence": "high",
+    "kind_candidates": [
+      {
+        "breakdown": [
+          [
+            "kind.module.title.v1",
+            35
+          ],
+          [
+            "kind.module.body.v1",
+            20
+          ],
+          [
+            "kind.module.registered-seeed-source.v1",
+            15
+          ]
+        ],
+        "kind": "module",
+        "score": 70
+      }
+    ],
+    "manufacturer": null,
+    "part_numbers": [],
+    "payload_sha256": "b8f9f72ac147c7283784ee4bb741cfe5f2525afd70715a110fdd91bcc1a44323",
+    "primary_ics": [],
+    "product_identifiers": [],
+    "resolution_status": "auto_resolved",
+    "selected_category": "displays",
+    "warnings": []
+  },
+  "broken_frontmatter.mdx": {
+    "aliases": [],
+    "canonical_name": "Grove Relay",
+    "category_candidates": [
+      {
+        "breakdown": [
+          [
+            "category.actuators.title.v1",
+            55
+          ],
+          [
+            "category.actuators.summary.v1",
+            20
+          ],
+          [
+            "category.actuators.profile.v1",
+            15
+          ]
+        ],
+        "category": "actuators",
+        "score": 90
+      }
+    ],
+    "component_kind": "module",
+    "confidence": "high",
+    "kind_candidates": [
+      {
+        "breakdown": [
+          [
+            "kind.module.title.v1",
+            35
+          ],
+          [
+            "kind.module.body.v1",
+            20
+          ],
+          [
+            "kind.module.registered-seeed-source.v1",
+            15
+          ]
+        ],
+        "kind": "module",
+        "score": 70
+      }
+    ],
+    "manufacturer": null,
+    "part_numbers": [],
+    "payload_sha256": "7842afa30583d86c09946425dc146cf8319d53c05b5657fa593e24933df72579",
+    "primary_ics": [],
+    "product_identifiers": [],
+    "resolution_status": "auto_resolved",
+    "selected_category": "actuators",
+    "warnings": []
+  },
+  "can_bus_module.md": {
+    "aliases": [],
+    "canonical_name": "Grove - CAN Bus Module",
+    "category_candidates": [
+      {
+        "breakdown": [
+          [
+            "category.communication.title.v1",
+            55
+          ],
+          [
+            "category.communication.taxonomy.v1",
+            20
+          ],
+          [
+            "category.communication.profile.v1",
+            15
+          ]
+        ],
+        "category": "communication",
+        "score": 90
+      }
+    ],
+    "component_kind": "module",
+    "confidence": "high",
+    "kind_candidates": [
+      {
+        "breakdown": [
+          [
+            "kind.module.title.v1",
+            35
+          ],
+          [
+            "kind.module.body.v1",
+            20
+          ],
+          [
+            "kind.module.registered-seeed-source.v1",
+            15
+          ]
+        ],
+        "kind": "module",
+        "score": 70
+      }
+    ],
+    "manufacturer": null,
+    "part_numbers": [],
+    "payload_sha256": "55fd9082123003aa8d36077ae3022e229405e774d8deb3ef18d14c721d3301d5",
+    "primary_ics": [
+      "MCP2515"
+    ],
+    "product_identifiers": [],
+    "resolution_status": "auto_resolved",
+    "selected_category": "communication",
+    "warnings": []
+  },
+  "communication_module.md": {
+    "aliases": [],
+    "canonical_name": "Grove - LoRa Radio 868MHz",
+    "category_candidates": [
+      {
+        "breakdown": [
+          [
+            "category.communication.title.v1",
+            55
+          ],
+          [
+            "category.communication.summary.v1",
+            20
+          ],
+          [
+            "category.communication.taxonomy.v1",
+            20
+          ],
+          [
+            "category.communication.profile.v1",
+            15
+          ]
+        ],
+        "category": "communication",
+        "score": 100
+      }
+    ],
+    "component_kind": "module",
+    "confidence": "high",
+    "kind_candidates": [
+      {
+        "breakdown": [
+          [
+            "kind.module.title.v1",
+            35
+          ],
+          [
+            "kind.module.body.v1",
+            20
+          ],
+          [
+            "kind.module.registered-seeed-source.v1",
+            15
+          ]
+        ],
+        "kind": "module",
+        "score": 70
+      }
+    ],
+    "manufacturer": null,
+    "part_numbers": [],
+    "payload_sha256": "1586ffdcb97d657873de63944ec0cfaebe2642303b1363135a771f02694bc1e5",
+    "primary_ics": [],
+    "product_identifiers": [],
+    "resolution_status": "auto_resolved",
+    "selected_category": "communication",
+    "warnings": []
+  },
+  "complete.md": {
+    "aliases": [],
+    "canonical_name": "Grove - Temperature Sensor",
+    "category_candidates": [
+      {
+        "breakdown": [
+          [
+            "category.sensors.title.v1",
+            55
+          ],
+          [
+            "category.sensors.summary.v1",
+            20
+          ],
+          [
+            "category.sensors.profile.v1",
+            15
+          ]
+        ],
+        "category": "sensors",
+        "score": 90
+      }
+    ],
+    "component_kind": "module",
+    "confidence": "high",
+    "kind_candidates": [
+      {
+        "breakdown": [
+          [
+            "kind.module.title.v1",
+            35
+          ],
+          [
+            "kind.module.body.v1",
+            20
+          ],
+          [
+            "kind.module.registered-seeed-source.v1",
+            15
+          ]
+        ],
+        "kind": "module",
+        "score": 70
+      }
+    ],
+    "manufacturer": null,
+    "part_numbers": [],
+    "payload_sha256": "0617f6306f5db724c6b2d8566e19e9d64346157abb3358241e4c67bff7de5de5",
+    "primary_ics": [],
+    "product_identifiers": [],
+    "resolution_status": "auto_resolved",
+    "selected_category": "sensors",
+    "warnings": []
+  },
+  "connector_module.md": {
+    "aliases": [],
+    "canonical_name": "Grove - Screw Terminal",
+    "category_candidates": [
+      {
+        "breakdown": [
+          [
+            "category.connectors.title.v1",
+            55
+          ],
+          [
+            "category.connectors.summary.v1",
+            20
+          ],
+          [
+            "category.connectors.taxonomy.v1",
+            10
+          ]
+        ],
+        "category": "connectors",
+        "score": 85
+      }
+    ],
+    "component_kind": "connector",
+    "confidence": "high",
+    "kind_candidates": [
+      {
+        "breakdown": [
+          [
+            "kind.connector.title.v1",
+            70
+          ],
+          [
+            "kind.connector.body.v1",
+            20
+          ],
+          [
+            "kind.connector.taxonomy.v1",
+            10
+          ]
+        ],
+        "kind": "connector",
+        "score": 100
+      },
+      {
+        "breakdown": [
+          [
+            "kind.module.title.v1",
+            35
+          ],
+          [
+            "kind.module.body.v1",
+            20
+          ],
+          [
+            "kind.module.registered-seeed-source.v1",
+            15
+          ]
+        ],
+        "kind": "module",
+        "score": 70
+      }
+    ],
+    "manufacturer": "Seeed Studio",
+    "part_numbers": [],
+    "payload_sha256": "e8ea62e3cd60d71a8bcd1e44e24be38a2994426ee9bffdf534f09ce23bc66dd6",
+    "primary_ics": [],
+    "product_identifiers": [
+      [
+        "sku",
+        "103020007"
+      ]
+    ],
+    "resolution_status": "auto_resolved",
+    "selected_category": "connectors",
+    "warnings": []
+  },
+  "development_board.md": {
+    "aliases": [],
+    "canonical_name": "Seeed Studio XIAO ESP32C3",
+    "category_candidates": [
+      {
+        "breakdown": [
+          [
+            "category.boards.title.v1",
+            55
+          ],
+          [
+            "category.boards.summary.v1",
+            20
+          ],
+          [
+            "category.boards.details.v1",
+            10
+          ],
+          [
+            "category.boards.taxonomy.v1",
+            20
+          ],
+          [
+            "category.boards.profile.v1",
+            15
+          ]
+        ],
+        "category": "boards",
+        "score": 100
+      },
+      {
+        "breakdown": [
+          [
+            "category.communication.summary.v1",
+            20
+          ],
+          [
+            "category.communication.details.v1",
+            10
+          ]
+        ],
+        "category": "communication",
+        "score": 30
+      }
+    ],
+    "component_kind": "development_board",
+    "confidence": "high",
+    "kind_candidates": [
+      {
+        "breakdown": [
+          [
+            "kind.development_board.title.v1",
+            70
+          ],
+          [
+            "kind.development_board.body.v1",
+            20
+          ]
+        ],
+        "kind": "development_board",
+        "score": 90
+      },
+      {
+        "breakdown": [
+          [
+            "kind.module.registered-seeed-source.v1",
+            15
+          ]
+        ],
+        "kind": "module",
+        "score": 15
+      }
+    ],
+    "manufacturer": null,
+    "part_numbers": [],
+    "payload_sha256": "51a64ae3a65e139a367b2c9b193acf17dca78c4b3bfc0dc70bf0080c766defa4",
+    "primary_ics": [],
+    "product_identifiers": [],
+    "resolution_status": "auto_resolved",
+    "selected_category": "boards",
+    "warnings": []
+  },
+  "display_spi.md": {
+    "aliases": [
+      "OLED-128X64"
+    ],
+    "canonical_name": "Grove - OLED Display 1.12 inch",
+    "category_candidates": [
+      {
+        "breakdown": [
+          [
+            "category.displays.title.v1",
+            55
+          ],
+          [
+            "category.displays.summary.v1",
+            20
+          ],
+          [
+            "category.displays.details.v1",
+            10
+          ],
+          [
+            "category.displays.taxonomy.v1",
+            20
+          ],
+          [
+            "category.displays.profile.v1",
+            15
+          ]
+        ],
+        "category": "displays",
+        "score": 100
+      }
+    ],
+    "component_kind": "module",
+    "confidence": "high",
+    "kind_candidates": [
+      {
+        "breakdown": [
+          [
+            "kind.module.title.v1",
+            35
+          ],
+          [
+            "kind.module.body.v1",
+            20
+          ],
+          [
+            "kind.module.registered-seeed-source.v1",
+            15
+          ]
+        ],
+        "kind": "module",
+        "score": 70
+      }
+    ],
+    "manufacturer": null,
+    "part_numbers": [],
+    "payload_sha256": "b8101e0df3127a18d2028e9b9ee0ebcf2a1b04be4209cc96eb01dbfa29d4e263",
+    "primary_ics": [
+      "SSD1306"
+    ],
+    "product_identifiers": [
+      [
+        "model",
+        "OLED-128X64"
+      ]
+    ],
+    "resolution_status": "auto_resolved",
+    "selected_category": "displays",
+    "warnings": []
+  },
+  "environmental_sensor.md": {
+    "aliases": [],
+    "canonical_name": "Grove - Temperature Humidity Pressure Sensor",
+    "category_candidates": [
+      {
+        "breakdown": [
+          [
+            "category.sensors.title.v1",
+            55
+          ],
+          [
+            "category.sensors.summary.v1",
+            20
+          ],
+          [
+            "category.sensors.taxonomy.v1",
+            20
+          ],
+          [
+            "category.sensors.profile.v1",
+            15
+          ]
+        ],
+        "category": "sensors",
+        "score": 100
+      },
+      {
+        "breakdown": [
+          [
+            "category.boards.details.v1",
+            10
+          ]
+        ],
+        "category": "boards",
+        "score": 10
+      }
+    ],
+    "component_kind": "module",
+    "confidence": "high",
+    "kind_candidates": [
+      {
+        "breakdown": [
+          [
+            "kind.module.title.v1",
+            35
+          ],
+          [
+            "kind.module.body.v1",
+            20
+          ],
+          [
+            "kind.module.registered-seeed-source.v1",
+            15
+          ]
+        ],
+        "kind": "module",
+        "score": 70
+      }
+    ],
+    "manufacturer": null,
+    "part_numbers": [],
+    "payload_sha256": "c0955583b09828e1b05e879bc3ebe31f2f218d1581537528c011af1aa51c1d8a",
+    "primary_ics": [
+      "BME280"
+    ],
+    "product_identifiers": [
+      [
+        "product_id",
+        "SEN-BME280"
+      ]
+    ],
+    "resolution_status": "auto_resolved",
+    "selected_category": "sensors",
+    "warnings": []
+  },
+  "minimal_no_summary.md": {
+    "aliases": [],
+    "canonical_name": "Grove Experimental Module",
+    "category_candidates": [],
+    "component_kind": "module",
+    "confidence": "low",
+    "kind_candidates": [
+      {
+        "breakdown": [
+          [
+            "kind.module.title.v1",
+            35
+          ],
+          [
+            "kind.module.registered-seeed-source.v1",
+            15
+          ]
+        ],
+        "kind": "module",
+        "score": 50
+      }
+    ],
+    "manufacturer": null,
+    "part_numbers": [],
+    "payload_sha256": "1e5eae68c18036ae7c25c7840adac146d2ac1e74836b44bb49ce0adaf76a91a6",
+    "primary_ics": [],
+    "product_identifiers": [],
+    "resolution_status": "unresolved",
+    "selected_category": null,
+    "warnings": [
+      "identity_unresolved"
+    ]
+  },
+  "motor_shield.md": {
+    "aliases": [],
+    "canonical_name": "Motor Shield V2.0",
+    "category_candidates": [
+      {
+        "breakdown": [
+          [
+            "category.actuators.title.v1",
+            55
+          ],
+          [
+            "category.actuators.details.v1",
+            10
+          ],
+          [
+            "category.actuators.taxonomy.v1",
+            20
+          ],
+          [
+            "category.actuators.profile.v1",
+            15
+          ]
+        ],
+        "category": "actuators",
+        "score": 100
+      },
+      {
+        "breakdown": [
+          [
+            "category.boards.title.v1",
+            55
+          ],
+          [
+            "category.boards.summary.v1",
+            20
+          ],
+          [
+            "category.boards.details.v1",
+            10
+          ]
+        ],
+        "category": "boards",
+        "score": 85
+      }
+    ],
+    "component_kind": "module",
+    "confidence": "medium",
+    "kind_candidates": [
+      {
+        "breakdown": [
+          [
+            "kind.module.title.v1",
+            35
+          ],
+          [
+            "kind.module.body.v1",
+            20
+          ],
+          [
+            "kind.module.registered-seeed-source.v1",
+            15
+          ]
+        ],
+        "kind": "module",
+        "score": 70
+      }
+    ],
+    "manufacturer": null,
+    "part_numbers": [],
+    "payload_sha256": "8171bc13838b42b9222946484201bb29d0ab34583024b4c03354b1d3d5cb4e44",
+    "primary_ics": [
+      "L298P"
+    ],
+    "product_identifiers": [],
+    "resolution_status": "review_required",
+    "selected_category": null,
+    "warnings": [
+      "identity_review_required",
+      "category_ambiguous"
+    ]
+  },
+  "power_module.md": {
+    "aliases": [],
+    "canonical_name": "Grove - DC-DC Converter",
+    "category_candidates": [
+      {
+        "breakdown": [
+          [
+            "category.power.title.v1",
+            55
+          ],
+          [
+            "category.power.summary.v1",
+            20
+          ]
+        ],
+        "category": "power",
+        "score": 75
+      }
+    ],
+    "component_kind": "module",
+    "confidence": "high",
+    "kind_candidates": [
+      {
+        "breakdown": [
+          [
+            "kind.module.title.v1",
+            35
+          ],
+          [
+            "kind.module.body.v1",
+            20
+          ],
+          [
+            "kind.module.registered-seeed-source.v1",
+            15
+          ]
+        ],
+        "kind": "module",
+        "score": 70
+      }
+    ],
+    "manufacturer": null,
+    "part_numbers": [],
+    "payload_sha256": "b55f75bc2b6d8b1d1f004565a58cdb9ac71c3a1ec4c4bd5ada54be8ba63c6b20",
+    "primary_ics": [],
+    "product_identifiers": [],
+    "resolution_status": "auto_resolved",
+    "selected_category": "power",
+    "warnings": []
+  },
+  "unknown_structure.md": {
+    "aliases": [],
+    "canonical_name": "Grove Ultrasonic Ranger",
+    "category_candidates": [
+      {
+        "breakdown": [
+          [
+            "category.sensors.title.v1",
+            55
+          ],
+          [
+            "category.sensors.summary.v1",
+            20
+          ],
+          [
+            "category.sensors.profile.v1",
+            15
+          ]
+        ],
+        "category": "sensors",
+        "score": 90
+      }
+    ],
+    "component_kind": "module",
+    "confidence": "high",
+    "kind_candidates": [
+      {
+        "breakdown": [
+          [
+            "kind.module.title.v1",
+            35
+          ],
+          [
+            "kind.module.body.v1",
+            20
+          ],
+          [
+            "kind.module.registered-seeed-source.v1",
+            15
+          ]
+        ],
+        "kind": "module",
+        "score": 70
+      }
+    ],
+    "manufacturer": null,
+    "part_numbers": [],
+    "payload_sha256": "1e083d9d29dc1da6dff900bfabb2df6970cbef43a73cf567bfae488be1990f91",
+    "primary_ics": [],
+    "product_identifiers": [],
+    "resolution_status": "auto_resolved",
+    "selected_category": "sensors",
+    "warnings": []
+  },
+  "without_specifications.md": {
+    "aliases": [],
+    "canonical_name": "Grove Button",
+    "category_candidates": [
+      {
+        "breakdown": [
+          [
+            "category.input.title.v1",
+            55
+          ]
+        ],
+        "category": "input",
+        "score": 55
+      },
+      {
+        "breakdown": [
+          [
+            "category.boards.details.v1",
+            10
+          ]
+        ],
+        "category": "boards",
+        "score": 10
+      }
+    ],
+    "component_kind": "module",
+    "confidence": "medium",
+    "kind_candidates": [
+      {
+        "breakdown": [
+          [
+            "kind.module.title.v1",
+            35
+          ],
+          [
+            "kind.module.body.v1",
+            20
+          ],
+          [
+            "kind.module.registered-seeed-source.v1",
+            15
+          ]
+        ],
+        "kind": "module",
+        "score": 70
+      }
+    ],
+    "manufacturer": null,
+    "part_numbers": [],
+    "payload_sha256": "ab12dc411245f77ede19049ce9537d7b9008f9eb5958c3dc20732ca71f807470",
+    "primary_ics": [],
+    "product_identifiers": [],
+    "resolution_status": "review_required",
+    "selected_category": null,
+    "warnings": [
+      "identity_review_required"
+    ]
+  }
+}

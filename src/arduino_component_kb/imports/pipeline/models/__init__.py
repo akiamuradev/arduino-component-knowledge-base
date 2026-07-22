@@ -1,6 +1,17 @@
 """Infrastructure-free domain models used by the evidence-first import pipeline."""
 
 from arduino_component_kb.imports.pipeline.models.artifact import SourceArtifact
+from arduino_component_kb.imports.pipeline.models.component_identity import (
+    CategoryCandidate,
+    ComponentIdentity,
+    ComponentKind,
+    IdentityAlias,
+    IdentityConfidence,
+    IdentityResolutionStatus,
+    IdentityValue,
+    KindCandidate,
+    ScoreContribution,
+)
 from arduino_component_kb.imports.pipeline.models.extracted_facts import (
     DescriptionSection,
     ExtractedFacts,
@@ -33,6 +44,9 @@ from arduino_component_kb.imports.pipeline.models.provenance import (
 )
 
 __all__ = [
+    "CategoryCandidate",
+    "ComponentIdentity",
+    "ComponentKind",
     "DescriptionSection",
     "EvidenceFragment",
     "ExtractedFacts",
@@ -40,8 +54,13 @@ __all__ = [
     "ExtractionWarning",
     "Identifier",
     "IdentifierKind",
+    "IdentityAlias",
+    "IdentityConfidence",
+    "IdentityResolutionStatus",
+    "IdentityValue",
     "ImageReference",
     "ModulePin",
+    "KindCandidate",
     "NormalizationConfidence",
     "NormalizationConflict",
     "NormalizationProfile",
@@ -53,6 +72,7 @@ __all__ = [
     "RawSpecification",
     "ResourceKind",
     "ResourceReference",
+    "ScoreContribution",
     "SourceArtifact",
     "SourceArtifactMetadata",
     "SourceReference",
