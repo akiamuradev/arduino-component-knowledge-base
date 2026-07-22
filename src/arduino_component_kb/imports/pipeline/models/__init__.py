@@ -14,6 +14,17 @@ from arduino_component_kb.imports.pipeline.models.extracted_facts import (
     ResourceReference,
     UnknownFact,
 )
+from arduino_component_kb.imports.pipeline.models.normalized_facts import (
+    NormalizationConfidence,
+    NormalizationConflict,
+    NormalizationProfile,
+    NormalizationTrace,
+    NormalizedFacts,
+    NormalizedIdentifier,
+    NormalizedSpecification,
+    NormalizedTextFact,
+    UnmappedSpecification,
+)
 from arduino_component_kb.imports.pipeline.models.provenance import (
     EvidenceFragment,
     ExtractionWarning,
@@ -31,6 +42,14 @@ __all__ = [
     "IdentifierKind",
     "ImageReference",
     "ModulePin",
+    "NormalizationConfidence",
+    "NormalizationConflict",
+    "NormalizationProfile",
+    "NormalizationTrace",
+    "NormalizedFacts",
+    "NormalizedIdentifier",
+    "NormalizedSpecification",
+    "NormalizedTextFact",
     "RawSpecification",
     "ResourceKind",
     "ResourceReference",
@@ -38,4 +57,5 @@ __all__ = [
     "SourceArtifactMetadata",
     "SourceReference",
     "UnknownFact",
+    "UnmappedSpecification",
 ]

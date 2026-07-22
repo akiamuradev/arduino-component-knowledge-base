@@ -1,6 +1,6 @@
 # Target import architecture
 
-Status: stage 3 extraction implementation. The package described here exists in parallel with the release
+Status: stage 4 semantic normalization implementation. The package described here exists in parallel with the release
 `0.21.0` import flow and is not connected to HTTP endpoints, Dramatiq jobs, adapters, ORM models or
 catalogue persistence.
 
@@ -26,9 +26,9 @@ Seeed Wiki is the primary source for a component card. KiCad is an enrichment pr
 identity extracted from Seeed; it is not a bulk card source. Composition is the first stage allowed
 to shape publication-facing fields.
 
-Stages 1–3 establish the boundaries, raw fact model and Seeed extractor. Normalized facts, component
-identity, enrichment relations, quality reports and review drafts are introduced by their dedicated
-later stages.
+Stages 1–4 establish the boundaries, raw fact model, Seeed extractor and semantic normalizer.
+Component identity, enrichment relations, quality reports and review drafts are introduced by
+their dedicated later stages.
 
 ## Package tree
 
@@ -52,10 +52,16 @@ src/arduino_component_kb/imports/pipeline/
 │   ├── __init__.py
 │   ├── markdown.py
 │   └── seeed.py
+├── normalization/
+│   ├── __init__.py
+│   ├── registry.py
+│   ├── semantic.py
+│   └── values.py
 └── models/
     ├── __init__.py
     ├── artifact.py
     ├── extracted_facts.py
+    ├── normalized_facts.py
     └── provenance.py
 ```
 
@@ -187,3 +193,11 @@ primitives and a 15-profile golden corpus. The extractor separates summaries, de
 features, applications, usage, raw specifications, module pinout, identity candidates, resources,
 images and unmapped facts. Its behavior and completeness baseline are documented in
 [`seeed-extractor.md`](seeed-extractor.md).
+
+## Stage 4 implementation
+
+Stage 4 provides immutable `NormalizedFacts`, a versioned hierarchical specification registry,
+deterministic quantity/interface/identity rules, profile-aware alias disambiguation, unmapped
+retention and explicit conflict records. The complete raw extraction result remains embedded and
+hash-protected. Rules and corpus metrics are documented in
+[`normalization.md`](normalization.md).
