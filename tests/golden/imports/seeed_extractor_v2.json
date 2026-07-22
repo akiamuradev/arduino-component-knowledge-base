@@ -1,0 +1,945 @@
+{
+  "actuator_module.md": {
+    "applications": [
+      "Small educational robots",
+      "Camera sliders"
+    ],
+    "brands": [],
+    "description_sections": [
+      {
+        "body": "The module is built around DRV8830 and drives two small DC motors.",
+        "heading": "Description"
+      }
+    ],
+    "features": [
+      "Two independent motor channels",
+      "Current: 1 ampere per channel"
+    ],
+    "identifiers": [
+      {
+        "kind": "sku",
+        "value": "105020010"
+      }
+    ],
+    "images": [
+      {
+        "alt_text": "Motor driver",
+        "locator": "https://files.seeedstudio.com/motor-driver.png"
+      }
+    ],
+    "interfaces": [
+      "I2C"
+    ],
+    "manufacturers": [],
+    "module_pinout": [
+      {
+        "function": "I2C data",
+        "name": "SDA",
+        "number": null
+      },
+      {
+        "function": "I2C clock",
+        "name": "SCL",
+        "number": null
+      },
+      {
+        "function": "Motor supply",
+        "name": "VIN",
+        "number": null
+      }
+    ],
+    "payload_sha256": "7b1213455969010d619a2b98f54bed9b26b7e12630e7674f87da84d84cbdc8ff",
+    "primary_ics": [
+      {
+        "kind": "part_number",
+        "value": "DRV8830"
+      }
+    ],
+    "profile": "actuator",
+    "resources": [
+      {
+        "kind": "datasheet",
+        "label": "Datasheet",
+        "locator": "https://files.seeedstudio.com/drv8830.pdf"
+      }
+    ],
+    "specifications": [
+      {
+        "label": "Supply Voltage",
+        "value": "2.75V-6.8V"
+      },
+      {
+        "label": "Communication Interface",
+        "value": "I2C"
+      },
+      {
+        "label": "Peak channel behavior",
+        "value": "internally limited"
+      },
+      {
+        "label": "Current",
+        "value": "1 ampere per channel"
+      }
+    ],
+    "summaries": [
+      "A dual-channel motor driver module controlled over I2C."
+    ],
+    "titles": [
+      "Grove - Mini I2C Motor Driver"
+    ],
+    "unmapped": [],
+    "usage_sections": [],
+    "warnings": []
+  },
+  "alternative_headings.mdx": {
+    "applications": [],
+    "brands": [],
+    "description_sections": [],
+    "features": [],
+    "identifiers": [],
+    "images": [],
+    "interfaces": [],
+    "manufacturers": [],
+    "module_pinout": [
+      {
+        "function": "I2C data",
+        "name": "SDA",
+        "number": null
+      },
+      {
+        "function": "I2C clock",
+        "name": "SCL",
+        "number": null
+      }
+    ],
+    "payload_sha256": "5ed75918d2cbea850fdca4d09d3a1b504934097dd06d1c5e6a897cf69770d002",
+    "primary_ics": [],
+    "profile": "display/alternate-headings",
+    "resources": [],
+    "specifications": [
+      {
+        "label": "Supply",
+        "value": "5 volts"
+      }
+    ],
+    "summaries": [
+      "Compact display module with an I2C interface for educational projects."
+    ],
+    "titles": [
+      "Grove OLED Display"
+    ],
+    "unmapped": [],
+    "usage_sections": [
+      {
+        "body": "Use the documented I2C address.",
+        "heading": "Getting Started with Arduino"
+      }
+    ],
+    "warnings": [
+      "executable_construct_ignored",
+      "description_missing"
+    ]
+  },
+  "broken_frontmatter.mdx": {
+    "applications": [],
+    "brands": [],
+    "description_sections": [],
+    "features": [],
+    "identifiers": [],
+    "images": [],
+    "interfaces": [],
+    "manufacturers": [],
+    "module_pinout": [],
+    "payload_sha256": "60bf33f238ec738d8d98945ca5f865718ae35c8f2fd86e9bb6f157e9537bfb32",
+    "primary_ics": [],
+    "profile": "malformed-mdx",
+    "resources": [],
+    "specifications": [],
+    "summaries": [
+      "A relay module for switching bounded classroom loads after a safety review."
+    ],
+    "titles": [
+      "Grove Relay"
+    ],
+    "unmapped": [
+      {
+        "label": "Unknown Legacy Block",
+        "value": "Legacy prose that is intentionally not imported."
+      }
+    ],
+    "usage_sections": [],
+    "warnings": [
+      "frontmatter_unterminated",
+      "description_missing",
+      "specifications_missing",
+      "module_pinout_missing",
+      "unknown_section"
+    ]
+  },
+  "can_bus_module.md": {
+    "applications": [
+      "Vehicle network experiments"
+    ],
+    "brands": [],
+    "description_sections": [],
+    "features": [
+      "CAN 2.0B support",
+      "Frequency: 16MHz"
+    ],
+    "identifiers": [],
+    "images": [],
+    "interfaces": [
+      "SPI"
+    ],
+    "manufacturers": [],
+    "module_pinout": [
+      {
+        "function": "SPI data out",
+        "name": "MOSI",
+        "number": null
+      },
+      {
+        "function": "SPI data in",
+        "name": "MISO",
+        "number": null
+      },
+      {
+        "function": "SPI clock",
+        "name": "SCK",
+        "number": null
+      }
+    ],
+    "payload_sha256": "d28ded9e27ffefa6887bd10d5f36e5c9d6c54bb0335d005b998bffcdf0e9552d",
+    "primary_ics": [
+      {
+        "kind": "part_number",
+        "value": "MCP2515"
+      }
+    ],
+    "profile": "communication",
+    "resources": [
+      {
+        "kind": "datasheet",
+        "label": "Datasheet",
+        "locator": "https://files.seeedstudio.com/mcp2515.pdf"
+      }
+    ],
+    "specifications": [
+      {
+        "label": "Main IC",
+        "value": "MCP2515"
+      },
+      {
+        "label": "Interface",
+        "value": "SPI"
+      },
+      {
+        "label": "Connector",
+        "value": "Grove 4-pin"
+      },
+      {
+        "label": "Frequency",
+        "value": "16MHz"
+      }
+    ],
+    "summaries": [
+      "A CAN communication module for Arduino-compatible boards."
+    ],
+    "titles": [
+      "Grove - CAN Bus Module"
+    ],
+    "unmapped": [],
+    "usage_sections": [],
+    "warnings": [
+      "description_missing"
+    ]
+  },
+  "communication_module.md": {
+    "applications": [],
+    "brands": [],
+    "description_sections": [],
+    "features": [
+      "Frequency: 868 MHz",
+      "Supply voltage: 3.3 to 5 volts"
+    ],
+    "identifiers": [],
+    "images": [],
+    "interfaces": [
+      "UART"
+    ],
+    "manufacturers": [],
+    "module_pinout": [
+      {
+        "function": "Serial output",
+        "name": "TX",
+        "number": null
+      },
+      {
+        "function": "Serial input",
+        "name": "RX",
+        "number": null
+      }
+    ],
+    "payload_sha256": "1b7dace93ef403b5e33814e48d94a726a4eb5871aa946637b1956897d21bb0c8",
+    "primary_ics": [],
+    "profile": "communication",
+    "resources": [
+      {
+        "kind": "library",
+        "label": "Library",
+        "locator": "https://github.com/Seeed-Studio/Grove_LoRa_868MHz"
+      }
+    ],
+    "specifications": [
+      {
+        "label": "Communication interface",
+        "value": "UART"
+      },
+      {
+        "label": "Link budget",
+        "value": "148 dB"
+      },
+      {
+        "label": "Frequency",
+        "value": "868 MHz"
+      },
+      {
+        "label": "Supply voltage",
+        "value": "3.3 to 5 volts"
+      }
+    ],
+    "summaries": [
+      "A long-range radio module for low-power communication projects."
+    ],
+    "titles": [
+      "Grove - LoRa Radio 868MHz"
+    ],
+    "unmapped": [],
+    "usage_sections": [],
+    "warnings": [
+      "description_missing"
+    ]
+  },
+  "complete.md": {
+    "applications": [],
+    "brands": [],
+    "description_sections": [],
+    "features": [
+      "Supply Voltage: 3.3 to 5 volts",
+      "Current: 20 milliamps"
+    ],
+    "identifiers": [],
+    "images": [
+      {
+        "alt_text": "Product image",
+        "locator": "https://files.seeedstudio.com/image.png"
+      }
+    ],
+    "interfaces": [],
+    "manufacturers": [],
+    "module_pinout": [
+      {
+        "function": "Analog output",
+        "name": "SIG",
+        "number": null
+      }
+    ],
+    "payload_sha256": "fa058c6595ac17474203cee628783507c99e9076778df7b6a7be2395f750270a",
+    "primary_ics": [],
+    "profile": "sensor/complete",
+    "resources": [
+      {
+        "kind": "datasheet",
+        "label": "Datasheet",
+        "locator": "https://files.seeedstudio.com/example-datasheet.pdf"
+      },
+      {
+        "kind": "library",
+        "label": "Arduino library",
+        "locator": "https://github.com/Seeed-Studio/example-library"
+      }
+    ],
+    "specifications": [
+      {
+        "label": "Operating range",
+        "value": "-40 to 125 degrees celsius"
+      },
+      {
+        "label": "Accuracy",
+        "value": "±0.5 degrees celsius"
+      },
+      {
+        "label": "Connector",
+        "value": "Grove 4-pin"
+      },
+      {
+        "label": "Supply Voltage",
+        "value": "3.3 to 5 volts"
+      },
+      {
+        "label": "Current",
+        "value": "20 milliamps"
+      }
+    ],
+    "summaries": [
+      "A Grove module for measuring ambient temperature with Arduino-compatible boards."
+    ],
+    "titles": [
+      "Grove - Temperature Sensor"
+    ],
+    "unmapped": [],
+    "usage_sections": [
+      {
+        "body": "Connect the module and read the analog input.",
+        "heading": "Usage"
+      }
+    ],
+    "warnings": [
+      "executable_construct_ignored",
+      "description_missing"
+    ]
+  },
+  "connector_module.md": {
+    "applications": [],
+    "brands": [
+      "Grove"
+    ],
+    "description_sections": [],
+    "features": [],
+    "identifiers": [
+      {
+        "kind": "sku",
+        "value": "103020007"
+      }
+    ],
+    "images": [],
+    "interfaces": [],
+    "manufacturers": [
+      "Seeed Studio"
+    ],
+    "module_pinout": [
+      {
+        "function": "Ground",
+        "name": "GND",
+        "number": "1"
+      },
+      {
+        "function": "Supply",
+        "name": "VCC",
+        "number": "2"
+      },
+      {
+        "function": "Signal one",
+        "name": "SIG1",
+        "number": "3"
+      },
+      {
+        "function": "Signal two",
+        "name": "SIG2",
+        "number": "4"
+      }
+    ],
+    "payload_sha256": "adfd4635d88a900ca3c3e1acb697585a2523f5eb70654d44a3fc447408fde097",
+    "primary_ics": [],
+    "profile": "connector",
+    "resources": [],
+    "specifications": [
+      {
+        "label": "Connector",
+        "value": "Grove 4-pin and screw terminal"
+      },
+      {
+        "label": "Wire range",
+        "value": "16-30 AWG"
+      }
+    ],
+    "summaries": [
+      "A passive adapter from a Grove cable to screw terminals."
+    ],
+    "titles": [
+      "Grove - Screw Terminal"
+    ],
+    "unmapped": [],
+    "usage_sections": [
+      {
+        "body": "Disconnect power before tightening the terminals.",
+        "heading": "Getting Started"
+      }
+    ],
+    "warnings": [
+      "description_missing"
+    ]
+  },
+  "development_board.md": {
+    "applications": [],
+    "brands": [],
+    "description_sections": [],
+    "features": [
+      "Supply voltage: 5 volts",
+      "Interface: Wi-Fi and Bluetooth"
+    ],
+    "identifiers": [],
+    "images": [],
+    "interfaces": [
+      "Wi-Fi and Bluetooth"
+    ],
+    "manufacturers": [],
+    "module_pinout": [
+      {
+        "function": "SDA",
+        "name": "D4",
+        "number": null
+      },
+      {
+        "function": "SCL",
+        "name": "D5",
+        "number": null
+      }
+    ],
+    "payload_sha256": "42f6b70efe8f2e5eadef34d1c518fac20093e2c97dab0e1ad8511bc60f02c58d",
+    "primary_ics": [],
+    "profile": "development-board",
+    "resources": [
+      {
+        "kind": "datasheet",
+        "label": "Datasheet",
+        "locator": "https://files.seeedstudio.com/wiki/XIAO_WiFi/esp32-c3_datasheet.pdf"
+      }
+    ],
+    "specifications": [
+      {
+        "label": "Dimensions",
+        "value": "21 x 17.8 millimeters"
+      },
+      {
+        "label": "Processor",
+        "value": "ESP32-C3"
+      },
+      {
+        "label": "Connector",
+        "value": "USB Type-C"
+      },
+      {
+        "label": "Supply voltage",
+        "value": "5 volts"
+      },
+      {
+        "label": "Interface",
+        "value": "Wi-Fi and Bluetooth"
+      }
+    ],
+    "summaries": [
+      "A compact development board with Wi-Fi and Bluetooth connectivity."
+    ],
+    "titles": [
+      "Seeed Studio XIAO ESP32C3"
+    ],
+    "unmapped": [],
+    "usage_sections": [
+      {
+        "body": "Connect the board over USB and select it in the Arduino IDE.",
+        "heading": "How to Use"
+      }
+    ],
+    "warnings": [
+      "description_missing"
+    ]
+  },
+  "display_spi.md": {
+    "applications": [],
+    "brands": [],
+    "description_sections": [
+      {
+        "body": "The module uses SSD1306 to control a 128 by 64 pixel panel.",
+        "heading": "Overview"
+      }
+    ],
+    "features": [
+      "Low power display",
+      "Interface: I2C"
+    ],
+    "identifiers": [
+      {
+        "kind": "model",
+        "value": "OLED-128X64"
+      }
+    ],
+    "images": [
+      {
+        "alt_text": "OLED front",
+        "locator": "https://files.seeedstudio.com/oled-front.png"
+      }
+    ],
+    "interfaces": [
+      "I2C"
+    ],
+    "manufacturers": [],
+    "module_pinout": [
+      {
+        "function": "Serial data",
+        "name": "SDA",
+        "number": null
+      },
+      {
+        "function": "Serial clock",
+        "name": "SCL",
+        "number": null
+      }
+    ],
+    "payload_sha256": "5c61aaea905c6f0d7fe288fd14faddcb2a4082a8945c5bfc00ae1e762d9944cf",
+    "primary_ics": [
+      {
+        "kind": "part_number",
+        "value": "SSD1306"
+      }
+    ],
+    "profile": "display",
+    "resources": [
+      {
+        "kind": "library",
+        "label": "Library",
+        "locator": "https://github.com/Seeed-Studio/OLED_Display_128X64"
+      }
+    ],
+    "specifications": [
+      {
+        "label": "Resolution",
+        "value": "128x64"
+      },
+      {
+        "label": "Display color",
+        "value": "monochrome"
+      },
+      {
+        "label": "Supply Voltage",
+        "value": "3.3V to 5V"
+      },
+      {
+        "label": "Interface",
+        "value": "I2C"
+      }
+    ],
+    "summaries": [
+      "A monochrome OLED display module with I2C connectivity."
+    ],
+    "titles": [
+      "Grove - OLED Display 1.12 inch"
+    ],
+    "unmapped": [],
+    "usage_sections": [],
+    "warnings": []
+  },
+  "environmental_sensor.md": {
+    "applications": [
+      "Indoor weather monitoring",
+      "Altitude experiments"
+    ],
+    "brands": [],
+    "description_sections": [
+      {
+        "body": "This board is based on BME280 and communicates with a host over I2C.",
+        "heading": "Introduction"
+      }
+    ],
+    "features": [
+      "Measures three environmental quantities",
+      "Interface: I2C"
+    ],
+    "identifiers": [
+      {
+        "kind": "product_id",
+        "value": "SEN-BME280"
+      }
+    ],
+    "images": [],
+    "interfaces": [
+      "I2C"
+    ],
+    "manufacturers": [],
+    "module_pinout": [
+      {
+        "function": "I2C data",
+        "name": "SDA",
+        "number": null
+      },
+      {
+        "function": "I2C clock",
+        "name": "SCL",
+        "number": null
+      },
+      {
+        "function": "Power input",
+        "name": "VCC",
+        "number": null
+      }
+    ],
+    "payload_sha256": "cb6e44cab6f89fc80f7861db33e8aa0779e8bfb9b150e9ff77364de9b165a475",
+    "primary_ics": [
+      {
+        "kind": "part_number",
+        "value": "BME280"
+      }
+    ],
+    "profile": "sensor",
+    "resources": [
+      {
+        "kind": "datasheet",
+        "label": "Datasheet",
+        "locator": "https://files.seeedstudio.com/bme280.pdf"
+      }
+    ],
+    "specifications": [
+      {
+        "label": "Temperature range",
+        "value": "-40 to 85 degrees celsius"
+      },
+      {
+        "label": "Humidity range",
+        "value": "0 to 100 percent"
+      },
+      {
+        "label": "Pressure range",
+        "value": "300 to 1100 hPa"
+      },
+      {
+        "label": "Interface",
+        "value": "I2C"
+      }
+    ],
+    "summaries": [
+      "An environmental sensing module for temperature, humidity and pressure."
+    ],
+    "titles": [
+      "Grove - Temperature Humidity Pressure Sensor"
+    ],
+    "unmapped": [],
+    "usage_sections": [],
+    "warnings": []
+  },
+  "minimal_no_summary.md": {
+    "applications": [],
+    "brands": [],
+    "description_sections": [],
+    "features": [],
+    "identifiers": [],
+    "images": [],
+    "interfaces": [],
+    "manufacturers": [],
+    "module_pinout": [],
+    "payload_sha256": "429645d7ea8fad53e02030431df189aac46759e1ab731890baa939c8f0cd734b",
+    "primary_ics": [],
+    "profile": "minimal/missing-summary",
+    "resources": [],
+    "specifications": [
+      {
+        "label": "Vendor tuning code",
+        "value": "X-17"
+      }
+    ],
+    "summaries": [],
+    "titles": [
+      "Grove Experimental Module"
+    ],
+    "unmapped": [
+      {
+        "label": "Prototype Notes",
+        "value": "Only early engineering notes are available for this module."
+      }
+    ],
+    "usage_sections": [],
+    "warnings": [
+      "summary_missing",
+      "description_missing",
+      "module_pinout_missing",
+      "unknown_section"
+    ]
+  },
+  "motor_shield.md": {
+    "applications": [],
+    "brands": [],
+    "description_sections": [
+      {
+        "body": "The shield uses L298P as its main motor controller.",
+        "heading": "Product Description"
+      }
+    ],
+    "features": [
+      "Two motor outputs",
+      "Supply Voltage: 6V to 15V"
+    ],
+    "identifiers": [],
+    "images": [],
+    "interfaces": [],
+    "manufacturers": [],
+    "module_pinout": [
+      {
+        "function": "Motor A direction",
+        "name": "DIR_A",
+        "number": "D8"
+      },
+      {
+        "function": "Motor A speed",
+        "name": "PWM_A",
+        "number": "D9"
+      }
+    ],
+    "payload_sha256": "de7fde91520f2abf29b2473349460f28587b0e7ee547f3685e78c2e571cc6a1d",
+    "primary_ics": [
+      {
+        "kind": "part_number",
+        "value": "L298P"
+      }
+    ],
+    "profile": "shield",
+    "resources": [
+      {
+        "kind": "schematic",
+        "label": "Schematic",
+        "locator": "https://files.seeedstudio.com/motor-shield-v2-schematic.pdf"
+      }
+    ],
+    "specifications": [
+      {
+        "label": "Main Chip",
+        "value": "L298P"
+      },
+      {
+        "label": "Maximum current",
+        "value": "2A per channel"
+      },
+      {
+        "label": "Supply Voltage",
+        "value": "6V to 15V"
+      }
+    ],
+    "summaries": [
+      "An Arduino-compatible shield for controlling two DC motors."
+    ],
+    "titles": [
+      "Motor Shield V2.0"
+    ],
+    "unmapped": [],
+    "usage_sections": [
+      {
+        "body": "Install the shield with power removed, then upload the motor example.",
+        "heading": "Play With Arduino"
+      }
+    ],
+    "warnings": []
+  },
+  "power_module.md": {
+    "applications": [],
+    "brands": [],
+    "description_sections": [
+      {
+        "body": "Input voltage: 6 to 12 volts\n\nOutput voltage: 5 volts",
+        "heading": "Overview"
+      }
+    ],
+    "features": [],
+    "identifiers": [],
+    "images": [],
+    "interfaces": [],
+    "manufacturers": [],
+    "module_pinout": [],
+    "payload_sha256": "04f87b1d353e7eb6783839e035a34713e20892518365257c9f4bb14a7091b578",
+    "primary_ics": [],
+    "profile": "power",
+    "resources": [],
+    "specifications": [
+      {
+        "label": "Maximum current",
+        "value": "1 A"
+      },
+      {
+        "label": "Efficiency",
+        "value": "85%"
+      }
+    ],
+    "summaries": [
+      "A regulated power module for supplying low-voltage classroom prototypes."
+    ],
+    "titles": [
+      "Grove - DC-DC Converter"
+    ],
+    "unmapped": [],
+    "usage_sections": [
+      {
+        "body": "Verify polarity before applying power.",
+        "heading": "Getting Started"
+      }
+    ],
+    "warnings": [
+      "module_pinout_missing"
+    ]
+  },
+  "unknown_structure.md": {
+    "applications": [],
+    "brands": [],
+    "description_sections": [],
+    "features": [],
+    "identifiers": [],
+    "images": [],
+    "interfaces": [],
+    "manufacturers": [],
+    "module_pinout": [],
+    "payload_sha256": "471a7863f8d21cb6fc0c1fb206d2fa4eb32686539e375ef5b40f547dc387beb1",
+    "primary_ics": [],
+    "profile": "legacy/unknown-section",
+    "resources": [],
+    "specifications": [],
+    "summaries": [
+      "Distance sensor documentation using an older and mostly unstructured layout."
+    ],
+    "titles": [
+      "Grove Ultrasonic Ranger"
+    ],
+    "unmapped": [
+      {
+        "label": "Historical Notes",
+        "value": "This optional section is retained only as a parser warning."
+      }
+    ],
+    "usage_sections": [],
+    "warnings": [
+      "description_missing",
+      "specifications_missing",
+      "module_pinout_missing",
+      "unknown_section"
+    ]
+  },
+  "without_specifications.md": {
+    "applications": [],
+    "brands": [],
+    "description_sections": [],
+    "features": [],
+    "identifiers": [],
+    "images": [],
+    "interfaces": [],
+    "manufacturers": [],
+    "module_pinout": [],
+    "payload_sha256": "4a7b5c76aabde7d602b75de2fe5ef55f9e8260460d99e9507f05289a71e4ad8c",
+    "primary_ics": [],
+    "profile": "input/missing-specifications",
+    "resources": [],
+    "specifications": [],
+    "summaries": [
+      "A momentary input module intended for introductory Arduino exercises."
+    ],
+    "titles": [
+      "Grove Button"
+    ],
+    "unmapped": [],
+    "usage_sections": [
+      {
+        "body": "Connect SIG to a digital input and use the board pull-up resistor.",
+        "heading": "Usage"
+      }
+    ],
+    "warnings": [
+      "description_missing",
+      "specifications_missing",
+      "module_pinout_missing"
+    ]
+  }
+}

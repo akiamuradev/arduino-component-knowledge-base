@@ -32,6 +32,7 @@ from arduino_component_kb.imports.pipeline.errors import (
     PersistenceError,
     QualityError,
 )
+from arduino_component_kb.imports.pipeline.extractors import SeeedFactExtractor
 from arduino_component_kb.imports.pipeline.models import (
     DescriptionSection,
     EvidenceFragment,
@@ -45,6 +46,7 @@ from arduino_component_kb.imports.pipeline.models import (
     RawSpecification,
     ResourceKind,
     ResourceReference,
+    SourceArtifact,
     SourceArtifactMetadata,
     SourceReference,
     UnknownFact,
@@ -90,8 +92,10 @@ __all__ = [
     "ResourceKind",
     "ResourceReference",
     "SourceAcquirer",
+    "SourceArtifact",
     "SourceArtifactMetadata",
     "SourceReference",
+    "SeeedFactExtractor",
     "StageExecution",
     "StageResult",
     "UnknownFact",

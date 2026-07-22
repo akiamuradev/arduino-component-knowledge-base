@@ -1,6 +1,6 @@
 # Target import architecture
 
-Status: stage 1 domain skeleton. The package described here exists in parallel with the release
+Status: stage 3 extraction implementation. The package described here exists in parallel with the release
 `0.21.0` import flow and is not connected to HTTP endpoints, Dramatiq jobs, adapters, ORM models or
 catalogue persistence.
 
@@ -26,7 +26,7 @@ Seeed Wiki is the primary source for a component card. KiCad is an enrichment pr
 identity extracted from Seeed; it is not a bulk card source. Composition is the first stage allowed
 to shape publication-facing fields.
 
-Stage 1 establishes only boundaries and sequencing. `ExtractedFacts`, normalized facts, component
+Stages 1–3 establish the boundaries, raw fact model and Seeed extractor. Normalized facts, component
 identity, enrichment relations, quality reports and review drafts are introduced by their dedicated
 later stages.
 
@@ -38,16 +38,25 @@ src/arduino_component_kb/imports/pipeline/
 ├── context.py
 ├── errors.py
 ├── orchestration.py
-└── contracts/
+├── contracts/
+│   ├── __init__.py
+│   ├── acquisition.py
+│   ├── extraction.py
+│   ├── normalization.py
+│   ├── identity.py
+│   ├── enrichment.py
+│   ├── evaluation.py
+│   ├── composition.py
+│   └── persistence.py
+├── extractors/
+│   ├── __init__.py
+│   ├── markdown.py
+│   └── seeed.py
+└── models/
     ├── __init__.py
-    ├── acquisition.py
-    ├── extraction.py
-    ├── normalization.py
-    ├── identity.py
-    ├── enrichment.py
-    ├── evaluation.py
-    ├── composition.py
-    └── persistence.py
+    ├── artifact.py
+    ├── extracted_facts.py
+    └── provenance.py
 ```
 
 The extra `pipeline` namespace is intentional. The existing package already contains
@@ -170,3 +179,11 @@ Stage 2 defines `ExtractedFacts` and evidence/provenance models as the concrete 
 `FactExtractor`. The model preserves raw and unmapped data, contains no UI/card fields and remains
 unwired from production. Its complete contract is documented in
 [`extracted-facts.md`](extracted-facts.md).
+
+## Stage 3 implementation
+
+Stage 3 provides the non-executing `SeeedFactExtractor`, safe source-retaining Markdown/MDX
+primitives and a 15-profile golden corpus. The extractor separates summaries, description sections,
+features, applications, usage, raw specifications, module pinout, identity candidates, resources,
+images and unmapped facts. Its behavior and completeness baseline are documented in
+[`seeed-extractor.md`](seeed-extractor.md).
