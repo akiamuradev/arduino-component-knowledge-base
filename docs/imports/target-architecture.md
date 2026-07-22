@@ -1,6 +1,6 @@
 # Target import architecture
 
-Status: stage 5 identity resolution implementation. The package described here exists in parallel
+Status: stage 6 KiCad enrichment implementation. The package described here exists in parallel
 with the release `0.21.0` import flow and is not connected to HTTP endpoints, Dramatiq jobs,
 adapters, ORM models or catalogue persistence.
 
@@ -27,8 +27,8 @@ identity extracted from Seeed; it is not a bulk card source. Composition is the 
 to shape publication-facing fields.
 
 Stages 1–5 establish the boundaries, raw fact model, Seeed extractor, semantic normalizer and
-weighted identity resolution. Enrichment relations, quality reports and review drafts are
-introduced by their dedicated later stages.
+weighted identity resolution. Stage 6 adds the reusable KiCad index and low-level enrichment
+candidates. Relation scoring, quality reports and review drafts remain dedicated later stages.
 
 ## Package tree
 
@@ -214,3 +214,12 @@ candidates, weighted category candidates, explicit auto/review/unresolved thresh
 against promoting a module's primary IC into the module identity. Every score contribution contains
 a rule id, reason and evidence. The scoring model and 15 worked examples are documented in
 [`identity-resolution.md`](identity-resolution.md).
+
+## Stage 6 implementation
+
+Stage 6 provides a reusable, content-hash-aware KiCad symbol index and an
+`EnrichmentProvider` implementation. KiCad candidates retain exact/alias/name/description and
+manufacturer match bases but deliberately contain no relation score and no card fields. Generic
+symbols require exact identity evidence. The deprecated KiCad-to-card workflow remains available
+only through `ACKB_LEGACY_KICAD_CARD_IMPORT_ENABLED`; see
+[`kicad-enrichment.md`](kicad-enrichment.md).

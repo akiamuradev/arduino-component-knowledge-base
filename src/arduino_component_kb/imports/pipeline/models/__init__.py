@@ -25,6 +25,16 @@ from arduino_component_kb.imports.pipeline.models.extracted_facts import (
     ResourceReference,
     UnknownFact,
 )
+from arduino_component_kb.imports.pipeline.models.kicad import (
+    KicadCandidateSet,
+    KicadEnrichmentRequest,
+    KicadMatchBasis,
+    KicadMatchedTerm,
+    KicadPin,
+    KicadSearchHit,
+    KicadSymbolIndex,
+    KicadSymbolRecord,
+)
 from arduino_component_kb.imports.pipeline.models.normalized_facts import (
     NormalizationConfidence,
     NormalizationConflict,
@@ -61,6 +71,14 @@ __all__ = [
     "ImageReference",
     "ModulePin",
     "KindCandidate",
+    "KicadCandidateSet",
+    "KicadEnrichmentRequest",
+    "KicadMatchBasis",
+    "KicadMatchedTerm",
+    "KicadPin",
+    "KicadSearchHit",
+    "KicadSymbolIndex",
+    "KicadSymbolRecord",
     "NormalizationConfidence",
     "NormalizationConflict",
     "NormalizationProfile",
