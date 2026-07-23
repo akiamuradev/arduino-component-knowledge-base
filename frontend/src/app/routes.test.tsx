@@ -8,6 +8,7 @@ import { currentUserQueryKey } from "../auth/queries";
 import { catalogKeys } from "../catalog/queries";
 import { duplicateKeys } from "../duplicates/queries";
 import { jobKeys } from "../jobs/queries";
+import { importReviewKeys } from "../imports/review-queries";
 import { workspaceKeys } from "../workspace/queries";
 import { ThemeProvider } from "../theme/ThemeProvider";
 import { createQueryClient } from "./query-client";
@@ -87,6 +88,7 @@ function renderRoute(path: string, user: User) {
     offset: 0,
   });
   queryClient.setQueryData(duplicateKeys.all, { items: [], total: 0 });
+  queryClient.setQueryData(importReviewKeys.all, { items: [] });
   const router = createMemoryRouter(routes, { initialEntries: [path] });
   return render(
     <ThemeProvider><QueryClientProvider client={queryClient}>
@@ -160,6 +162,17 @@ describe("application routes", () => {
     expect(await screen.findByRole("heading", { name: "Импорт из Git-источника" })).toBeVisible();
     view.unmount();
     renderRoute("/admin/import", { ...student, roles: ["teacher"] });
+    expect(await screen.findByRole("heading", { name: "Недостаточно прав" })).toBeVisible();
+  });
+
+  it("exposes evidence-first import review only to an administrator", async () => {
+    const view = renderRoute("/admin/import-reviews", {
+      ...student,
+      roles: ["administrator"],
+    });
+    expect(await screen.findByRole("heading", { name: "Evidence-first import review" })).toBeVisible();
+    view.unmount();
+    renderRoute("/admin/import-reviews", { ...student, roles: ["teacher"] });
     expect(await screen.findByRole("heading", { name: "Недостаточно прав" })).toBeVisible();
   });
 });

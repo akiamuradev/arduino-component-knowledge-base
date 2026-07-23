@@ -23,6 +23,7 @@ export function AdminLayout() {
           <NavLink to="/admin/components/new"><span aria-hidden="true">＋</span>Новая карточка</NavLink>
           {isAdministrator ? <NavLink to="/admin/duplicates"><span aria-hidden="true">◇</span>Дубликаты</NavLink> : null}
           {isAdministrator ? <NavLink to="/admin/import"><span aria-hidden="true">⇣</span>Импорт</NavLink> : null}
+          {isAdministrator ? <NavLink to="/admin/import-reviews"><span aria-hidden="true">⌕</span>Review импорта</NavLink> : null}
           {isAdministrator ? <NavLink to="/admin/jobs"><span aria-hidden="true">↻</span>Фоновые задачи</NavLink> : null}
         </nav>
         <div className="admin-nav__footer">

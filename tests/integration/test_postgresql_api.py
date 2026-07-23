@@ -78,6 +78,8 @@ async def assert_migrated_schema(settings: Settings) -> None:
                 "component_identity_candidates",
                 "parser_evaluations",
                 "import_review_drafts",
+                "import_review_states",
+                "import_review_actions",
                 "component_enrichments",
                 "component_enrichment_reviews",
             }.issubset(set(tables))

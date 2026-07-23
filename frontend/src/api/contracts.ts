@@ -367,6 +367,104 @@ export interface ImportJob {
   metrics_json: Record<string, unknown>;
 }
 
+export type ImportReviewStatus = "pending" | "confirmed";
+export type ImportRelationType =
+  | "exact_component"
+  | "main_integrated_circuit"
+  | "onboard_component"
+  | "connector"
+  | "functional_equivalent";
+
+export interface ImportReviewSummary {
+  id: string;
+  title: string;
+  status: ImportReviewStatus;
+  revision: number;
+  quality_route: string;
+  quality_score_basis_points: number;
+  source_key: string;
+  created_at: string;
+}
+
+export interface ImportReviewListResponse {
+  items: ImportReviewSummary[];
+}
+
+export interface ImportIdentityCandidate {
+  id: string;
+  selected: boolean;
+  canonical_name: string;
+  component_kind: string;
+  selected_category: string | null;
+  confidence: string;
+  resolution_status: string;
+  evidence: Record<string, unknown>;
+}
+
+export interface ImportEnrichmentCandidate {
+  id: string;
+  provider: string;
+  external_identity: string;
+  relation_type: ImportRelationType;
+  confidence_basis_points: number;
+  status: string;
+  evidence: Record<string, unknown>[];
+  score_breakdown: Record<string, unknown>[];
+  symbol: Record<string, unknown>;
+  review_reasons: string[];
+  updated_at: string;
+}
+
+export interface ImportUnmappedSpecification {
+  key: string;
+  original_label: string;
+  original_value: string;
+  reason: string;
+  evidence: Record<string, unknown>[];
+  mapped_taxonomy_path: string | null;
+}
+
+export interface ImportReviewAction {
+  id: string;
+  actor_id: string;
+  action: string;
+  target_type: string;
+  target_key: string;
+  previous_value: Record<string, unknown>;
+  resulting_value: Record<string, unknown>;
+  reason: string;
+  review_revision: number;
+  occurred_at: string;
+}
+
+export interface ImportReviewWorkspace {
+  id: string;
+  status: ImportReviewStatus;
+  revision: number;
+  source: Record<string, unknown>;
+  facts: Record<string, unknown>;
+  provenance: Record<string, unknown>[];
+  field_confidence: Record<string, string>;
+  identity_candidates: ImportIdentityCandidate[];
+  quality_report: Record<string, unknown>;
+  unmapped_specifications: ImportUnmappedSpecification[];
+  conflicts: Record<string, unknown>[];
+  enrichments: ImportEnrichmentCandidate[];
+  module_connection: Record<string, unknown>;
+  internal_electronic_components: Record<string, unknown>[];
+  kicad_symbols: Record<string, unknown>[];
+  parser_issues: Record<string, unknown>[];
+  taxonomy_options: string[];
+  draft: Record<string, unknown>;
+  audit_trail: ImportReviewAction[];
+}
+
+export interface ImportReviewActionResponse {
+  review_draft_id: string;
+  revision: number;
+  status: ImportReviewStatus;
+}
+
 export interface MediaSource {
   sourceName: string;
   sourceUrl: string;

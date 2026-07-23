@@ -19,7 +19,7 @@ def alembic_config() -> Config:
 
 def test_alembic_has_one_backend_head() -> None:
     scripts = ScriptDirectory.from_config(alembic_config())
-    assert scripts.get_heads() == ["20260723_17"]
+    assert scripts.get_heads() == ["20260723_18"]
 
 
 def test_alembic_upgrade_renders_offline_postgresql_sql(
@@ -100,6 +100,11 @@ def test_alembic_upgrade_renders_offline_postgresql_sql(
     assert "uq_import_artifacts_idempotency" in sql
     assert "status IN ('suggested','accepted','rejected','stale','conflict')" in sql
     assert "20260723_17" in sql
+    assert "CREATE TABLE import_review_states" in sql
+    assert "CREATE TABLE import_review_actions" in sql
+    assert "ck_import_review_states_revision" in sql
+    assert "ck_import_review_actions_action" in sql
+    assert "20260723_18" in sql
 
 
 def test_runtime_has_no_create_all_escape_hatch() -> None:

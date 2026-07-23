@@ -42,7 +42,9 @@ Playwright запускает собранный frontend через Vite previe
 Vitest дополнительно проверяет administrator-only repository import: bounded discovery,
 entry selection, preview с license/provenance, создание draft job и переход к готовому черновику.
 Тест подтверждает отсутствие вызова publish. Страница `/sources` проверяется на разделение active
-и disabled источников и безопасные внешние ссылки.
+и disabled источников и безопасные внешние ссылки. Stage 12 проверяет отдельные панели module
+connection/internal components/KiCad symbol, confidence/evidence, optimistic review actions и
+administrator-only маршрут `/admin/import-reviews`.
 
 Четыре утверждённых visual artifacts для light/dark и desktop/mobile воспроизводятся только при
 `ACKB_UPDATE_SCREENSHOTS=1`. Обычный CI не перезаписывает файлы и отображает visual-update test
@@ -80,6 +82,7 @@ pytest -m integration --strict-markers
 - исторический parser contract и новые Seeed/KiCad repository fixtures без внешней сети;
 - запрет MDX/external-command execution, library allowlist и malformed document isolation;
 - repository idempotency, source deactivation и publish rejection без license snapshot;
+- evidence-first review revision locking, immutable snapshots and append-only action audit;
 - frontend unit tests и Chromium Playwright flow.
 
 Не покрываются этим этапом: производительные нагрузки, реальные внешние сайты, полный browser
