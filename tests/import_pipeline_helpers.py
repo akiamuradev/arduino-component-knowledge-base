@@ -11,8 +11,13 @@ from arduino_component_kb.imports.adapters.seeed_wiki import SeeedWikiAdapter
 from arduino_component_kb.imports.pipeline import (
     ComponentIdentity,
     ImportPipelineContext,
+    KiCadEnrichmentProvider,
+    KicadEnrichmentRequest,
+    KicadSymbolIndexer,
     PipelineStage,
+    QualityEvaluationInput,
     SeeedFactExtractor,
+    SeeedKicadMatcher,
     SemanticFactNormalizer,
     SourceArtifact,
     SourceArtifactMetadata,
@@ -89,3 +94,27 @@ async def resolved(file_name: str) -> tuple[ImportPipelineContext, ComponentIden
         SequenceClock(STARTED_AT + timedelta(seconds=5), STARTED_AT + timedelta(seconds=6))
     ).resolve(normalized.context, normalized.value)
     return identity.context, identity.value
+
+
+async def quality_input(
+    file_name: str,
+) -> tuple[ImportPipelineContext, QualityEvaluationInput]:
+    context, identity = await resolved(file_name)
+    index = KicadSymbolIndexer().build(kicad_snapshot()).index
+    enrichment = await KiCadEnrichmentProvider(
+        index,
+        SequenceClock(STARTED_AT + timedelta(seconds=7), STARTED_AT + timedelta(seconds=8)),
+    ).enrich(
+        context,
+        KicadEnrichmentRequest(identity, identity.normalized_facts),
+    )
+    relations = SeeedKicadMatcher().match(
+        identity,
+        identity.normalized_facts,
+        enrichment.value,
+    )
+    return enrichment.context, QualityEvaluationInput(
+        identity.normalized_facts,
+        identity,
+        relations,
+    )

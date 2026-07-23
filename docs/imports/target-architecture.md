@@ -1,6 +1,6 @@
 # Target import architecture
 
-Status: stage 7 matcher implementation. The package described here exists in parallel
+Status: stage 8 quality-evaluation implementation. The package described here exists in parallel
 with the release `0.21.0` import flow and is not connected to HTTP endpoints, Dramatiq jobs,
 adapters, ORM models or catalogue persistence.
 
@@ -29,7 +29,8 @@ to shape publication-facing fields.
 Stages 1–5 establish the boundaries, raw fact model, Seeed extractor, semantic normalizer and
 weighted identity resolution. Stage 6 adds the reusable KiCad index and low-level enrichment
 candidates. Stage 7 adds explicit relation types, calibrated confidence and review decisions.
-Quality reports and review drafts remain dedicated later stages.
+Stage 8 adds immutable quality reports and reject/review/compose routing. Review drafts remain a
+dedicated later stage.
 
 ## Package tree
 
@@ -67,6 +68,9 @@ src/arduino_component_kb/imports/pipeline/
 │   ├── kicad_index.py
 │   ├── kicad_provider.py
 │   └── matcher.py
+├── evaluation/
+│   ├── __init__.py
+│   └── quality.py
 └── models/
     ├── __init__.py
     ├── artifact.py
@@ -75,6 +79,7 @@ src/arduino_component_kb/imports/pipeline/
     ├── extracted_facts.py
     ├── kicad.py
     ├── normalized_facts.py
+    ├── quality.py
     └── provenance.py
 ```
 
@@ -241,3 +246,12 @@ fragments and confidence of at least 0.950 may be accepted automatically. Main I
 connector and functional-equivalent relations remain review-first. The 37-pair calibration corpus,
 weights, penalties and pinout boundary are documented in
 [`kicad-matcher.md`](kicad-matcher.md).
+
+## Stage 8 implementation
+
+Stage 8 provides immutable `QualityEvaluationInput`, `QualityReport`, nine independently weighted
+dimensions, explicit blocking/warning/suggestion issues and deterministic reject/manual-review/
+ready-to-compose routes. Profile expectations cover displays, sensors, boards, actuators and
+communication modules. Missing source content is distinguished from missed extraction so absent
+upstream facts are not mislabeled as parser defects. The complete scoring policy, thresholds and
+15-fixture benchmark are documented in [`quality-evaluation.md`](quality-evaluation.md).

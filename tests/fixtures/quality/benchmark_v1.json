@@ -1,0 +1,122 @@
+{
+  "actuator_module.md": {
+    "dimensions": {"conflicts": 1000, "description_completeness": 1000, "educational_usefulness": 800, "enrichment_confidence": 850, "identity_confidence": 1000, "module_pinout_presence": 1000, "publication_readiness": 850, "source_provenance_completeness": 1000, "specification_coverage": 950},
+    "issue_counts": {"blocking": 0, "suggestion": 0, "warning": 2},
+    "issues": ["quality.enrichment_review_required", "quality.unmapped_specifications"],
+    "overall_score_basis_points": 954,
+    "profile": "actuator",
+    "route": "manual_review"
+  },
+  "alternative_headings.mdx": {
+    "dimensions": {"conflicts": 800, "description_completeness": 750, "educational_usefulness": 450, "enrichment_confidence": 1000, "identity_confidence": 1000, "module_pinout_presence": 1000, "publication_readiness": 700, "source_provenance_completeness": 1000, "specification_coverage": 475},
+    "issue_counts": {"blocking": 0, "suggestion": 2, "warning": 4},
+    "issues": ["quality.extraction_warning.description_missing", "quality.extraction_warning.executable_construct_ignored", "quality.description_incomplete", "quality.profile.display.interface_missing", "quality.educational_content_limited", "quality.profile.display.resolution_missing"],
+    "overall_score_basis_points": 802,
+    "profile": "display",
+    "route": "manual_review"
+  },
+  "broken_frontmatter.mdx": {
+    "dimensions": {"conflicts": 500, "description_completeness": 750, "educational_usefulness": 250, "enrichment_confidence": 1000, "identity_confidence": 1000, "module_pinout_presence": 750, "publication_readiness": 475, "source_provenance_completeness": 1000, "specification_coverage": 700},
+    "issue_counts": {"blocking": 0, "suggestion": 5, "warning": 5},
+    "issues": ["quality.extraction_warning.description_missing", "quality.extraction_warning.frontmatter_unterminated", "quality.extraction_warning.module_pinout_missing", "quality.extraction_warning.specifications_missing", "quality.extraction_warning.unknown_section", "quality.description_incomplete", "quality.educational_content_limited", "quality.module_pinout_missing", "quality.profile.actuator.control_missing", "quality.profile.actuator.power_missing"],
+    "overall_score_basis_points": 748,
+    "profile": "actuator",
+    "route": "manual_review"
+  },
+  "can_bus_module.md": {
+    "dimensions": {"conflicts": 900, "description_completeness": 750, "educational_usefulness": 800, "enrichment_confidence": 400, "identity_confidence": 1000, "module_pinout_presence": 1000, "publication_readiness": 775, "source_provenance_completeness": 1000, "specification_coverage": 1000},
+    "issue_counts": {"blocking": 0, "suggestion": 0, "warning": 3},
+    "issues": ["quality.extraction_warning.description_missing", "quality.description_incomplete", "quality.expected_enrichment_missing"],
+    "overall_score_basis_points": 878,
+    "profile": "communication",
+    "route": "manual_review"
+  },
+  "communication_module.md": {
+    "dimensions": {"conflicts": 900, "description_completeness": 750, "educational_usefulness": 600, "enrichment_confidence": 1000, "identity_confidence": 1000, "module_pinout_presence": 1000, "publication_readiness": 850, "source_provenance_completeness": 1000, "specification_coverage": 1000},
+    "issue_counts": {"blocking": 0, "suggestion": 0, "warning": 2},
+    "issues": ["quality.extraction_warning.description_missing", "quality.description_incomplete"],
+    "overall_score_basis_points": 915,
+    "profile": "communication",
+    "route": "manual_review"
+  },
+  "complete.md": {
+    "dimensions": {"conflicts": 800, "description_completeness": 750, "educational_usefulness": 800, "enrichment_confidence": 1000, "identity_confidence": 1000, "module_pinout_presence": 1000, "publication_readiness": 775, "source_provenance_completeness": 1000, "specification_coverage": 1000},
+    "issue_counts": {"blocking": 0, "suggestion": 0, "warning": 3},
+    "issues": ["quality.extraction_warning.description_missing", "quality.extraction_warning.executable_construct_ignored", "quality.description_incomplete"],
+    "overall_score_basis_points": 914,
+    "profile": "sensor",
+    "route": "manual_review"
+  },
+  "connector_module.md": {
+    "dimensions": {"conflicts": 900, "description_completeness": 750, "educational_usefulness": 450, "enrichment_confidence": 1000, "identity_confidence": 1000, "module_pinout_presence": 1000, "publication_readiness": 775, "source_provenance_completeness": 1000, "specification_coverage": 850},
+    "issue_counts": {"blocking": 0, "suggestion": 1, "warning": 3},
+    "issues": ["quality.extraction_warning.description_missing", "quality.description_incomplete", "quality.unmapped_specifications", "quality.educational_content_limited"],
+    "overall_score_basis_points": 875,
+    "profile": "generic",
+    "route": "manual_review"
+  },
+  "development_board.md": {
+    "dimensions": {"conflicts": 900, "description_completeness": 750, "educational_usefulness": 800, "enrichment_confidence": 1000, "identity_confidence": 1000, "module_pinout_presence": 1000, "publication_readiness": 775, "source_provenance_completeness": 1000, "specification_coverage": 750},
+    "issue_counts": {"blocking": 0, "suggestion": 0, "warning": 3},
+    "issues": ["quality.extraction_warning.description_missing", "quality.description_incomplete", "quality.profile.board.mcu_missing"],
+    "overall_score_basis_points": 888,
+    "profile": "board",
+    "route": "manual_review"
+  },
+  "display_spi.md": {
+    "dimensions": {"conflicts": 1000, "description_completeness": 1000, "educational_usefulness": 600, "enrichment_confidence": 850, "identity_confidence": 1000, "module_pinout_presence": 1000, "publication_readiness": 925, "source_provenance_completeness": 1000, "specification_coverage": 1000},
+    "issue_counts": {"blocking": 0, "suggestion": 0, "warning": 1},
+    "issues": ["quality.enrichment_review_required"],
+    "overall_score_basis_points": 950,
+    "profile": "display",
+    "route": "manual_review"
+  },
+  "environmental_sensor.md": {
+    "dimensions": {"conflicts": 1000, "description_completeness": 1000, "educational_usefulness": 800, "enrichment_confidence": 850, "identity_confidence": 1000, "module_pinout_presence": 1000, "publication_readiness": 925, "source_provenance_completeness": 1000, "specification_coverage": 1000},
+    "issue_counts": {"blocking": 0, "suggestion": 0, "warning": 1},
+    "issues": ["quality.enrichment_review_required"],
+    "overall_score_basis_points": 966,
+    "profile": "sensor",
+    "route": "manual_review"
+  },
+  "minimal_no_summary.md": {
+    "dimensions": {"conflicts": 480, "description_completeness": 550, "educational_usefulness": 0, "enrichment_confidence": 1000, "identity_confidence": 200, "module_pinout_presence": 750, "publication_readiness": 0, "source_provenance_completeness": 1000, "specification_coverage": 775},
+    "issue_counts": {"blocking": 1, "suggestion": 4, "warning": 6},
+    "issues": ["quality.identity_unresolved", "quality.extraction_warning.description_missing", "quality.extraction_warning.module_pinout_missing", "quality.extraction_warning.summary_missing", "quality.extraction_warning.unknown_section", "quality.identity_warning.identity_unresolved", "quality.unmapped_specifications", "quality.description_incomplete", "quality.educational_content_limited", "quality.module_pinout_missing", "quality.specifications_source_missing"],
+    "overall_score_basis_points": 559,
+    "profile": "generic",
+    "route": "reject"
+  },
+  "motor_shield.md": {
+    "dimensions": {"conflicts": 760, "description_completeness": 1000, "educational_usefulness": 800, "enrichment_confidence": 850, "identity_confidence": 650, "module_pinout_presence": 1000, "publication_readiness": 550, "source_provenance_completeness": 1000, "specification_coverage": 850},
+    "issue_counts": {"blocking": 0, "suggestion": 1, "warning": 4},
+    "issues": ["quality.identity_warning.category_ambiguous", "quality.identity_warning.identity_review_required", "quality.enrichment_review_required", "quality.identity_review_required", "quality.profile.actuator.control_missing"],
+    "overall_score_basis_points": 836,
+    "profile": "actuator",
+    "route": "manual_review"
+  },
+  "power_module.md": {
+    "dimensions": {"conflicts": 900, "description_completeness": 1000, "educational_usefulness": 450, "enrichment_confidence": 1000, "identity_confidence": 1000, "module_pinout_presence": 750, "publication_readiness": 925, "source_provenance_completeness": 1000, "specification_coverage": 1000},
+    "issue_counts": {"blocking": 0, "suggestion": 2, "warning": 1},
+    "issues": ["quality.extraction_warning.module_pinout_missing", "quality.educational_content_limited", "quality.module_pinout_missing"],
+    "overall_score_basis_points": 918,
+    "profile": "generic",
+    "route": "manual_review"
+  },
+  "unknown_structure.md": {
+    "dimensions": {"conflicts": 600, "description_completeness": 750, "educational_usefulness": 250, "enrichment_confidence": 1000, "identity_confidence": 1000, "module_pinout_presence": 750, "publication_readiness": 475, "source_provenance_completeness": 1000, "specification_coverage": 475},
+    "issue_counts": {"blocking": 0, "suggestion": 4, "warning": 5},
+    "issues": ["quality.extraction_warning.description_missing", "quality.extraction_warning.module_pinout_missing", "quality.extraction_warning.specifications_missing", "quality.extraction_warning.unknown_section", "quality.profile.sensor.quantity_missing", "quality.description_incomplete", "quality.educational_content_limited", "quality.module_pinout_missing", "quality.profile.sensor.range_missing"],
+    "overall_score_basis_points": 726,
+    "profile": "sensor",
+    "route": "manual_review"
+  },
+  "without_specifications.md": {
+    "dimensions": {"conflicts": 580, "description_completeness": 750, "educational_usefulness": 450, "enrichment_confidence": 1000, "identity_confidence": 650, "module_pinout_presence": 750, "publication_readiness": 325, "source_provenance_completeness": 1000, "specification_coverage": 700},
+    "issue_counts": {"blocking": 0, "suggestion": 4, "warning": 5},
+    "issues": ["quality.extraction_warning.description_missing", "quality.extraction_warning.module_pinout_missing", "quality.extraction_warning.specifications_missing", "quality.identity_warning.identity_review_required", "quality.identity_review_required", "quality.description_incomplete", "quality.educational_content_limited", "quality.module_pinout_missing", "quality.specifications_source_missing"],
+    "overall_score_basis_points": 710,
+    "profile": "generic",
+    "route": "manual_review"
+  }
+}

@@ -60,6 +60,16 @@ from arduino_component_kb.imports.pipeline.models.provenance import (
     SourceArtifactMetadata,
     SourceReference,
 )
+from arduino_component_kb.imports.pipeline.models.quality import (
+    QualityDimension,
+    QualityDimensionScore,
+    QualityEvaluationInput,
+    QualityIssue,
+    QualityIssueCause,
+    QualityIssueSeverity,
+    QualityReport,
+    QualityRoute,
+)
 
 __all__ = [
     "CategoryCandidate",
@@ -102,6 +112,14 @@ __all__ = [
     "NormalizedSpecification",
     "NormalizedTextFact",
     "RawSpecification",
+    "QualityDimension",
+    "QualityDimensionScore",
+    "QualityEvaluationInput",
+    "QualityIssue",
+    "QualityIssueCause",
+    "QualityIssueSeverity",
+    "QualityReport",
+    "QualityRoute",
     "ResourceKind",
     "ResourceReference",
     "ScoreContribution",
