@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import cast
 from uuid import uuid4
 
 import pytest
@@ -30,6 +31,10 @@ from arduino_component_kb.imports.pipeline.models.persistence import (
 from arduino_component_kb.imports.review import (
     ImportReviewConflictError,
     ImportReviewRepository,
+)
+from arduino_component_kb.imports.review_metrics import (
+    ReviewMetricsRepository,
+    build_human_labelled_report,
 )
 
 
@@ -136,6 +141,17 @@ async def test_review_actions_are_locked_audited_and_snapshot_safe(
             )
             assert action_count == 4
             assert enrichment_review_count == 1
+            metrics = build_human_labelled_report(
+                await ReviewMetricsRepository(session).snapshot(),
+                minimum_reviewed_sample=1,
+            )
+            summary = cast(dict[str, object], metrics["summary"])
+            samples = cast(list[dict[str, object]], metrics["samples"])
+            matrix = cast(dict[str, dict[str, int]], metrics["confusion_matrix"])
+            assert summary["reviewed_sample_size"] == 1
+            assert summary["sample_gate"] == "met"
+            assert samples[0]["review_action_ids"]
+            assert matrix["main_integrated_circuit"]["onboard_component"] == 1
             await transaction.rollback()
     finally:
         await database.dispose()

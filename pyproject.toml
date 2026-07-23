@@ -34,6 +34,7 @@ ackb-validate-repository-samples = "arduino_component_kb.imports.sample_validati
 ackb-validate-repository-jobs = "arduino_component_kb.imports.job_validation:main"
 ackb-shadow-import-batch = "arduino_component_kb.imports.shadow_dry_run:main"
 ackb-build-kicad-index = "arduino_component_kb.imports.pipeline.enrichment.kicad_distribution:main"
+ackb-review-metrics = "arduino_component_kb.imports.review_metrics:main"
 
 [project.optional-dependencies]
 dev = [

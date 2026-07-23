@@ -85,6 +85,7 @@ class Settings(DatabaseSettings):
     import_pipeline_mode: ImportPipelineMode = "disabled"
     import_pipeline_stage_timeout_seconds: float = Field(default=15.0, ge=1, le=120)
     import_pipeline_safe_retry_attempts: int = Field(default=2, ge=1, le=5)
+    import_review_metrics_min_sample: int = Field(default=100, ge=1, le=1_000_000)
     kicad_index_artifact_path: Path = Path("/var/lib/ackb/kicad/index.json")
     kicad_index_expected_revision: str | None = None
     kicad_index_expected_sha256: str | None = None

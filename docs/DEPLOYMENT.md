@@ -194,3 +194,24 @@ bounded `kicad_index_*` failure code. Rollback: вернуть
 `ACKB_IMPORT_PIPELINE_MODE=disabled` либо выбрать прежний immutable artifact с его revision/SHA,
 после чего снова пересоздать parser-worker. Старые artifacts не удаляйте до завершения rollback
 window.
+
+## 8. Human-labelled import metrics
+
+Порог decision gate задаётся через `ACKB_IMPORT_REVIEW_METRICS_MIN_SAMPLE` (по умолчанию `100`).
+Он означает количество финальных enrichment-решений reviewer в подтверждённых drafts, а не число
+автоматических matcher decisions.
+
+Воспроизводимый privacy-safe отчёт создаётся read-only CLI:
+
+```fish
+umask 077
+docker compose --env-file .env.production \
+  -f compose.yaml -f compose.production.yaml run --rm backend \
+  ackb-review-metrics > human-labelled-metrics.json
+```
+
+Отчёт содержит opaque enrichment/action IDs, matcher decision, relation type, matcher/rule/index
+versions, confusion matrix, sample size и 95% confidence intervals. Он не экспортирует actor IDs,
+reviewer notes, reasons, evidence или source text. `summary.sample_gate=insufficient` запрещает
+использовать precision/recall как switch evidence. Повторный запуск по неизменной базе и тому же
+порогу должен создать byte-identical JSON.
