@@ -79,6 +79,9 @@ from arduino_component_kb.imports.pipeline.models import (
     DraftText,
     EnrichmentCandidate,
     EnrichmentDecision,
+    EnrichmentLifecycleStatus,
+    EnrichmentReviewCommand,
+    EnrichmentReviewDecision,
     EnrichmentScoreContribution,
     EvidenceFragment,
     EvidencePolarity,
@@ -110,6 +113,8 @@ from arduino_component_kb.imports.pipeline.models import (
     NormalizedIdentifier,
     NormalizedSpecification,
     NormalizedTextFact,
+    PersistedPipelineDraft,
+    PipelinePersistenceInput,
     QualityDimension,
     QualityDimensionScore,
     QualityEvaluationInput,
@@ -133,6 +138,10 @@ from arduino_component_kb.imports.pipeline.normalization import SemanticFactNorm
 from arduino_component_kb.imports.pipeline.orchestration import (
     PipelineOrchestrator,
     PipelineStep,
+)
+from arduino_component_kb.imports.pipeline.persistence import (
+    EnrichmentLifecycleRepository,
+    PostgresImportPersistenceGateway,
 )
 
 __all__ = [
@@ -170,6 +179,10 @@ __all__ = [
     "EnrichmentCandidate",
     "EnrichmentDecision",
     "EnrichmentScoreContribution",
+    "EnrichmentLifecycleStatus",
+    "EnrichmentReviewCommand",
+    "EnrichmentReviewDecision",
+    "EnrichmentLifecycleRepository",
     "EnrichmentError",
     "EnrichmentProvider",
     "ErrorCategory",
@@ -188,6 +201,7 @@ __all__ = [
     "IdentityValue",
     "ImageReference",
     "ImportPersistenceGateway",
+    "PostgresImportPersistenceGateway",
     "ImportPipelineContext",
     "ImportPipelineError",
     "NormalizationError",
@@ -238,6 +252,8 @@ __all__ = [
     "ResourceKind",
     "ResourceReference",
     "ReviewDraft",
+    "PersistedPipelineDraft",
+    "PipelinePersistenceInput",
     "ScoreContribution",
     "SemanticFactNormalizer",
     "SeeedKicadMatcher",

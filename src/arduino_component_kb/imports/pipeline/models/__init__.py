@@ -69,6 +69,13 @@ from arduino_component_kb.imports.pipeline.models.normalized_facts import (
     NormalizedTextFact,
     UnmappedSpecification,
 )
+from arduino_component_kb.imports.pipeline.models.persistence import (
+    EnrichmentLifecycleStatus,
+    EnrichmentReviewCommand,
+    EnrichmentReviewDecision,
+    PersistedPipelineDraft,
+    PipelinePersistenceInput,
+)
 from arduino_component_kb.imports.pipeline.models.provenance import (
     EvidenceFragment,
     ExtractionWarning,
@@ -110,6 +117,9 @@ __all__ = [
     "EnrichmentCandidate",
     "EnrichmentDecision",
     "EnrichmentScoreContribution",
+    "EnrichmentLifecycleStatus",
+    "EnrichmentReviewCommand",
+    "EnrichmentReviewDecision",
     "ExtractedFacts",
     "ExtractedField",
     "ExtractionWarning",
@@ -150,6 +160,8 @@ __all__ = [
     "ResourceKind",
     "ResourceReference",
     "ReviewDraft",
+    "PersistedPipelineDraft",
+    "PipelinePersistenceInput",
     "ScoreContribution",
     "SourceArtifact",
     "SourceArtifactMetadata",

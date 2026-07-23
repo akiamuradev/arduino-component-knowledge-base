@@ -19,7 +19,7 @@ def alembic_config() -> Config:
 
 def test_alembic_has_one_backend_head() -> None:
     scripts = ScriptDirectory.from_config(alembic_config())
-    assert scripts.get_heads() == ["20260721_16"]
+    assert scripts.get_heads() == ["20260723_17"]
 
 
 def test_alembic_upgrade_renders_offline_postgresql_sql(
@@ -91,6 +91,15 @@ def test_alembic_upgrade_renders_offline_postgresql_sql(
     assert "ADD COLUMN storage_cleaned_at" in sql
     assert "ix_media_assets_retention" in sql
     assert "20260721_16" in sql
+    assert "CREATE TABLE import_pipeline_artifacts" in sql
+    assert "CREATE TABLE component_identity_candidates" in sql
+    assert "CREATE TABLE parser_evaluations" in sql
+    assert "CREATE TABLE import_review_drafts" in sql
+    assert "CREATE TABLE component_enrichments" in sql
+    assert "CREATE TABLE component_enrichment_reviews" in sql
+    assert "uq_import_artifacts_idempotency" in sql
+    assert "status IN ('suggested','accepted','rejected','stale','conflict')" in sql
+    assert "20260723_17" in sql
 
 
 def test_runtime_has_no_create_all_escape_hatch() -> None:
