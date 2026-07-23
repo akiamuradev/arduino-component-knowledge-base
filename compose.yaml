@@ -248,6 +248,7 @@ services:
     networks:
       - edge
       - ingress
+      - data
 
 volumes:
   postgres-data:

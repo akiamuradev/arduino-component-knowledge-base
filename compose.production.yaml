@@ -45,5 +45,6 @@ services:
       - ./deploy/reverse-proxy/internal-https.conf.template:/etc/nginx/templates/default.conf.template:ro
       - ${ACKB_EDGE_TLS_CERT_FILE:?set ACKB_EDGE_TLS_CERT_FILE}:/etc/nginx/tls/tls.crt:ro
       - ${ACKB_EDGE_TLS_KEY_FILE:?set ACKB_EDGE_TLS_KEY_FILE}:/etc/nginx/tls/tls.key:ro
+      - ${ACKB_CA_BUNDLE_FILE:?set ACKB_CA_BUNDLE_FILE}:/etc/nginx/ca/ca-bundle.crt:ro
     healthcheck:
       test: ["CMD-SHELL", "wget --quiet --tries=1 --output-document=- http://127.0.0.1:8080/container-health | grep -q ok"]

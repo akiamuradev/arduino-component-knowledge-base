@@ -7,6 +7,7 @@ import type {
   Category,
   ComponentCard,
   ComponentDraftInput,
+  ComponentImagesUpdateInput,
   ComponentListResponse,
   ComponentStatus,
   ComponentUpdateInput,
@@ -27,11 +28,15 @@ import type {
   ImportReviewListResponse,
   ImportReviewWorkspace,
   ImportRelationType,
+  ImageUploadReservationInput,
+  MediaAsset,
   RepositoryDiscoveryResponse,
   RepositoryEntryDiscoveryResponse,
   RepositoryImportInput,
   RepositoryPreview,
   Role,
+  UploadConfirmation,
+  UploadReservation,
   User,
 } from "./contracts";
 
@@ -131,6 +136,21 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   return body as T;
 }
 
+export async function uploadReservedFile(
+  reservation: UploadReservation,
+  file: File,
+): Promise<void> {
+  const response = await fetch(reservation.upload_url, {
+    method: "PUT",
+    headers: reservation.upload_headers,
+    body: file,
+    credentials: "omit",
+  });
+  if (!response.ok) {
+    throw new ApiError(response.status, "media_upload_failed");
+  }
+}
+
 export const api = {
   currentUser: (): Promise<User> => apiRequest<User>("/auth/me"),
   login: (input: LoginInput): Promise<LoginResponse> =>
@@ -198,6 +218,36 @@ export const api = {
       body: JSON.stringify(input),
       csrf: true,
     }),
+  updateComponentImages: (
+    componentId: string,
+    input: ComponentImagesUpdateInput,
+  ): Promise<ComponentCard> =>
+    apiRequest<ComponentCard>(
+      `/workspace/components/${encodeURIComponent(componentId)}/images`,
+      {
+        method: "PUT",
+        body: JSON.stringify(input),
+        csrf: true,
+      },
+    ),
+  reserveComponentImage: (
+    input: ImageUploadReservationInput,
+  ): Promise<UploadReservation> =>
+    apiRequest<UploadReservation>("/media/images/uploads", {
+      method: "POST",
+      body: JSON.stringify(input),
+      csrf: true,
+    }),
+  completeComponentImage: (assetId: string): Promise<UploadConfirmation> =>
+    apiRequest<UploadConfirmation>(
+      `/media/images/${encodeURIComponent(assetId)}/complete`,
+      {
+        method: "POST",
+        csrf: true,
+      },
+    ),
+  getComponentImage: (assetId: string): Promise<MediaAsset> =>
+    apiRequest<MediaAsset>(`/media/images/${encodeURIComponent(assetId)}`),
   publishComponent: (componentId: string, revision: number): Promise<ComponentCard> =>
     apiRequest<ComponentCard>(`/workspace/components/${encodeURIComponent(componentId)}/publish`, {
       method: "POST",

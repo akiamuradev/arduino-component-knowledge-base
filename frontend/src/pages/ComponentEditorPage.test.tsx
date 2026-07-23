@@ -72,6 +72,21 @@ function renderEditor(component: ComponentCard = card) {
   );
 }
 
+function renderNewEditor() {
+  const queryClient = createQueryClient();
+  queryClient.setDefaultOptions({ queries: { retry: false, staleTime: Infinity } });
+  queryClient.setQueryData(currentUserQueryKey, teacher);
+  queryClient.setQueryData(workspaceKeys.categories, [category]);
+  const router = createMemoryRouter(routes, {
+    initialEntries: ["/admin/components/new"],
+  });
+  render(
+    <ThemeProvider><QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider></ThemeProvider>,
+  );
+}
+
 function jsonResponse(value: unknown, status = 200): Response {
   return new Response(JSON.stringify(value), {
     status,
@@ -85,6 +100,33 @@ afterEach(() => {
 });
 
 describe("component editor", () => {
+  it("allows a new draft without images and explains when upload becomes available", () => {
+    renderNewEditor();
+
+    expect(screen.getByText("Сначала сохраните draft")).toBeVisible();
+    expect(screen.getByText(/Карточку можно сохранить без изображений/)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Сохранить draft" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Добавить изображения" })).not.toBeInTheDocument();
+  });
+
+  it("places the persistent image editor between identification and learning content", () => {
+    renderEditor();
+
+    const identification = screen.getByRole("group", { name: "Идентификация" });
+    const images = screen.getByRole("group", { name: "Изображения" });
+    const learning = screen.getByRole("group", { name: "Учебное содержание" });
+
+    expect(
+      identification.compareDocumentPosition(images)
+      & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      images.compareDocumentPosition(learning)
+      & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Добавить изображения" })).toBeEnabled();
+  });
+
   it("warns an editor when imported content has an unknown license", async () => {
     renderEditor({
       ...card,

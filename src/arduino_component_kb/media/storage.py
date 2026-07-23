@@ -9,6 +9,7 @@ from functools import partial
 from io import BytesIO
 from pathlib import Path
 from typing import Protocol, TypeVar
+from urllib.parse import urlsplit, urlunsplit
 
 from anyio import to_thread
 from minio import Minio
@@ -85,20 +86,34 @@ class MinioStorage:
                     raise RuntimeError(f"bucket {bucket!r} has a policy; private default required")
 
     async def presigned_put(self, bucket: str, object_key: str, expires_seconds: int) -> str:
-        return await self._run(
+        internal_url = await self._run(
             lambda: self.client.presigned_put_object(
                 bucket,
                 object_key,
                 expires=timedelta(seconds=expires_seconds),
             )
         )
+        return self._browser_url(internal_url)
 
     async def presigned_get(self, bucket: str, object_key: str, expires_seconds: int) -> str:
-        return await self._run(
+        internal_url = await self._run(
             lambda: self.client.presigned_get_object(
                 bucket,
                 object_key,
                 expires=timedelta(seconds=expires_seconds),
+            )
+        )
+        return self._browser_url(internal_url)
+
+    def _browser_url(self, internal_url: str) -> str:
+        parsed = urlsplit(internal_url)
+        return urlunsplit(
+            (
+                "",
+                "",
+                f"{self.settings.media_public_path_prefix}{parsed.path}",
+                parsed.query,
+                "",
             )
         )
 

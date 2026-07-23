@@ -207,7 +207,10 @@ published snapshot. На publication backend копирует source/license dat
 ### Upload и обработка медиа
 
 1. Teacher создаёт upload session; backend проверяет quota и возвращает generated object key.
-2. Client загружает original в private quarantine через короткий presigned PUT.
+2. Client загружает original в private quarantine через короткий presigned PUT. Backend
+   преобразует внутренний MinIO URL в same-origin `/media-storage/...`; reverse proxy удаляет
+   этот prefix, восстанавливает подписанный `Host: minio:9000` и передаёт запрос в private
+   MinIO. Storage request не содержит session cookie, а bucket не получает public policy.
 3. Backend подтверждает фактический MinIO size, фиксирует durable job в PostgreSQL и после
    commit ставит её в Dramatiq. Если broker временно недоступен, тот же `complete` повторно
    возвращает job UUID и безопасно повторяет доставку.

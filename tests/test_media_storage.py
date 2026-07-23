@@ -56,3 +56,23 @@ async def test_object_listing_is_bounded_and_ignores_directories() -> None:
 
     assert [item.object_key for item in objects] == ["first.bin"]
     client.list_objects.assert_called_once_with("ackb-media-quarantine", recursive=True)
+
+
+async def test_presigned_urls_are_rewritten_to_same_origin_without_changing_signature() -> None:
+    storage = MinioStorage(settings())
+    client = Mock()
+    client.presigned_put_object.return_value = (
+        "http://minio:9000/ackb-media-quarantine/image.png?X-Amz-Signature=put"
+    )
+    client.presigned_get_object.return_value = (
+        "http://minio:9000/ackb-media-variants/image.webp?X-Amz-Signature=get"
+    )
+    storage.client = client
+
+    upload = await storage.presigned_put("ackb-media-quarantine", "image.png", 60)
+    download = await storage.presigned_get("ackb-media-variants", "image.webp", 60)
+
+    assert upload == ("/media-storage/ackb-media-quarantine/image.png?X-Amz-Signature=put")
+    assert download == ("/media-storage/ackb-media-variants/image.webp?X-Amz-Signature=get")
+    assert "minio:9000" not in upload
+    assert "minio:9000" not in download

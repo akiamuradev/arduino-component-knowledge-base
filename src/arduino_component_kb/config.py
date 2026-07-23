@@ -71,6 +71,7 @@ class Settings(DatabaseSettings):
     minio_secure: bool = True
     minio_quarantine_bucket: str = "ackb-media-quarantine"
     minio_variants_bucket: str = "ackb-media-variants"
+    media_public_path_prefix: str = "/media-storage"
     media_presign_ttl_seconds: int = Field(default=600, ge=60, le=900)
     media_pending_upload_limit: int = Field(default=5, ge=1, le=20)
     media_global_pending_upload_limit: int = Field(default=100, ge=10, le=1000)
@@ -132,6 +133,18 @@ class Settings(DatabaseSettings):
             for character in value
         ):
             raise ValueError("MinIO bucket name must be a lowercase DNS-style name")
+        return value
+
+    @field_validator("media_public_path_prefix")
+    @classmethod
+    def require_media_public_path_prefix(cls, value: str) -> str:
+        if (
+            not value.startswith("/")
+            or value.startswith("//")
+            or value.endswith("/")
+            or any(character in value for character in {"?", "#", "\\", "\x00"})
+        ):
+            raise ValueError("media_public_path_prefix must be a same-origin path prefix")
         return value
 
     @field_validator("kicad_library_allowlist")
