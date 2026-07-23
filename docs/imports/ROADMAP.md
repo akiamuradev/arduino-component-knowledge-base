@@ -30,7 +30,7 @@ Knowledge Base. Он заменяет 13 разрозненных докумен
 | 10 | Идемпотентное PostgreSQL persistence и enrichment lifecycle | done |
 | 11 | Полный orchestrator и shadow mode | active / blocked for primary |
 | 12 | Evidence-first admin review workspace | done |
-| 13 | Реальные метрики, калибровка и switch-readiness | active: 13.1 done, 13.2 next |
+| 13 | Реальные метрики, калибровка и switch-readiness | active: 13.1–13.2 done, 13.3 next |
 | 14 | Контролируемое переключение authoritative pipeline | planned |
 | 15 | Удаление legacy-слоя после окна отката | planned |
 
@@ -631,7 +631,8 @@ alembic downgrade 20260723_17
 
 1. Versioned index distribution реализован, но официальный artifact ещё должен быть собран,
    pinned и проверен в bounded real-source shadow run.
-2. Нет human-labelled precision/recall. Fixture и `proxy_unreviewed` не заменяют reviewer outcomes.
+2. Reporter human-labelled precision/recall реализован, но достаточный confirmed reviewed sample
+   ещё не собран. Fixture и `proxy_unreviewed` не заменяют reviewer outcomes.
 3. 18 hashed fixture conflicts ещё не превращены в согласованные field-level acceptance thresholds.
 4. Confirmed review draft не создаёт/не связывает catalogue component и не участвует в publish.
 5. Не выполнен bounded shadow run на real-source sample с подписанным acceptance report.
@@ -688,20 +689,35 @@ Acceptance:
 
 ### 13.2 Human-labelled metrics
 
-- агрегировать только безопасные поля `import_review_actions` и lifecycle outcomes;
-- отделять matcher auto/review/reject от reviewer accept/reject/change-relation;
-- считать confusion matrix по relation type и rule/index version;
-- не считать pending/stale/conflict ground truth;
-- хранить sample size и confidence interval рядом с precision/recall;
-- исключить raw evidence и reviewer notes из metrics/log exports;
-- сделать reproducible CLI/report, а не скрытый dashboard-only расчёт.
+Status: **implementation done**. Накопление достаточного real reviewed sample остаётся
+операционным gate Stage 13.4.
+
+Реализовано:
+
+- read-only CLI `ackb-review-metrics` и schema `human-labelled-enrichment-metrics/v1`;
+- ground truth только из финального `enrichment_accepted`/`enrichment_rejected` у confirmed draft;
+- явное исключение pending/missing-confirmation, stale, conflict, unresolved, unreviewed и lifecycle
+  mismatch;
+- отдельные matcher auto/review/reject и reviewer accept/reject/change-relation outcomes;
+- multiclass confusion matrix с `no_match`, а также one-vs-rest metrics по relation type;
+- version slices по matcher version, KiCad index revision и digest точного rule ID set;
+- sample size, configurable gate и 95% Wilson confidence interval рядом с precision/recall;
+- trace до opaque review action IDs без actor ID, notes, reasons, evidence и source text;
+- default decision record `ACKB_IMPORT_REVIEW_METRICS_MIN_SAMPLE=100`.
+
+Запуск:
+
+```bash
+ackb-review-metrics > human-labelled-metrics.json
+```
 
 Acceptance:
 
-- повторный расчёт по одному snapshot byte-identical;
-- метрики трассируются до review action IDs без раскрытия source content;
-- `proxy_unreviewed` нигде не показывается как production precision;
-- порог минимального reviewed sample задан конфигурацией/decision record.
+- повторный расчёт по одному snapshot byte-identical — done;
+- метрики трассируются до review action IDs без раскрытия source content — done;
+- `proxy_unreviewed` нигде не показывается как production precision — done;
+- порог минимального reviewed sample задан конфигурацией/decision record — done;
+- real confirmed sample достигает configured gate — pending Stage 13.4.
 
 ### 13.3 Threshold calibration
 

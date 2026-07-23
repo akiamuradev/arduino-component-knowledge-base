@@ -47,6 +47,22 @@ def test_pool_settings_are_bounded() -> None:
         )
 
 
+def test_review_metrics_minimum_sample_is_bounded_and_defaults_to_decision_record() -> None:
+    settings = Settings(
+        _env_file=None,
+        environment="test",
+        database_url="postgresql+asyncpg://ackb:placeholder@localhost/ackb",
+    )
+    assert settings.import_review_metrics_min_sample == 100
+    with pytest.raises(ValidationError, match="import_review_metrics_min_sample"):
+        Settings(
+            _env_file=None,
+            environment="test",
+            database_url="postgresql+asyncpg://ackb:placeholder@localhost/ackb",
+            import_review_metrics_min_sample=0,
+        )
+
+
 def test_production_rejects_insecure_session_cookie() -> None:
     with pytest.raises(ValidationError, match="session_cookie_secure"):
         Settings(

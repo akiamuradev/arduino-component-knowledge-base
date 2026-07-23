@@ -197,7 +197,7 @@ def test_orchestration_stub_rejects_an_incomplete_or_reordered_pipeline() -> Non
         PipelineOrchestrator((RecordingStep(PipelineStage.EXTRACTION),))
 
 
-def test_pipeline_is_wired_only_to_stage_11_shadow_and_stage_12_review_boundaries() -> None:
+def test_pipeline_is_wired_only_to_shadow_review_and_metrics_boundaries() -> None:
     imports_root = (
         Path(__file__).parents[1] / "src" / "arduino_component_kb" / "imports"
     ).resolve()
@@ -210,7 +210,12 @@ def test_pipeline_is_wired_only_to_stage_11_shadow_and_stage_12_review_boundarie
         for path in production_files
         if "arduino_component_kb.imports.pipeline" in path.read_text(encoding="utf-8")
     }
-    assert references == {"processor.py", "review.py", "shadow_dry_run.py"}
+    assert references == {
+        "processor.py",
+        "review.py",
+        "review_metrics.py",
+        "shadow_dry_run.py",
+    }
     processor = (imports_root / "processor.py").read_text(encoding="utf-8")
     assert "settings.import_pipeline_shadow_enabled" in processor
     assert "run_repository_shadow" in processor
