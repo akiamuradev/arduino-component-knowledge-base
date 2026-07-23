@@ -68,8 +68,15 @@ class PipelinePersistenceInput:
 
     @property
     def review_draft_id(self) -> UUID:
-        digest = sha256(self.draft.to_json().encode()).hexdigest()
-        return uuid5(PERSISTENCE_NAMESPACE, f"draft:{self.artifact_id}:{digest}")
+        semantic_key = ":".join(
+            (
+                str(self.artifact_id),
+                self.draft.input_sha256,
+                self.draft.SCHEMA_VERSION,
+                self.draft.composer_version,
+            )
+        )
+        return uuid5(PERSISTENCE_NAMESPACE, f"draft:{semantic_key}")
 
     def enrichment_id(
         self, external_identity: str, source_revision: str, relation_type: str

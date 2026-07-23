@@ -62,6 +62,7 @@ def test_compose_has_migrations_private_media_and_health_gates() -> None:
     assert compose.count("healthcheck:") >= 7
     assert "condition: service_completed_successfully" in compose
     assert "condition: service_healthy" in compose
+    assert "ACKB_IMPORT_PIPELINE_MODE: ${ACKB_IMPORT_PIPELINE_MODE:-disabled}" in compose
 
 
 def test_compose_isolates_data_and_media_processing_from_parser_egress() -> None:

@@ -64,6 +64,15 @@ class JsonFormatter(logging.Formatter):
             "warnings_count",
             "failed_count",
             "bytes_downloaded",
+            "import_run_id",
+            "import_stage",
+            "attempt",
+            "outcome",
+            "failure_code",
+            "shadow_mode",
+            "quality_score",
+            "comparison_conflicts",
+            "field_coverage_basis_points",
         ):
             value = getattr(record, key, None)
             if value is not None:

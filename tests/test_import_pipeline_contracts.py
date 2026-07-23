@@ -197,7 +197,7 @@ def test_orchestration_stub_rejects_an_incomplete_or_reordered_pipeline() -> Non
         PipelineOrchestrator((RecordingStep(PipelineStage.EXTRACTION),))
 
 
-def test_parallel_pipeline_is_not_imported_by_production_modules() -> None:
+def test_stage_11_pipeline_is_wired_only_to_shadow_worker_bridge_and_cli() -> None:
     imports_root = (
         Path(__file__).parents[1] / "src" / "arduino_component_kb" / "imports"
     ).resolve()
@@ -210,7 +210,11 @@ def test_parallel_pipeline_is_not_imported_by_production_modules() -> None:
         for path in production_files
         if "arduino_component_kb.imports.pipeline" in path.read_text(encoding="utf-8")
     }
-    assert references == set()
+    assert references == {"processor.py", "shadow_dry_run.py"}
+    processor = (imports_root / "processor.py").read_text(encoding="utf-8")
+    assert "settings.import_pipeline_shadow_enabled" in processor
+    assert "run_repository_shadow" in processor
+    assert "persist_repository_draft" in processor
 
 
 def test_context_deserialization_rejects_untyped_payload() -> None:

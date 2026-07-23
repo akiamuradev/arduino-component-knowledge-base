@@ -1,8 +1,8 @@
 # Target import architecture
 
-Status: stage 10 persistence and enrichment lifecycle implementation. The package described here
-exists in parallel with the release `0.21.0` import flow and is not connected to HTTP endpoints,
-Dramatiq jobs or current production import orchestration.
+Status: stage 11 orchestrator and shadow-mode implementation. The package is connected to the
+repository worker only behind a disabled-by-default shadow feature flag. The release `0.21.0`
+legacy flow remains authoritative and the new pipeline cannot be selected as production primary.
 
 The current implementation and compatibility surface are documented in
 [`current-state.md`](current-state.md).
@@ -33,6 +33,8 @@ Stage 8 adds immutable quality reports and reject/review/compose routing. Stage 
 review drafts and an explicit legacy compatibility mapper. Stage 10 adds idempotent PostgreSQL
 snapshots, reviewer audit and revision-aware KiCad enrichment lifecycle without rewriting the source
 draft or legacy catalogue schema.
+Stage 11 assembles all eight stages, adds bounded failure/retry policy, structured correlation logs,
+old/new comparison reports and a batch shadow CLI.
 
 ## Package tree
 
@@ -200,9 +202,10 @@ During stages 1–10:
 - current golden fixtures remain the regression oracle;
 - new domain models and implementations are exercised only by unit/golden/dry-run tests.
 
-Stage 11 may connect the new orchestrator behind a disabled feature flag and run it in shadow mode.
-Only the explicit switch stage may make the new flow authoritative. Existing models and adapters
-are removed only after acceptance metrics and rollback requirements are satisfied.
+Stage 11 connects the new orchestrator behind `ACKB_IMPORT_PIPELINE_MODE=shadow`; the default is
+`disabled`, and `primary` is not a valid setting. Only the explicit switch stage may make the new
+flow authoritative. Existing models and adapters are removed only after acceptance metrics and
+rollback requirements are satisfied.
 
 ## Stage 2 implementation
 
@@ -281,3 +284,12 @@ source artifacts, identity candidates, evaluations, review drafts, KiCad enrichm
 review decisions. Normalization registry versions are stored with artifacts, repeated writes are
 idempotent, and a KiCad source revision change marks only enrichment records stale. The schema and
 rollback contract are documented in [`persistence.md`](persistence.md).
+
+## Stage 11 implementation
+
+Stage 11 provides `EvidenceFirstImportOrchestrator`, typed success/failure outcomes, per-stage
+timeouts, retries limited to safe stages, structured import correlation logs, `ShadowImportRunner`
+and privacy-safe `ShadowComparisonReport`. The repository worker runs it only in optional shadow
+mode and always keeps legacy persistence authoritative. `ackb-shadow-import-batch` compares bounded
+local Seeed/KiCad snapshots without database writes. Runtime policy, the 15-fixture run, rollback and
+remaining blockers are documented in [`orchestration-shadow.md`](orchestration-shadow.md).
