@@ -10,6 +10,8 @@ from uuid import UUID
 from arduino_component_kb.imports.adapters.seeed_wiki import SeeedWikiAdapter
 from arduino_component_kb.imports.pipeline import (
     ComponentIdentity,
+    CompositionInput,
+    DeterministicQualityEvaluator,
     ImportPipelineContext,
     KiCadEnrichmentProvider,
     KicadEnrichmentRequest,
@@ -117,4 +119,22 @@ async def quality_input(
         identity.normalized_facts,
         identity,
         relations,
+    )
+
+
+async def composition_input(
+    file_name: str,
+) -> tuple[ImportPipelineContext, CompositionInput]:
+    context, value = await quality_input(file_name)
+    evaluation = await DeterministicQualityEvaluator(
+        SequenceClock(
+            STARTED_AT + timedelta(seconds=9),
+            STARTED_AT + timedelta(seconds=10),
+        )
+    ).evaluate(context, value)
+    return evaluation.context, CompositionInput(
+        value.facts,
+        value.identity,
+        value.enrichments,
+        evaluation.value,
     )
