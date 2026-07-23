@@ -5,7 +5,8 @@ Status: stage 6 implementation, provider `kicad-symbol-enrichment-v1`, index par
 
 KiCad is now modelled as an enrichment source for a resolved Seeed identity. The new path emits
 `KicadCandidateSet`; it does not compose a catalogue card and does not access persistence.
-Relation type, calibrated confidence and final acceptance remain the responsibility of stage 7.
+Relation type, calibrated confidence and final acceptance are handled by the stage 7 matcher
+documented in [`kicad-matcher.md`](kicad-matcher.md).
 
 ## Index contract
 

@@ -12,6 +12,14 @@ from arduino_component_kb.imports.pipeline.models.component_identity import (
     KindCandidate,
     ScoreContribution,
 )
+from arduino_component_kb.imports.pipeline.models.enrichment import (
+    ComponentSymbolRelation,
+    ComponentSymbolRelationType,
+    EnrichmentCandidate,
+    EnrichmentDecision,
+    EnrichmentScoreContribution,
+    EvidencePolarity,
+)
 from arduino_component_kb.imports.pipeline.models.extracted_facts import (
     DescriptionSection,
     ExtractedFacts,
@@ -57,8 +65,14 @@ __all__ = [
     "CategoryCandidate",
     "ComponentIdentity",
     "ComponentKind",
+    "ComponentSymbolRelation",
+    "ComponentSymbolRelationType",
     "DescriptionSection",
     "EvidenceFragment",
+    "EvidencePolarity",
+    "EnrichmentCandidate",
+    "EnrichmentDecision",
+    "EnrichmentScoreContribution",
     "ExtractedFacts",
     "ExtractedField",
     "ExtractionWarning",

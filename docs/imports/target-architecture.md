@@ -1,6 +1,6 @@
 # Target import architecture
 
-Status: stage 6 KiCad enrichment implementation. The package described here exists in parallel
+Status: stage 7 matcher implementation. The package described here exists in parallel
 with the release `0.21.0` import flow and is not connected to HTTP endpoints, Dramatiq jobs,
 adapters, ORM models or catalogue persistence.
 
@@ -28,7 +28,8 @@ to shape publication-facing fields.
 
 Stages 1–5 establish the boundaries, raw fact model, Seeed extractor, semantic normalizer and
 weighted identity resolution. Stage 6 adds the reusable KiCad index and low-level enrichment
-candidates. Relation scoring, quality reports and review drafts remain dedicated later stages.
+candidates. Stage 7 adds explicit relation types, calibrated confidence and review decisions.
+Quality reports and review drafts remain dedicated later stages.
 
 ## Package tree
 
@@ -61,11 +62,18 @@ src/arduino_component_kb/imports/pipeline/
 │   ├── __init__.py
 │   ├── resolver.py
 │   └── rules.py
+├── enrichment/
+│   ├── __init__.py
+│   ├── kicad_index.py
+│   ├── kicad_provider.py
+│   └── matcher.py
 └── models/
     ├── __init__.py
     ├── artifact.py
     ├── component_identity.py
+    ├── enrichment.py
     ├── extracted_facts.py
+    ├── kicad.py
     ├── normalized_facts.py
     └── provenance.py
 ```
@@ -223,3 +231,13 @@ manufacturer match bases but deliberately contain no relation score and no card 
 symbols require exact identity evidence. The deprecated KiCad-to-card workflow remains available
 only through `ACKB_LEGACY_KICAD_CARD_IMPORT_ENABLED`; see
 [`kicad-enrichment.md`](kicad-enrichment.md).
+
+## Stage 7 implementation
+
+Stage 7 provides immutable enrichment candidates, all five Seeed↔KiCad relation types,
+versioned positive and negative score contributions and strict decision policy. Only non-generic
+`exact_component` relations with an exact part number, no conflicts, at least two source evidence
+fragments and confidence of at least 0.950 may be accepted automatically. Main IC, onboard,
+connector and functional-equivalent relations remain review-first. The 37-pair calibration corpus,
+weights, penalties and pinout boundary are documented in
+[`kicad-matcher.md`](kicad-matcher.md).
