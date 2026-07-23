@@ -91,8 +91,7 @@ class KicadIndexSourceSnapshot:
             repository_url = normalize_repository_url(self.repository_url)
             revision = require_commit_sha(self.revision)
             normalized = {
-                normalize_repository_path(path): content
-                for path, content in self.files.items()
+                normalize_repository_path(path): content for path, content in self.files.items()
             }
         except ValueError as error:
             raise KicadIndexArtifactError("kicad_index_snapshot_invalid") from error
@@ -214,8 +213,7 @@ class KicadIndexManifest:
             index_sha256=_required_string(value, "index_sha256"),
             symbol_count=_required_int(value, "symbol_count"),
             libraries=tuple(
-                KicadIndexLibraryManifest.from_dict(_required_mapping(item))
-                for item in libraries
+                KicadIndexLibraryManifest.from_dict(_required_mapping(item)) for item in libraries
             ),
             schema_version=_required_string(value, "schema_version"),
         )
