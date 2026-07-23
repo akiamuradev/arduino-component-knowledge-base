@@ -36,9 +36,11 @@ docker run --rm \
   --env ACKB_INTERNAL_HOSTNAME=kb.test.internal \
   --add-host backend:127.0.0.1 \
   --add-host frontend:127.0.0.1 \
+  --add-host minio:127.0.0.1 \
   --volume "$ROOT_DIR/deploy/reverse-proxy/internal-https.conf.template:/etc/nginx/templates/default.conf.template:ro" \
   --volume "$temporary_dir/tls.crt:/etc/nginx/tls/tls.crt:ro" \
   --volume "$temporary_dir/tls.key:/etc/nginx/tls/tls.key:ro" \
+  --volume "$temporary_dir/tls.crt:/etc/nginx/ca/ca-bundle.crt:ro" \
   nginx:1.28-alpine@sha256:a8b39bd9cf0f83869a2162827a0caf6137ddf759d50a171451b335cecc87d236 \
   nginx -t
 

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { api, apiRequest } from "./client";
+import { api, apiRequest, uploadReservedFile } from "./client";
 
 afterEach(() => {
   document.cookie = "ackb_csrf=; Max-Age=0; Path=/";
@@ -101,5 +101,29 @@ describe("apiRequest", () => {
     expect(url).toBe("/api/v1/admin/jobs/imports/import-id/retry");
     expect(options?.method).toBe("POST");
     expect(new Headers(options?.headers).get("X-CSRF-Token")).toBe("import-csrf");
+  });
+
+  it("uploads a reserved file without cookies or storage credentials", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const file = new File(["image"], "component.png", { type: "image/png" });
+
+    await uploadReservedFile(
+      {
+        asset_id: "asset-id",
+        upload_url: "/media-storage/private/signed-object?signature=placeholder",
+        upload_headers: { "Content-Type": "image/png" },
+        expires_at: "2026-07-23T10:00:00Z",
+        component_revision: 2,
+      },
+      file,
+    );
+
+    const [url, options] = fetchMock.mock.calls[0] ?? [];
+    expect(url).toBe("/media-storage/private/signed-object?signature=placeholder");
+    expect(options?.method).toBe("PUT");
+    expect(options?.credentials).toBe("omit");
+    expect(options?.body).toBe(file);
+    expect(new Headers(options?.headers).get("Content-Type")).toBe("image/png");
   });
 });

@@ -35,6 +35,10 @@ def test_internal_nginx_requires_tls_and_exact_redirect_hostname() -> None:
     assert "ssl_session_tickets off;" in nginx
     assert "Strict-Transport-Security" in nginx
     assert "return 308 https://${ACKB_INTERNAL_HOSTNAME}$request_uri;" in nginx
+    assert "proxy_pass https://ackb_minio/;" in nginx
+    assert "proxy_ssl_name minio;" in nginx
+    assert "proxy_ssl_verify on;" in nginx
+    assert "proxy_ssl_trusted_certificate /etc/nginx/ca/ca-bundle.crt;" in nginx
     assert "ssl_verify_client off" not in nginx
     assert "Access-Control-Allow-Origin" not in nginx
 
@@ -52,6 +56,7 @@ def test_production_templates_contain_no_private_material_or_insecure_smoke_flag
     contract_smoke = (ROOT / "scripts/production_contract_smoke.sh").read_text(encoding="utf-8")
     assert "--add-host backend:127.0.0.1" in contract_smoke
     assert "--add-host frontend:127.0.0.1" in contract_smoke
+    assert "--add-host minio:127.0.0.1" in contract_smoke
 
 
 @pytest.mark.parametrize(

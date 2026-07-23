@@ -8,8 +8,8 @@
 |---:|---|
 | 1. Аудит | done |
 | 2. Backend | done |
-| 3. Frontend editor | next |
-| 4. Preview и публичная карточка | planned |
+| 3. Frontend editor | done |
+| 4. Preview и публичная карточка | next |
 | 5. Полная test matrix | planned |
 
 Stage 2 реализован без замены media-архитектуры: Alembic revision `20260723_19`, ordered image
@@ -17,6 +17,12 @@ aggregate, first-image-primary, атомарная mutation metadata/order/prima
 component revision, publication gates, immutable published manifest и private-variant
 `presigned_get`. Draft по-прежнему сохраняется без изображений; строгий media gate применяется
 только к новой публикации.
+
+Stage 3 добавляет fieldset «Изображения» в editor: постоянную multi-file dropzone до лимита 12,
+thumbnail/status, purpose, alt, caption, primary, logical remove и доступные кнопки reorder.
+Изменения коллекции отправляются атомарно с последней component revision; конфликт не стирает
+локальную коллекцию. Presigned MinIO URL преобразуются в same-origin `/media-storage/...`, а
+reverse proxy передаёт только подписанный запрос в private MinIO с исходным signed Host.
 
 ## Цель и ограничения
 
@@ -265,8 +271,19 @@ frontend lint/typecheck/test/build и Docker smoke.
   snapshot до следующей публикации;
 - snapshot не содержит bucket, object key, original URL или presigned URL.
 
-Следующая работа выполняется по Stage 3: frontend fieldset «Изображения» между идентификацией и
-учебным содержанием.
+## Проверка Stage 3
+
+- повторная последовательная загрузка нескольких изображений через reserve → signed PUT →
+  complete без cookies на storage request;
+- dropzone и кнопка добавления остаются доступны после первого изображения до лимита 12;
+- thumbnail/status polling для pending, processing, ready и rejected;
+- purpose, alt, caption, primary, logical remove и keyboard-accessible move controls;
+- `revision_conflict` сохраняет локальный порядок и предлагает явную загрузку server revision;
+- local и production reverse proxy сохраняют private bucket, signed query и MinIO Host, не
+  включая CORS или public policy.
+
+Следующая работа выполняется по Stage 4: primary-first preview и публичная клавиатурно доступная
+галерея из immutable published snapshot.
 
 ## Не входит в изменение
 

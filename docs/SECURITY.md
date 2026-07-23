@@ -57,6 +57,9 @@ PostgreSQL, Redis и MinIO доступны только внутри deployment
 - FastAPI и reverse proxy задают одинаковые CSP, `nosniff`, deny framing,
   `Referrer-Policy: no-referrer`, COOP и restrictive Permissions-Policy. CSP разрешает scripts,
   styles и API connection только same-origin; images/media дополнительно допускают local blob.
+- Browser media transfer использует только same-origin `/media-storage/...` с короткой MinIO
+  signature. Reverse proxy сохраняет подписанный internal Host и query, не добавляет CORS и не
+  делает bucket публичным; frontend отправляет signed PUT без cookies.
 
 ## SSRF-защита parser
 

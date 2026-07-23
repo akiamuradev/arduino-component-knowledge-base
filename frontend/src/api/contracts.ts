@@ -34,6 +34,103 @@ export interface MutationResponse {
 
 export type JobStatus = "queued" | "running" | "retrying" | "succeeded" | "failed";
 export type MediaKind = "image" | "video";
+export type MediaStatus = "pending" | "processing" | "ready" | "rejected";
+
+export interface ComponentMediaVariant {
+  name: string;
+  mime: string;
+  width: number;
+  height: number;
+  sha256: string;
+}
+
+export interface ComponentMedia {
+  asset_id: string;
+  kind: MediaKind;
+  purpose: string;
+  alt_text: string;
+  caption: string | null;
+  display_order: number;
+  is_primary: boolean;
+  status: MediaStatus;
+  width: number | null;
+  height: number | null;
+  variants: ComponentMediaVariant[];
+}
+
+export interface ComponentImageMutationInput {
+  asset_id: string;
+  purpose: string;
+  alt_text: string;
+  caption: string | null;
+}
+
+export interface ComponentImagesUpdateInput {
+  revision: number;
+  images: ComponentImageMutationInput[];
+  primary_asset_id: string | null;
+}
+
+export interface ImageUploadReservationInput {
+  component_id: string;
+  component_revision: number;
+  purpose: string;
+  alt_text: string;
+  attribution: string | null;
+  declared_mime: string;
+  declared_size_bytes: number;
+}
+
+export interface UploadReservation {
+  asset_id: string;
+  upload_url: string;
+  upload_headers: Record<string, string>;
+  expires_at: string;
+  component_revision: number | null;
+}
+
+export interface UploadConfirmation {
+  asset_id: string;
+  job_id: string;
+  status: "queued";
+}
+
+export interface MediaAssetVariant extends ComponentMediaVariant {
+  size_bytes: number;
+  duration_ms: number | null;
+  video_codec: string | null;
+  audio_codec: string | null;
+  frame_rate: number | null;
+  url: string;
+}
+
+export interface MediaAsset {
+  id: string;
+  kind: MediaKind;
+  component_id: string | null;
+  purpose: string;
+  alt_text: string;
+  caption: string | null;
+  display_order: number;
+  is_primary: boolean;
+  status: MediaStatus;
+  declared_mime: string;
+  detected_mime: string | null;
+  size_bytes: number | null;
+  sha256: string | null;
+  phash: string | null;
+  width: number | null;
+  height: number | null;
+  duration_ms: number | null;
+  video_codec: string | null;
+  audio_codec: string | null;
+  frame_rate: number | null;
+  failure_code: string | null;
+  job_status: JobStatus | null;
+  phase: string | null;
+  progress_percent: number | null;
+  variants: MediaAssetVariant[];
+}
 
 export interface BackgroundJob {
   id: string;
@@ -188,7 +285,7 @@ export interface ComponentCard extends ComponentSummary {
   specifications: TechnicalSpecification[];
   compatibility: ComponentCompatibility[];
   code_examples: CodeExample[];
-  media?: CatalogMedia[];
+  media?: ComponentMedia[];
 }
 
 export interface ComponentDraftInput {

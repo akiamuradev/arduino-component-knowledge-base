@@ -116,6 +116,20 @@ def test_production_requires_tls_for_minio() -> None:
         )
 
 
+@pytest.mark.parametrize(
+    "value",
+    ("media-storage", "//storage", "/storage/", "/storage?debug=1", "/storage#fragment"),
+)
+def test_media_public_path_prefix_must_stay_same_origin(value: str) -> None:
+    with pytest.raises(ValidationError, match="media_public_path_prefix"):
+        Settings(
+            _env_file=None,
+            environment="test",
+            database_url="postgresql+asyncpg://ackb:placeholder@localhost/ackb",
+            media_public_path_prefix=value,
+        )
+
+
 def test_kicad_library_allowlist_is_bounded_backend_configuration() -> None:
     settings = Settings(
         _env_file=None,

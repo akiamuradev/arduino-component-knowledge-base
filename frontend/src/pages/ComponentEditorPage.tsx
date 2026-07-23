@@ -9,11 +9,13 @@ import type {
   ComponentCompatibilityInput,
   ComponentCard,
   ComponentDraftInput,
+  ComponentMedia,
   Difficulty,
   TechnicalSpecificationInput,
 } from "../api/contracts";
 import { api, ApiError } from "../api/client";
 import { ErrorState, LoadingState } from "../components/AsyncStates";
+import { ComponentImagesEditor } from "../components/ComponentImagesEditor";
 import { LearningExample } from "../components/LearningExample";
 import { SourceAttributionBlock } from "../components/SourceAttributionBlock";
 import {
@@ -44,6 +46,7 @@ interface EditorState {
   specifications: TechnicalSpecificationInput[];
   compatibility: ComponentCompatibilityInput[];
   codeExamples: EditorCodeExample[];
+  images: ComponentMedia[];
 }
 
 interface EditorCodeExample extends Omit<CodeExampleInput, "libraries"> {
@@ -70,6 +73,7 @@ function emptyState(categories: Category[]): EditorState {
     specifications: [],
     compatibility: [],
     codeExamples: [],
+    images: [],
   };
 }
 
@@ -113,6 +117,9 @@ function stateFromCard(card: ComponentCard): EditorState {
       explanation: item.explanation,
       visibility: item.visibility,
     })),
+    images: [...(card.media ?? [])].sort(
+      (left, right) => left.display_order - right.display_order,
+    ),
   };
 }
 
@@ -196,11 +203,13 @@ export function ComponentEditorPage({ mode }: { mode: EditorMode }) {
   const card = mode === "edit" ? component.data : undefined;
   return (
     <ComponentEditorForm
-      key={`${card?.id ?? "new"}:${String(card?.revision ?? 0)}`}
+      key={card?.id ?? "new"}
       mode={mode}
       card={card}
       categories={categories.data}
-      reloadServer={mode === "edit" ? () => void component.refetch() : undefined}
+      reloadServer={mode === "edit"
+        ? async () => (await component.refetch()).data
+        : undefined}
     />
   );
 }
@@ -209,18 +218,30 @@ interface EditorFormProps {
   mode: EditorMode;
   card?: ComponentCard;
   categories: Category[];
-  reloadServer?: () => void;
+  reloadServer?: () => Promise<ComponentCard | undefined>;
 }
 
 function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFormProps) {
   const [state, setState] = useState<EditorState>(() =>
     card === undefined ? emptyState(categories) : stateFromCard(card));
+  const [workingCard, setWorkingCard] = useState(card);
+  const [imagesDirty, setImagesDirty] = useState(false);
   const [view, setView] = useState<EditorView>("edit");
   const [archiveConfirmation, setArchiveConfirmation] = useState(false);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
-  const acceptSaved = (saved: ComponentCard) => {
+  const acceptSaved = (saved: ComponentCard, syncImages = false) => {
+    setWorkingCard(saved);
+    if (syncImages) {
+      setState((current) => ({
+        ...current,
+        images: [...(saved.media ?? [])].sort(
+          (left, right) => left.display_order - right.display_order,
+        ),
+      }));
+      setImagesDirty(false);
+    }
     queryClient.setQueryData(workspaceKeys.component(saved.id), saved);
     void queryClient.invalidateQueries({ queryKey: workspaceKeys.componentLists });
   };
@@ -229,8 +250,11 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
     mutationFn: async () => {
       const input = toDraftInput(state);
       if (mode === "new") return api.createComponentDraft(input);
-      if (card === undefined) throw new Error("Loaded component is required for editing");
-      return api.updateComponentDraft(card.id, { ...input, revision: card.revision });
+      if (workingCard === undefined) throw new Error("Loaded component is required for editing");
+      return api.updateComponentDraft(workingCard.id, {
+        ...input,
+        revision: workingCard.revision,
+      });
     },
     onSuccess: (saved) => {
       acceptSaved(saved);
@@ -240,12 +264,12 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
 
   const lifecycle = useMutation({
     mutationFn: async (action: "publish" | "archive") => {
-      if (card === undefined) throw new Error("Save the draft before changing lifecycle");
+      if (workingCard === undefined) throw new Error("Save the draft before changing lifecycle");
       return action === "publish"
-        ? api.publishComponent(card.id, card.revision)
-        : api.archiveComponent(card.id, card.revision);
+        ? api.publishComponent(workingCard.id, workingCard.revision)
+        : api.archiveComponent(workingCard.id, workingCard.revision);
     },
-    onSuccess: acceptSaved,
+    onSuccess: (saved) => { acceptSaved(saved); },
   });
 
   const conflict = [save.error, lifecycle.error].find(
@@ -255,7 +279,7 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
     (error) => error !== null && error !== conflict,
   );
   const problems = publicationProblems(state);
-  const hasUnknownLicense = card?.sources.some(
+  const hasUnknownLicense = workingCard?.sources.some(
     (source) => source.license_spdx.trim() === "" || source.license_spdx === "Unknown",
   ) === true;
   const backendValidationLabels: Record<string, string> = {
@@ -264,6 +288,9 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
     source_license_missing: "не сохранена лицензия источника",
     source_attribution_missing: "не сохранён attribution",
     source_modifications_notice_missing: "не сохранено описание изменений",
+    component_image_required: "добавьте хотя бы одно готовое изображение",
+    component_image_not_ready: "дождитесь обработки всех изображений",
+    component_primary_image_required: "выберите одно основное изображение",
   };
   const backendValidation = otherError instanceof ApiError
     ? backendValidationLabels[otherError.code]
@@ -303,12 +330,19 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
     event.preventDefault();
     save.mutate();
   };
+  const reload = async () => {
+    const loaded = await reloadServer?.();
+    if (loaded === undefined) return;
+    setWorkingCard(loaded);
+    setState(stateFromCard(loaded));
+    setImagesDirty(false);
+  };
 
   return (
     <section>
       <div className="editor-header">
         <div>
-          <p className="eyebrow">{mode === "new" ? "Новый draft" : `Revision ${String(card?.revision ?? 0)}`}</p>
+          <p className="eyebrow">{mode === "new" ? "Новый draft" : `Revision ${String(workingCard?.revision ?? 0)}`}</p>
           <h2>{state.title || "Без названия"}</h2>
         </div>
         <div className="editor-tabs" aria-label="Режим редактора">
@@ -320,15 +354,15 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
       {conflict === undefined ? null : (
         <div className="conflict-banner" role="alert">
           <div><strong>Карточку уже изменил другой пользователь</strong><p>Локальный текст сохранён в форме. Автоматическая перезапись остановлена.</p></div>
-          {reloadServer === undefined ? null : <button className="button button--quiet" type="button" onClick={reloadServer}>Загрузить серверную revision</button>}
+          {reloadServer === undefined ? null : <button className="button button--quiet" type="button" onClick={() => { void reload(); }}>Загрузить серверную revision</button>}
         </div>
       )}
       {otherError === undefined ? null : <div className="inline-error" role="alert">Операция не выполнена: {backendValidation ?? (otherError instanceof ApiError ? otherError.code : "ошибка backend")}. Изменения остаются в редакторе.</div>}
       {hasUnknownLicense ? <div className="license-warning" role="alert"><strong>Лицензия источника не подтверждена</strong><span>Условия использования материала не определены. Перед публикацией проверьте правила исходного ресурса.</span></div> : null}
-      {card === undefined || card.sources.length === 0 ? null : <SourceAttributionBlock sources={card.sources} />}
+      {workingCard === undefined || workingCard.sources.length === 0 ? null : <SourceAttributionBlock sources={workingCard.sources} />}
 
       {view === "preview" ? (
-        <ComponentPreview state={state} categories={categories} status={card?.status ?? "draft"} />
+        <ComponentPreview state={state} categories={categories} status={workingCard?.status ?? "draft"} />
       ) : (
         <form className="editor-form" onSubmit={submit}>
           <fieldset><legend>Идентификация</legend><div className="form-grid">
@@ -341,6 +375,17 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
             <EditorField label="Альтернативные имена через запятую" value={state.aliases} onChange={(value) => { update("aliases", value); }} />
             <EditorField label="Теги через запятую" value={state.tags} onChange={(value) => { update("tags", value); }} />
           </div></fieldset>
+          <ComponentImagesEditor
+            card={workingCard}
+            dirty={imagesDirty}
+            images={state.images}
+            onChange={(images) => {
+              update("images", images);
+              setImagesDirty(true);
+            }}
+            onReload={reloadServer === undefined ? undefined : reload}
+            onSaved={(saved) => { acceptSaved(saved, true); }}
+          />
           <fieldset><legend>Учебное содержание</legend>
             <EditorTextArea label="Аннотация" value={state.summary} maxLength={500} required onChange={(value) => { update("summary", value); }} />
             <EditorTextArea label="Описание (Markdown без raw HTML)" value={state.description} maxLength={30000} required rows={10} onChange={(value) => { update("description", value); }} />
@@ -393,11 +438,12 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
           </fieldset>
           <div className="editor-actions">
             <button className="button button--primary" disabled={save.isPending || lifecycle.isPending} type="submit">{save.isPending ? "Сохраняем…" : "Сохранить draft"}</button>
-            {card?.status === "draft" ? <button className="button button--success" disabled={problems.length > 0 || save.isPending || lifecycle.isPending} type="button" onClick={() => { lifecycle.mutate("publish"); }}>Опубликовать</button> : null}
-            {card?.status === "published" && !archiveConfirmation ? <button className="button button--danger" type="button" onClick={() => { setArchiveConfirmation(true); }}>В архив</button> : null}
+            {workingCard?.status === "draft" ? <button className="button button--success" disabled={problems.length > 0 || imagesDirty || save.isPending || lifecycle.isPending} type="button" onClick={() => { lifecycle.mutate("publish"); }}>Опубликовать</button> : null}
+            {workingCard?.status === "published" && !archiveConfirmation ? <button className="button button--danger" type="button" onClick={() => { setArchiveConfirmation(true); }}>В архив</button> : null}
             {archiveConfirmation ? <><span>Архивировать опубликованную карточку?</span><button className="button button--danger" type="button" onClick={() => { lifecycle.mutate("archive"); }}>Подтвердить</button><button className="button button--quiet" type="button" onClick={() => { setArchiveConfirmation(false); }}>Отмена</button></> : null}
           </div>
-          {card?.status === "draft" && problems.length > 0 ? <p className="validation-note">Для публикации заполните: {problems.join(", ")}.</p> : null}
+          {workingCard?.status === "draft" && problems.length > 0 ? <p className="validation-note">Для публикации заполните: {problems.join(", ")}.</p> : null}
+          {workingCard?.status === "draft" && imagesDirty ? <p className="validation-note">Перед публикацией сохраните изменения изображений.</p> : null}
         </form>
       )}
     </section>

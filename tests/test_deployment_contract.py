@@ -91,6 +91,7 @@ def test_compose_isolates_data_and_media_processing_from_parser_egress() -> None
     assert "- ingress" not in frontend
     assert "- edge" in reverse_proxy
     assert "- ingress" in reverse_proxy
+    assert "- data" in reverse_proxy
 
 
 def test_media_worker_has_a_bounded_runtime_profile() -> None:
@@ -130,6 +131,19 @@ def test_reverse_proxy_overwrites_forwarded_client_address() -> None:
     backend_dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
     assert '"--proxy-headers"' in backend_dockerfile
     assert '"--forwarded-allow-ips", "*"' in backend_dockerfile
+
+
+def test_reverse_proxy_exposes_only_signed_same_origin_media_transport() -> None:
+    for path in (
+        ROOT / "deploy" / "reverse-proxy" / "default.conf",
+        ROOT / "deploy" / "reverse-proxy" / "internal-https.conf.template",
+    ):
+        nginx = path.read_text(encoding="utf-8")
+        assert "location /media-storage/" in nginx
+        assert "proxy_set_header Host minio:9000;" in nginx
+        assert "proxy_request_buffering off;" in nginx
+        assert "proxy_buffering off;" in nginx
+        assert "Access-Control-Allow-Origin" not in nginx
 
 
 def test_images_are_versioned_and_env_example_contains_only_placeholders() -> None:
