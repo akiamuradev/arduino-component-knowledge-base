@@ -222,6 +222,7 @@ enable it merely to bypass production access controls.
 
 - [Requirements](docs/REQUIREMENTS.md)
 - [Architecture](docs/ARCHITECTURE.md)
+- [Evidence-first import roadmap](docs/imports/ROADMAP.md)
 - [Data model](docs/DATA_MODEL.md)
 - [Security controls](docs/SECURITY.md)
 - [Threat model](docs/THREAT_MODEL.md)
@@ -443,6 +444,7 @@ Interactive API documentation по умолчанию выключена. Лок
 
 - [Требования](docs/REQUIREMENTS.md)
 - [Архитектура](docs/ARCHITECTURE.md)
+- [ROADMAP evidence-first импорта](docs/imports/ROADMAP.md)
 - [Модель данных](docs/DATA_MODEL.md)
 - [Контроли безопасности](docs/SECURITY.md)
 - [Модель угроз](docs/THREAT_MODEL.md)
