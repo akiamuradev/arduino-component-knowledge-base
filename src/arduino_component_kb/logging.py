@@ -57,6 +57,8 @@ class JsonFormatter(logging.Formatter):
             "error_type",
             "source",
             "revision",
+            "kicad_revision",
+            "kicad_index_sha256",
             "adapter_version",
             "files_scanned",
             "entries_discovered",

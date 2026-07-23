@@ -50,6 +50,8 @@ def test_pipeline_logs_keep_correlation_and_state_but_drop_payloads() -> None:
     record.outcome = "succeeded"
     record.shadow_mode = True
     record.quality_score = 840
+    record.kicad_revision = "b" * 40
+    record.kicad_index_sha256 = "c" * 64
     record.raw_source_payload = "secret source body"
 
     payload = json.loads(JsonFormatter().format(record))
@@ -59,5 +61,7 @@ def test_pipeline_logs_keep_correlation_and_state_but_drop_payloads() -> None:
     assert payload["attempt"] == 1
     assert payload["shadow_mode"] is True
     assert payload["quality_score"] == 840
+    assert payload["kicad_revision"] == "b" * 40
+    assert payload["kicad_index_sha256"] == "c" * 64
     assert "raw_source_payload" not in payload
     assert "secret source body" not in json.dumps(payload)

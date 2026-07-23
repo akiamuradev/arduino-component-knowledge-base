@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from hashlib import sha256
 from pathlib import PurePosixPath
@@ -22,10 +23,7 @@ from arduino_component_kb.imports.pipeline.models import (
     KicadSymbolIndex,
     KicadSymbolRecord,
 )
-from arduino_component_kb.imports.repository_domain import (
-    RepositorySnapshot,
-    normalize_repository_url,
-)
+from arduino_component_kb.imports.repository_domain import normalize_repository_url
 
 KICAD_REPOSITORY_URL = "https://gitlab.com/kicad/libraries/kicad-symbols"
 DEFAULT_KICAD_LIBRARY_ALLOWLIST = (
@@ -71,6 +69,17 @@ _GENERIC_NAMES = frozenset(
 
 class Timer(Protocol):
     def now(self) -> float: ...
+
+
+class KicadIndexSnapshot(Protocol):
+    @property
+    def repository_url(self) -> str: ...
+
+    @property
+    def revision(self) -> str: ...
+
+    @property
+    def files(self) -> Mapping[str, bytes]: ...
 
 
 class PerformanceTimer:
@@ -136,7 +145,7 @@ class KicadSymbolIndexer:
     def cache(self) -> KicadIndexCache | None:
         return self._cache
 
-    def build(self, snapshot: RepositorySnapshot) -> KicadIndexBuildResult:
+    def build(self, snapshot: KicadIndexSnapshot) -> KicadIndexBuildResult:
         started = self.timer.now()
         if normalize_repository_url(snapshot.repository_url) != KICAD_REPOSITORY_URL:
             raise ValueError("kicad_index_repository_invalid")

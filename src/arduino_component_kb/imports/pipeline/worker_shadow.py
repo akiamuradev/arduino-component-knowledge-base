@@ -11,8 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from arduino_component_kb.config import Settings
 from arduino_component_kb.imports.acquisition import AcquiredEntry
 from arduino_component_kb.imports.models import ImportJob, Source
+from arduino_component_kb.imports.pipeline.enrichment import (
+    KicadIndexArtifactError,
+    KicadIndexArtifactLoader,
+)
 from arduino_component_kb.imports.pipeline.models import (
-    KicadSymbolIndex,
     OrchestratorPolicy,
     PipelineRunRequest,
     ShadowComparisonReport,
@@ -26,7 +29,7 @@ from arduino_component_kb.imports.pipeline.shadow import ShadowImportRunner
 from arduino_component_kb.imports.repository_domain import ParsedRepositoryComponent
 
 logger = logging.getLogger("arduino_component_kb.imports.pipeline.shadow")
-_UNAVAILABLE_KICAD_REVISION = "0" * 40
+_kicad_index_loader = KicadIndexArtifactLoader()
 
 
 async def run_repository_shadow(
@@ -38,6 +41,17 @@ async def run_repository_shadow(
     legacy: ParsedRepositoryComponent,
 ) -> ShadowComparisonReport:
     """Run the new pipeline without publishing it or changing legacy source-of-truth fields."""
+    if (
+        settings.kicad_index_expected_revision is None
+        or settings.kicad_index_expected_sha256 is None
+    ):
+        raise KicadIndexArtifactError("kicad_index_pin_missing")
+    kicad = _kicad_index_loader.load(
+        settings.kicad_index_artifact_path,
+        expected_revision=settings.kicad_index_expected_revision,
+        expected_sha256=settings.kicad_index_expected_sha256,
+        library_allowlist=settings.kicad_library_prefixes,
+    )
     content = acquired.snapshot.read(acquired.file_path)
     acquired_at = datetime.now(UTC)
     artifact = SourceArtifact(
@@ -68,7 +82,7 @@ async def run_repository_shadow(
             job.id,
             source.id,
             artifact,
-            KicadSymbolIndex((), _UNAVAILABLE_KICAD_REVISION),
+            kicad.index,
         ),
         legacy,
     )
@@ -79,6 +93,8 @@ async def run_repository_shadow(
             "import_run_id": str(job.id),
             "source": source.key,
             "revision": acquired.snapshot.revision,
+            "kicad_revision": kicad.manifest.source_revision,
+            "kicad_index_sha256": kicad.manifest.index_sha256,
             "outcome": report.pipeline_status,
             "comparison_conflicts": len(report.conflicts),
             "field_coverage_basis_points": report.field_coverage_basis_points,

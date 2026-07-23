@@ -27,6 +27,9 @@ x-app-environment: &app-environment
   ACKB_IMPORT_PIPELINE_MODE: ${ACKB_IMPORT_PIPELINE_MODE:-disabled}
   ACKB_IMPORT_PIPELINE_STAGE_TIMEOUT_SECONDS: ${ACKB_IMPORT_PIPELINE_STAGE_TIMEOUT_SECONDS:-15}
   ACKB_IMPORT_PIPELINE_SAFE_RETRY_ATTEMPTS: ${ACKB_IMPORT_PIPELINE_SAFE_RETRY_ATTEMPTS:-2}
+  ACKB_KICAD_INDEX_ARTIFACT_PATH: ${ACKB_KICAD_INDEX_ARTIFACT_PATH:-/var/lib/ackb/kicad/index.json}
+  ACKB_KICAD_INDEX_EXPECTED_REVISION: ${ACKB_KICAD_INDEX_EXPECTED_REVISION:-}
+  ACKB_KICAD_INDEX_EXPECTED_SHA256: ${ACKB_KICAD_INDEX_EXPECTED_SHA256:-}
   ACKB_KICAD_LIBRARY_ALLOWLIST: ${ACKB_KICAD_LIBRARY_ALLOWLIST:-Sensor_,MCU_,Display_,74xx,Relay,Switch,Connector,Motor,Driver_Motor,Regulator_,Transistor_,Transistor_Array,Timer,Diode,LED,Memory,Interface_}
   ACKB_REPOSITORY_CONNECT_TIMEOUT_SECONDS: ${ACKB_REPOSITORY_CONNECT_TIMEOUT_SECONDS:-5}
   ACKB_REPOSITORY_READ_TIMEOUT_SECONDS: ${ACKB_REPOSITORY_READ_TIMEOUT_SECONDS:-20}
@@ -197,6 +200,8 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+    volumes:
+      - kicad-index-data:/var/lib/ackb/kicad:ro
     networks:
       - data
       - parser-egress
@@ -247,6 +252,7 @@ volumes:
   postgres-data:
   redis-data:
   minio-data:
+  kicad-index-data:
 
 networks:
   ingress:

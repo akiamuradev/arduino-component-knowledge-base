@@ -31,6 +31,7 @@ from arduino_component_kb.imports.domain import (
 )
 from arduino_component_kb.imports.exact import ExactKeys
 from arduino_component_kb.imports.models import ImportJob
+from arduino_component_kb.imports.pipeline.enrichment import KicadIndexArtifactError
 from arduino_component_kb.imports.pipeline.worker_shadow import run_repository_shadow
 from arduino_component_kb.imports.repository import ImportRepository
 from arduino_component_kb.imports.repository_domain import (
@@ -222,6 +223,11 @@ async def process_import_job(job_id: UUID, settings: Settings) -> None:
                                 )
                                 metrics["shadow_pipeline"] = shadow_report.as_dict()
                             except Exception as error:
+                                failure_code = (
+                                    error.code
+                                    if isinstance(error, KicadIndexArtifactError)
+                                    else "shadow_bridge_failure"
+                                )
                                 logger.error(
                                     "shadow_import_unavailable",
                                     extra={
@@ -229,14 +235,14 @@ async def process_import_job(job_id: UUID, settings: Settings) -> None:
                                         "source": source.key,
                                         "revision": parsed_repository.source_revision,
                                         "outcome": "failed",
-                                        "failure_code": "shadow_bridge_failure",
+                                        "failure_code": failure_code,
                                         "error_type": type(error).__name__,
                                         "shadow_mode": True,
                                     },
                                 )
                                 metrics["shadow_pipeline"] = {
                                     "pipeline_status": "failed",
-                                    "failure": {"code": "shadow_bridge_failure"},
+                                    "failure": {"code": failure_code},
                                 }
                         locked.metrics_json = metrics
                         await repository.persist_repository_draft(locked, source, parsed_repository)

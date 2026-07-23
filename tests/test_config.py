@@ -136,3 +136,49 @@ def test_legacy_kicad_card_import_can_be_disabled() -> None:
     )
     with pytest.raises(ValueError, match="legacy_kicad_card_import_disabled"):
         _adapter(settings, "kicad_symbols")
+
+
+def test_shadow_mode_requires_a_pinned_kicad_index() -> None:
+    with pytest.raises(ValidationError, match="pinned KiCad index"):
+        Settings(
+            _env_file=None,
+            environment="test",
+            database_url="postgresql+asyncpg://ackb:placeholder@localhost/ackb",
+            import_pipeline_mode="shadow",
+        )
+
+    settings = Settings(
+        _env_file=None,
+        environment="test",
+        database_url="postgresql+asyncpg://ackb:placeholder@localhost/ackb",
+        import_pipeline_mode="shadow",
+        kicad_index_artifact_path="/var/lib/ackb/kicad/index.json",
+        kicad_index_expected_revision="B" * 40,
+        kicad_index_expected_sha256="C" * 64,
+    )
+    assert settings.kicad_index_expected_revision == "b" * 40
+    assert settings.kicad_index_expected_sha256 == "c" * 64
+
+
+def test_kicad_index_configuration_rejects_unpinned_or_relative_values() -> None:
+    with pytest.raises(ValidationError, match="absolute file path"):
+        Settings(
+            _env_file=None,
+            environment="test",
+            database_url="postgresql+asyncpg://ackb:placeholder@localhost/ackb",
+            kicad_index_artifact_path="../index.json",
+        )
+    with pytest.raises(ValidationError, match="full commit SHA"):
+        Settings(
+            _env_file=None,
+            environment="test",
+            database_url="postgresql+asyncpg://ackb:placeholder@localhost/ackb",
+            kicad_index_expected_revision="main",
+        )
+    with pytest.raises(ValidationError, match="SHA-256 digest"):
+        Settings(
+            _env_file=None,
+            environment="test",
+            database_url="postgresql+asyncpg://ackb:placeholder@localhost/ackb",
+            kicad_index_expected_sha256="not-a-digest",
+        )
