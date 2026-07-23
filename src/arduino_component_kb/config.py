@@ -201,10 +201,7 @@ class Settings(DatabaseSettings):
         if self.minio_quarantine_bucket == self.minio_variants_bucket:
             raise ValueError("quarantine and variants buckets must be different")
         if self.import_pipeline_shadow_enabled and (
-            self.kicad_index_expected_revision is None
-            or self.kicad_index_expected_sha256 is None
+            self.kicad_index_expected_revision is None or self.kicad_index_expected_sha256 is None
         ):
-            raise ValueError(
-                "shadow mode requires pinned KiCad index revision and SHA-256"
-            )
+            raise ValueError("shadow mode requires pinned KiCad index revision and SHA-256")
         return self
