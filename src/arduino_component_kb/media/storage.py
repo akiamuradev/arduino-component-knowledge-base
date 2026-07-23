@@ -34,6 +34,7 @@ class StorageObject:
 
 class MediaStorage(Protocol):
     async def presigned_put(self, bucket: str, object_key: str, expires_seconds: int) -> str: ...
+    async def presigned_get(self, bucket: str, object_key: str, expires_seconds: int) -> str: ...
     async def stat(self, bucket: str, object_key: str) -> ObjectMetadata: ...
     async def download(
         self, bucket: str, object_key: str, max_bytes: int = MAX_IMAGE_BYTES
@@ -86,6 +87,15 @@ class MinioStorage:
     async def presigned_put(self, bucket: str, object_key: str, expires_seconds: int) -> str:
         return await self._run(
             lambda: self.client.presigned_put_object(
+                bucket,
+                object_key,
+                expires=timedelta(seconds=expires_seconds),
+            )
+        )
+
+    async def presigned_get(self, bucket: str, object_key: str, expires_seconds: int) -> str:
+        return await self._run(
+            lambda: self.client.presigned_get_object(
                 bucket,
                 object_key,
                 expires=timedelta(seconds=expires_seconds),

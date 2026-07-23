@@ -2,10 +2,26 @@
 
 Дата аудита: 2026-07-23. Базовая версия: `0.21.0`, commit `ec3bfb6`.
 
+## Статус пятиэтапного плана
+
+| Этап | Статус |
+|---:|---|
+| 1. Аудит | done |
+| 2. Backend | done |
+| 3. Frontend editor | next |
+| 4. Preview и публичная карточка | planned |
+| 5. Полная test matrix | planned |
+
+Stage 2 реализован без замены media-архитектуры: Alembic revision `20260723_19`, ordered image
+aggregate, first-image-primary, атомарная mutation metadata/order/primary/detach с optimistic
+component revision, publication gates, immutable published manifest и private-variant
+`presigned_get`. Draft по-прежнему сохраняется без изображений; строгий media gate применяется
+только к новой публикации.
+
 ## Цель и ограничения
 
-Аудит выполнен по плану «множественные изображения карточки» без изменения application code.
-Целевое поведение:
+Stage 1 был выполнен как чистый аудит без изменения application code. Stage 2 реализует
+зафиксированный ниже backend-контракт. Целевое поведение:
 
 - карточка содержит до 12 изображений;
 - одно изображение является основным;
@@ -239,6 +255,18 @@ frontend lint/typecheck/test/build и Docker smoke.
 - Целевые editor/catalog/media frontend tests в поддерживаемом Node 22 image: `9 passed`.
 - Host Node `26.4.0` находится за пределами закреплённого диапазона `>=22.12 <26` и не считается
   поддерживаемым test environment.
+
+## Проверка Stage 2
+
+- unit/backend contracts: migration, OpenAPI, RBAC/CSRF, storage boundary и legacy snapshot;
+- PostgreSQL aggregate: две последовательные загрузки, автоматический primary, pending/primary
+  publish gates, reorder, смена primary, detach и нормализация;
+- immutable publication: изменение draft metadata/order после публикации не меняет student
+  snapshot до следующей публикации;
+- snapshot не содержит bucket, object key, original URL или presigned URL.
+
+Следующая работа выполняется по Stage 3: frontend fieldset «Изображения» между идентификацией и
+учебным содержанием.
 
 ## Не входит в изменение
 

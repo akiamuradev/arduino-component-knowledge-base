@@ -6,6 +6,7 @@ from datetime import datetime
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     DateTime,
     Float,
@@ -14,6 +15,7 @@ from sqlalchemy import (
     Integer,
     String,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -61,7 +63,25 @@ class MediaAsset(Base):
             "storage_cleaned_at IS NULL OR status = 'rejected'",
             name="ck_media_storage_cleaned_rejected",
         ),
+        CheckConstraint("display_order >= 0", name="ck_media_assets_display_order"),
+        CheckConstraint(
+            "NOT is_primary OR (kind = 'image' AND component_id IS NOT NULL)",
+            name="ck_media_assets_primary_image",
+        ),
         Index("ix_media_assets_owner_status", "owner_user_id", "status"),
+        Index(
+            "ix_media_assets_component_order",
+            "component_id",
+            "kind",
+            "display_order",
+            "id",
+        ),
+        Index(
+            "uq_media_assets_component_primary_image",
+            "component_id",
+            unique=True,
+            postgresql_where=text("kind = 'image' AND is_primary AND component_id IS NOT NULL"),
+        ),
         Index(
             "ix_media_assets_retention",
             "storage_cleaned_at",
@@ -81,6 +101,9 @@ class MediaAsset(Base):
     kind: Mapped[str] = mapped_column(String(16), nullable=False, default="image")
     purpose: Mapped[str] = mapped_column(String(40), nullable=False)
     alt_text: Mapped[str] = mapped_column(String(500), nullable=False)
+    caption: Mapped[str | None] = mapped_column(String(1000))
+    display_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     attribution: Mapped[str | None] = mapped_column(String(1000))
     status: Mapped[str] = mapped_column(String(16), nullable=False)
     bucket: Mapped[str] = mapped_column(String(63), nullable=False)

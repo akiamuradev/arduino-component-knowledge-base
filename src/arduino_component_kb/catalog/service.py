@@ -21,6 +21,7 @@ from arduino_component_kb.catalog.domain import (
     CodeExample,
     CodeExampleVisibility,
     CompatibilityItem,
+    ComponentMediaNotFoundError,
     ComponentNotFoundError,
     ComponentStatus,
     Difficulty,
@@ -47,6 +48,15 @@ from arduino_component_kb.catalog.models import (
     CodeExample as CodeExampleRow,
 )
 from arduino_component_kb.catalog.normalization import normalize_exact_identity
+from arduino_component_kb.media.domain import (
+    ComponentImageMutation,
+    ComponentMedia,
+    ComponentMediaVariant,
+    MediaKind,
+    MediaStatus,
+)
+from arduino_component_kb.media.models import MediaAsset
+from arduino_component_kb.media.repository import MediaRepository
 
 _SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
@@ -249,6 +259,109 @@ class CatalogService:
         await self._snapshot(row, data, actor_id, now)
         return await self._card(row)
 
+    async def touch_media_attachment(
+        self,
+        component_id: UUID,
+        expected_revision: int,
+        actor_id: UUID,
+        now: datetime,
+    ) -> CatalogCard:
+        """Advance optimistic revision after an upload reservation is attached."""
+        row = await self._locked(component_id)
+        if row.revision != expected_revision:
+            raise RevisionConflictError
+        row.status = ComponentStatus.DRAFT.value
+        row.revision += 1
+        row.updated_by = actor_id
+        row.updated_at = now
+        data = await self._data(row)
+        await self.session.flush()
+        await self._snapshot(row, data, actor_id, now)
+        return await self._card(row)
+
+    async def mutate_images(
+        self,
+        component_id: UUID,
+        expected_revision: int,
+        images: tuple[ComponentImageMutation, ...],
+        primary_asset_id: UUID | None,
+        actor_id: UUID,
+    ) -> CatalogCard:
+        """Atomically edit metadata, order, primary and logical attachment."""
+        row = await self._locked(component_id)
+        if row.revision != expected_revision:
+            raise RevisionConflictError
+        if len(images) > 12 or len({item.asset_id for item in images}) != len(images):
+            raise CatalogValidationError("component_images_invalid")
+        assets = await MediaRepository(self.session).component_assets(
+            component_id,
+            kind=MediaKind.IMAGE,
+            lock=True,
+        )
+        by_id = {item.id: item for item in assets}
+        requested_ids = {item.asset_id for item in images}
+        if not requested_ids.issubset(by_id):
+            raise ComponentMediaNotFoundError
+        if primary_asset_id is not None and primary_asset_id not in requested_ids:
+            raise CatalogValidationError("component_primary_image_invalid")
+        for item in images:
+            if (
+                not item.purpose.strip()
+                or len(item.purpose) > 40
+                or not item.alt_text.strip()
+                or len(item.alt_text) > 500
+                or "\x00" in item.purpose
+                or "\x00" in item.alt_text
+                or (
+                    item.caption is not None
+                    and ("\x00" in item.caption or len(item.caption) > 1_000)
+                )
+            ):
+                raise CatalogValidationError("component_image_metadata_invalid")
+
+        existing_primary = next((item.id for item in assets if item.is_primary), None)
+        selected_primary = primary_asset_id
+        if images and selected_primary is None:
+            selected_primary = (
+                existing_primary
+                if existing_primary is not None and existing_primary in requested_ids
+                else images[0].asset_id
+            )
+        if not images and primary_asset_id is not None:
+            raise CatalogValidationError("component_primary_image_invalid")
+
+        await self.session.execute(
+            update(MediaAsset)
+            .where(
+                MediaAsset.component_id == component_id,
+                MediaAsset.kind == MediaKind.IMAGE.value,
+            )
+            .values(is_primary=False)
+        )
+        await self.session.flush()
+        for position, item in enumerate(images):
+            asset = by_id[item.asset_id]
+            asset.purpose = item.purpose.strip()
+            asset.alt_text = item.alt_text.strip()
+            asset.caption = item.caption.strip() if item.caption and item.caption.strip() else None
+            asset.display_order = position
+            asset.is_primary = item.asset_id == selected_primary
+        for asset in assets:
+            if asset.id not in requested_ids:
+                asset.component_id = None
+                asset.display_order = 0
+                asset.is_primary = False
+
+        now = datetime.now(UTC)
+        row.status = ComponentStatus.DRAFT.value
+        row.revision += 1
+        row.updated_by = actor_id
+        row.updated_at = now
+        data = await self._data(row)
+        await self.session.flush()
+        await self._snapshot(row, data, actor_id, now)
+        return await self._card(row)
+
     async def transition(
         self, component_id: UUID, expected_revision: int, target: ComponentStatus, actor_id: UUID
     ) -> CatalogCard:
@@ -281,6 +394,7 @@ class CatalogService:
                 raise CatalogValidationError
             if not row.manual_original:
                 self._validate_publish_sources(source_rows)
+            await self._validate_publish_media(row.id)
             row.published_at = datetime.now(UTC)
         elif target is ComponentStatus.ARCHIVED:
             if row.status != ComponentStatus.PUBLISHED.value:
@@ -399,18 +513,13 @@ class CatalogService:
             await self._replace_learning(survivor.id, survivor_data, actor_id, datetime.now(UTC))
 
         from arduino_component_kb.imports.models import ComponentSource
-        from arduino_component_kb.media.models import MediaAsset
 
         await self.session.execute(
             update(ComponentSource)
             .where(ComponentSource.component_id == loser.id)
             .values(component_id=survivor.id)
         )
-        await self.session.execute(
-            update(MediaAsset)
-            .where(MediaAsset.component_id == loser.id)
-            .values(component_id=survivor.id)
-        )
+        await self._merge_media(survivor.id, loser.id)
         now = datetime.now(UTC)
         survivor.status = ComponentStatus.DRAFT.value
         survivor.revision += 1
@@ -830,6 +939,7 @@ class CatalogService:
             row.updated_at,
             row.published_at,
             await self._source_snapshots(row.id),
+            await MediaRepository(self.session).component_media(row.id),
         )
 
     async def _snapshot(
@@ -882,6 +992,11 @@ class CatalogService:
                     self._source_snapshot_dict(item)
                     for item in await self._source_snapshots(row.id)
                 ],
+                "media": [
+                    self._media_snapshot_dict(item)
+                    for item in await MediaRepository(self.session).component_media(row.id)
+                    if item.status is MediaStatus.READY
+                ],
             }
         )
         self.session.add(
@@ -917,6 +1032,7 @@ class CatalogService:
         compatibility = _snapshot_records(content.get("compatibility", []))
         code_examples = _snapshot_records(content.get("code_examples", []))
         source_records = _snapshot_records(content.get("sources", []))
+        media_records = _snapshot_records(content.get("media", []))
         data = DraftData(
             slug=str(content["slug"]),
             title=str(content["title"]),
@@ -983,7 +1099,147 @@ class CatalogService:
             snapshot.created_at,
             snapshot.created_at,
             tuple(self._source_snapshot_from_dict(item) for item in source_records),
+            await self._published_media(media_records),
         )
+
+    async def _validate_publish_media(self, component_id: UUID) -> None:
+        assets = await MediaRepository(self.session).component_assets(
+            component_id,
+            kind=MediaKind.IMAGE,
+            lock=True,
+        )
+        if not assets:
+            raise CatalogValidationError("component_image_required")
+        if any(item.status != MediaStatus.READY.value for item in assets):
+            raise CatalogValidationError("component_image_not_ready")
+        if sum(item.is_primary for item in assets) != 1:
+            raise CatalogValidationError("component_primary_image_required")
+
+    async def _merge_media(self, survivor_id: UUID, loser_id: UUID) -> None:
+        rows = tuple(
+            await self.session.scalars(
+                select(MediaAsset)
+                .where(MediaAsset.component_id.in_((survivor_id, loser_id)))
+                .order_by(
+                    MediaAsset.kind,
+                    MediaAsset.component_id,
+                    MediaAsset.display_order,
+                    MediaAsset.id,
+                )
+                .with_for_update()
+            )
+        )
+        survivor_rows = [item for item in rows if item.component_id == survivor_id]
+        loser_rows = [item for item in rows if item.component_id == loser_id]
+        survivor_primary = next(
+            (
+                item
+                for item in survivor_rows
+                if item.kind == MediaKind.IMAGE.value and item.is_primary
+            ),
+            None,
+        )
+        for item in rows:
+            item.is_primary = False
+        await self.session.flush()
+        for kind in (MediaKind.IMAGE.value, MediaKind.VIDEO.value):
+            ordered = [item for item in (*survivor_rows, *loser_rows) if item.kind == kind]
+            for position, item in enumerate(ordered):
+                item.component_id = survivor_id
+                item.display_order = position
+        images = [
+            item for item in (*survivor_rows, *loser_rows) if item.kind == MediaKind.IMAGE.value
+        ]
+        primary = survivor_primary
+        if primary is None and images:
+            primary = next(
+                (item for item in images if item.status == MediaStatus.READY.value),
+                images[0],
+            )
+        if primary is not None:
+            primary.is_primary = True
+
+    def _media_snapshot_dict(self, item: ComponentMedia) -> dict[str, object]:
+        return {
+            "asset_id": str(item.asset_id),
+            "kind": item.kind.value,
+            "purpose": item.purpose,
+            "alt_text": item.alt_text,
+            "caption": item.caption,
+            "display_order": item.display_order,
+            "is_primary": item.is_primary,
+            "width": item.width,
+            "height": item.height,
+            "variants": [
+                {
+                    "name": variant.name,
+                    "mime": variant.mime,
+                    "width": variant.width,
+                    "height": variant.height,
+                    "sha256": variant.sha256,
+                }
+                for variant in item.variants
+            ],
+        }
+
+    async def _published_media(
+        self, records: list[dict[str, object]]
+    ) -> tuple[ComponentMedia, ...]:
+        result: list[ComponentMedia] = []
+        for position, item in enumerate(records):
+            try:
+                asset_id = UUID(str(item["asset_id"]))
+                asset = await self.session.get(MediaAsset, asset_id)
+                if asset is None or asset.status != MediaStatus.READY.value:
+                    continue
+                variants = _snapshot_records(item.get("variants", []))
+                current = {
+                    value.variant: value
+                    for value in await MediaRepository(self.session).variants(asset_id)
+                }
+                verified: list[ComponentMediaVariant] = []
+                for variant in variants:
+                    name = str(variant["name"])
+                    row = current.get(name)
+                    if (
+                        row is None
+                        or row.sha256 != str(variant["sha256"])
+                        or row.mime != str(variant["mime"])
+                        or row.width != int(str(variant["width"]))
+                        or row.height != int(str(variant["height"]))
+                    ):
+                        continue
+                    verified.append(
+                        ComponentMediaVariant(
+                            name=name,
+                            mime=row.mime,
+                            width=row.width,
+                            height=row.height,
+                            sha256=row.sha256,
+                        )
+                    )
+                if not verified:
+                    continue
+                result.append(
+                    ComponentMedia(
+                        asset_id=asset_id,
+                        kind=MediaKind(str(item.get("kind", "image"))),
+                        purpose=str(item["purpose"]),
+                        alt_text=str(item["alt_text"]),
+                        caption=str(item["caption"]) if item.get("caption") else None,
+                        display_order=int(str(item.get("display_order", position))),
+                        is_primary=bool(item["is_primary"]),
+                        status=MediaStatus.READY,
+                        width=int(str(item["width"])) if item.get("width") is not None else None,
+                        height=(
+                            int(str(item["height"])) if item.get("height") is not None else None
+                        ),
+                        variants=tuple(verified),
+                    )
+                )
+            except (KeyError, TypeError, ValueError) as error:
+                raise CatalogValidationError("published_media_snapshot_invalid") from error
+        return tuple(sorted(result, key=lambda value: (value.display_order, value.asset_id)))
 
     async def _component_source_rows(self, component_id: UUID) -> list[tuple[object, object]]:
         from arduino_component_kb.imports.models import ComponentSource, Source

@@ -158,6 +158,12 @@ immutable decision с before/after snapshot в одной PostgreSQL transaction
 
 Revision `20260716_11` добавляет `code_examples` и нормализованные ordered hints. Примеры
 редактируются вместе с optimistic card revision и входят в immutable published snapshot.
+
+Изображения карточки используют существующие `media_assets`/`media_variants`. Component row lock
+сериализует attach, reorder, primary и detach; БД гарантирует at-most-one primary, а publication
+service — непустую ready-коллекцию и exactly-one primary. Published API читает порядок и metadata
+из immutable `component_revisions.content_json.media`, проверяя variant по asset ID и SHA-256;
+bucket, object key и original никогда не входят в snapshot.
 Workspace получает обе visibility, student serializer фильтрует teacher-only записи.
 Frontend раскрывает подсказки последовательно и решение по кнопке; tokenizer создаёт только
 экранированные React nodes и не является средой исполнения кода.

@@ -28,6 +28,9 @@ async def test_private_minio_upload_metadata_download_and_presign(
         assert metadata.size == len(payload)
         assert metadata.content_type == "image/png"
         assert await storage.download(bucket, object_key, max_bytes=len(payload)) == payload
+        download_url = await storage.presigned_get(bucket, object_key, 60)
+        assert object_key in download_url
+        assert "X-Amz-Signature=" in download_url
         presigned = await storage.presigned_put(bucket, f"integration/{uuid4().hex}.png", 60)
         assert object_key not in presigned
         assert "X-Amz-Signature=" in presigned

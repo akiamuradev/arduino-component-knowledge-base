@@ -27,6 +27,7 @@ from arduino_component_kb.catalog.domain import (
     CodeExample,
     CodeExampleVisibility,
     CompatibilityItem,
+    ComponentMediaNotFoundError,
     ComponentStatus,
     Difficulty,
     DraftData,
@@ -37,6 +38,11 @@ from arduino_component_kb.catalog.domain import (
 from arduino_component_kb.catalog.service import CatalogService
 from arduino_component_kb.imports.models import Source
 from arduino_component_kb.logging import current_request_id
+from arduino_component_kb.media.domain import (
+    ComponentImageMutation,
+    ComponentMedia,
+    ComponentMediaVariant,
+)
 
 router = APIRouter(prefix="/api/v1/workspace", tags=["catalog-workspace"])
 admin_router = APIRouter(prefix="/api/v1/admin/catalog", tags=["catalog-administration"])
@@ -201,6 +207,27 @@ class LifecycleRequest(BaseModel):
     revision: int = Field(ge=1)
 
 
+class ComponentImageMutationRequest(BaseModel):
+    asset_id: UUID
+    purpose: str = Field(min_length=1, max_length=40)
+    alt_text: str = Field(min_length=1, max_length=500)
+    caption: str | None = Field(default=None, max_length=1000)
+
+    def domain(self) -> ComponentImageMutation:
+        return ComponentImageMutation(
+            asset_id=self.asset_id,
+            purpose=self.purpose,
+            alt_text=self.alt_text,
+            caption=self.caption,
+        )
+
+
+class ComponentImagesUpdateRequest(BaseModel):
+    revision: int = Field(ge=1)
+    images: list[ComponentImageMutationRequest] = Field(max_length=12)
+    primary_asset_id: UUID | None = None
+
+
 class SourceSnapshotResponse(BaseModel):
     display_name: str
     original_url: str | None
@@ -217,6 +244,28 @@ class SourceSnapshotResponse(BaseModel):
     attribution: str
     parser_name: str
     parser_version: str
+
+
+class ComponentMediaVariantResponse(BaseModel):
+    name: str
+    mime: str
+    width: int
+    height: int
+    sha256: str
+
+
+class ComponentMediaResponse(BaseModel):
+    asset_id: UUID
+    kind: str
+    purpose: str
+    alt_text: str
+    caption: str | None
+    display_order: int
+    is_primary: bool
+    status: str
+    width: int | None
+    height: int | None
+    variants: list[ComponentMediaVariantResponse]
 
 
 class ComponentResponse(BaseModel):
@@ -245,6 +294,7 @@ class ComponentResponse(BaseModel):
     compatibility: list[CompatibilityResponse]
     code_examples: list[CodeExampleResponse]
     sources: list[SourceSnapshotResponse]
+    media: list[ComponentMediaResponse]
 
 
 class ComponentListResponse(BaseModel):
@@ -272,6 +322,7 @@ class PublicComponentResponse(BaseModel):
     compatibility: list[CompatibilityResponse]
     code_examples: list[CodeExampleResponse]
     sources: list[SourceSnapshotResponse]
+    media: list[ComponentMediaResponse]
 
 
 class PublicComponentListResponse(BaseModel):
@@ -318,6 +369,28 @@ def source_snapshot_response(item: SourceSnapshot) -> SourceSnapshotResponse:
     return SourceSnapshotResponse.model_validate(item, from_attributes=True)
 
 
+def component_media_variant_response(
+    item: ComponentMediaVariant,
+) -> ComponentMediaVariantResponse:
+    return ComponentMediaVariantResponse.model_validate(item, from_attributes=True)
+
+
+def component_media_response(item: ComponentMedia) -> ComponentMediaResponse:
+    return ComponentMediaResponse(
+        asset_id=item.asset_id,
+        kind=item.kind.value,
+        purpose=item.purpose,
+        alt_text=item.alt_text,
+        caption=item.caption,
+        display_order=item.display_order,
+        is_primary=item.is_primary,
+        status=item.status.value,
+        width=item.width,
+        height=item.height,
+        variants=[component_media_variant_response(value) for value in item.variants],
+    )
+
+
 def response(card: CatalogCard) -> ComponentResponse:
     data = card.data
     return ComponentResponse(
@@ -336,6 +409,7 @@ def response(card: CatalogCard) -> ComponentResponse:
         compatibility=[compatibility_response(item) for item in data.compatibility],
         code_examples=[code_example_response(item) for item in data.code_examples],
         sources=[source_snapshot_response(item) for item in card.sources],
+        media=[component_media_response(item) for item in card.media],
         **{
             key: getattr(data, key)
             for key in (
@@ -382,6 +456,7 @@ def public_response(card: CatalogCard) -> PublicComponentResponse:
         compatibility=[compatibility_response(item) for item in data.compatibility],
         code_examples=[code_example_response(item) for item in data.code_examples],
         sources=[source_snapshot_response(item) for item in card.sources],
+        media=[component_media_response(item) for item in card.media],
     )
 
 
@@ -571,6 +646,32 @@ async def update_component(
         )
         await _commit(session, "component.updated", actor, card)
         return response(card)
+    except (CatalogError, IntegrityError) as error:
+        await session.rollback()
+        raise _error(error) from error
+
+
+@router.put("/components/{component_id}/images", response_model=ComponentResponse)
+async def update_component_images(
+    component_id: UUID,
+    payload: ComponentImagesUpdateRequest,
+    actor: Annotated[Principal, Depends(editor)],
+    _: Annotated[Principal, Depends(csrf_principal)],
+    session: Annotated[AsyncSession, Depends(database_session)],
+) -> ComponentResponse:
+    try:
+        card = await CatalogService(session).mutate_images(
+            component_id,
+            payload.revision,
+            tuple(item.domain() for item in payload.images),
+            payload.primary_asset_id,
+            actor.user_id,
+        )
+        await _commit(session, "component.images_updated", actor, card)
+        return response(card)
+    except ComponentMediaNotFoundError as error:
+        await session.rollback()
+        raise HTTPException(404, detail={"code": "media_not_found"}) from error
     except (CatalogError, IntegrityError) as error:
         await session.rollback()
         raise _error(error) from error

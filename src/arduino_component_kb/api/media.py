@@ -25,6 +25,7 @@ from arduino_component_kb.media.domain import (
     MediaKind,
     MediaNotFoundError,
     MediaQuotaError,
+    MediaRevisionConflictError,
     MediaStateConflictError,
     MediaValidationError,
 )
@@ -38,6 +39,7 @@ media_editor = require_roles(Role.TEACHER, Role.ADMINISTRATOR)
 
 class UploadReservationRequest(BaseModel):
     component_id: UUID | None = None
+    component_revision: int | None = Field(default=None, ge=1)
     purpose: str = Field(min_length=1, max_length=40)
     alt_text: str = Field(min_length=1, max_length=500)
     attribution: str | None = Field(default=None, max_length=1000)
@@ -47,6 +49,7 @@ class UploadReservationRequest(BaseModel):
 
 class VideoUploadReservationRequest(BaseModel):
     component_id: UUID | None = None
+    component_revision: int | None = Field(default=None, ge=1)
     purpose: str = Field(min_length=1, max_length=40)
     alt_text: str = Field(min_length=1, max_length=500)
     attribution: str | None = Field(default=None, max_length=1000)
@@ -59,6 +62,7 @@ class UploadReservationResponse(BaseModel):
     upload_url: str
     upload_headers: dict[str, str]
     expires_at: datetime
+    component_revision: int | None
 
 
 class UploadConfirmationResponse(BaseModel):
@@ -78,6 +82,7 @@ class VariantResponse(BaseModel):
     video_codec: str | None
     audio_codec: str | None
     frame_rate: float | None
+    url: str
 
 
 class MediaAssetResponse(BaseModel):
@@ -86,6 +91,9 @@ class MediaAssetResponse(BaseModel):
     component_id: UUID | None
     purpose: str
     alt_text: str
+    caption: str | None
+    display_order: int
+    is_primary: bool
     status: str
     declared_mime: str
     detected_mime: str | None
@@ -135,6 +143,7 @@ async def reserve_upload(
             actor=actor,
             kind=MediaKind.IMAGE,
             component_id=payload.component_id,
+            component_revision=payload.component_revision,
             purpose=payload.purpose,
             alt_text=payload.alt_text,
             attribution=payload.attribution,
@@ -146,6 +155,10 @@ async def reserve_upload(
         raise HTTPException(429, detail={"code": error.code}) from error
     except MediaValidationError as error:
         raise HTTPException(422, detail={"code": error.code}) from error
+    except MediaRevisionConflictError as error:
+        raise HTTPException(409, detail={"code": "revision_conflict"}) from error
+    except MediaNotFoundError as error:
+        raise HTTPException(404, detail={"code": "component_not_found"}) from error
     await session.commit()
     response.headers["Cache-Control"] = "no-store"
     return UploadReservationResponse(
@@ -153,6 +166,7 @@ async def reserve_upload(
         upload_url=result.url,
         upload_headers={"Content-Type": result.reservation.declared_mime},
         expires_at=result.reservation.expires_at,
+        component_revision=result.component_revision,
     )
 
 
@@ -206,6 +220,14 @@ async def asset_status(
     except MediaNotFoundError as error:
         raise HTTPException(404, detail={"code": "media_not_found"}) from error
     variants = await service.repository.variants(asset.id)
+    variant_urls = {
+        variant.id: await service.storage.presigned_get(
+            variant.bucket,
+            variant.object_key,
+            service.settings.media_presign_ttl_seconds,
+        )
+        for variant in variants
+    }
     job = await service.repository.job_for_asset(asset.id)
     response.headers["Cache-Control"] = "no-store"
     return MediaAssetResponse(
@@ -214,6 +236,9 @@ async def asset_status(
         component_id=asset.component_id,
         purpose=asset.purpose,
         alt_text=asset.alt_text,
+        caption=asset.caption,
+        display_order=asset.display_order,
+        is_primary=asset.is_primary,
         status=asset.status,
         declared_mime=asset.declared_mime,
         detected_mime=asset.detected_mime,
@@ -242,6 +267,7 @@ async def asset_status(
                 video_codec=variant.video_codec,
                 audio_codec=variant.audio_codec,
                 frame_rate=variant.frame_rate,
+                url=variant_urls[variant.id],
             )
             for variant in variants
         ],
@@ -262,6 +288,7 @@ async def reserve_video_upload(
             actor=actor,
             kind=MediaKind.VIDEO,
             component_id=payload.component_id,
+            component_revision=payload.component_revision,
             purpose=payload.purpose,
             alt_text=payload.alt_text,
             attribution=payload.attribution,
@@ -273,6 +300,10 @@ async def reserve_video_upload(
         raise HTTPException(429, detail={"code": error.code}) from error
     except MediaValidationError as error:
         raise HTTPException(422, detail={"code": error.code}) from error
+    except MediaRevisionConflictError as error:
+        raise HTTPException(409, detail={"code": "revision_conflict"}) from error
+    except MediaNotFoundError as error:
+        raise HTTPException(404, detail={"code": "component_not_found"}) from error
     await session.commit()
     response.headers["Cache-Control"] = "no-store"
     return UploadReservationResponse(
@@ -280,6 +311,7 @@ async def reserve_video_upload(
         upload_url=result.url,
         upload_headers={"Content-Type": result.reservation.declared_mime},
         expires_at=result.reservation.expires_at,
+        component_revision=result.component_revision,
     )
 
 
@@ -333,6 +365,14 @@ async def video_asset_status(
     except MediaNotFoundError as error:
         raise HTTPException(404, detail={"code": "media_not_found"}) from error
     variants = await service.repository.variants(asset.id)
+    variant_urls = {
+        variant.id: await service.storage.presigned_get(
+            variant.bucket,
+            variant.object_key,
+            service.settings.media_presign_ttl_seconds,
+        )
+        for variant in variants
+    }
     job = await service.repository.job_for_asset(asset.id)
     response.headers["Cache-Control"] = "no-store"
     return MediaAssetResponse(
@@ -341,6 +381,9 @@ async def video_asset_status(
         component_id=asset.component_id,
         purpose=asset.purpose,
         alt_text=asset.alt_text,
+        caption=asset.caption,
+        display_order=asset.display_order,
+        is_primary=asset.is_primary,
         status=asset.status,
         declared_mime=asset.declared_mime,
         detected_mime=asset.detected_mime,
@@ -369,6 +412,7 @@ async def video_asset_status(
                 video_codec=variant.video_codec,
                 audio_codec=variant.audio_codec,
                 frame_rate=variant.frame_rate,
+                url=variant_urls[variant.id],
             )
             for variant in variants
         ],
