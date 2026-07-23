@@ -293,3 +293,14 @@ and privacy-safe `ShadowComparisonReport`. The repository worker runs it only in
 mode and always keeps legacy persistence authoritative. `ackb-shadow-import-batch` compares bounded
 local Seeed/KiCad snapshots without database writes. Runtime policy, the 15-fixture run, rollback and
 remaining blockers are documented in [`orchestration-shadow.md`](orchestration-shadow.md).
+
+## Stage 12 implementation
+
+Stage 12 provides an administrator-only evidence-first review API and focused frontend workspace.
+Reviewers see facts, provenance, field confidence, identity candidates, quality, unmapped
+specifications, conflicts and explainable KiCad candidates. They can accept/reject enrichment,
+change its effective relation, select an identity, map a specification, report a parser issue and
+confirm a draft. Optimistic revisions prevent lost updates; all decisions are append-only audited.
+Module connection, internal components and KiCad symbol pins remain separate. Confirmation does
+not publish or switch the production pipeline. Contracts, endpoints, rollback and verification are
+documented in [`review-workspace.md`](review-workspace.md).

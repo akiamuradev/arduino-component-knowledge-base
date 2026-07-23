@@ -229,3 +229,72 @@ class ComponentEnrichmentReviewRecord(Base):
     resulting_status: Mapped[str] = mapped_column(String(16), nullable=False)
     reason: Mapped[str] = mapped_column(Text, nullable=False)
     reviewed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class ImportReviewStateRecord(Base):
+    """Mutable reviewer choices for an otherwise immutable pipeline draft."""
+
+    __tablename__ = "import_review_states"
+    __table_args__ = (
+        CheckConstraint("revision >= 1", name="ck_import_review_states_revision"),
+        CheckConstraint("status IN ('pending','confirmed')", name="ck_import_review_states_status"),
+        CheckConstraint(
+            "(confirmed_by IS NULL) = (confirmed_at IS NULL)",
+            name="ck_import_review_states_confirmation_pair",
+        ),
+        Index("ix_import_review_states_status", "status", "updated_at"),
+    )
+
+    review_draft_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("import_review_drafts.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    selected_identity_candidate_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("component_identity_candidates.id"),
+        nullable=False,
+    )
+    specification_mappings: Mapped[dict[str, str]] = mapped_column(JSONB, nullable=False)
+    parser_issues: Mapped[dict[str, dict[str, object]]] = mapped_column(JSONB, nullable=False)
+    confirmed_by: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id"))
+    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class ImportReviewActionRecord(Base):
+    """Append-only, workspace-specific decision history."""
+
+    __tablename__ = "import_review_actions"
+    __table_args__ = (
+        CheckConstraint(
+            "action IN ("
+            "'enrichment_accepted','enrichment_rejected','enrichment_relation_changed',"
+            "'identity_selected','specification_mapped','parser_issue_marked','draft_confirmed'"
+            ")",
+            name="ck_import_review_actions_action",
+        ),
+        CheckConstraint("review_revision >= 2", name="ck_import_review_actions_revision"),
+        Index("ix_import_review_actions_history", "review_draft_id", "occurred_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True)
+    review_draft_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("import_review_drafts.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    actor_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
+    action: Mapped[str] = mapped_column(String(48), nullable=False)
+    target_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    target_key: Mapped[str] = mapped_column(String(500), nullable=False)
+    previous_value: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    resulting_value: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    review_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

@@ -12,6 +12,7 @@ import { ComponentEditorPage } from "../pages/ComponentEditorPage";
 import { ComponentListPage } from "../pages/ComponentListPage";
 import { DuplicateReviewPage } from "../pages/DuplicateReviewPage";
 import { LoginPage } from "../pages/LoginPage";
+import { ImportReviewPage } from "../pages/ImportReviewPage";
 import { SourcesPage } from "../pages/SourcesPage";
 import { ForbiddenPage, NotFoundPage, RouteErrorPage } from "../pages/StatusPages";
 import { RequireAnyRole, RequireAuthenticated } from "../routing/guards";
@@ -51,6 +52,8 @@ export const routes: RouteObject[] = [
                 children: [
                   { path: "jobs", element: <AdminJobsPage /> },
                   { path: "import", element: <AdminImportPage /> },
+                  { path: "import-reviews", element: <ImportReviewPage /> },
+                  { path: "import-reviews/:reviewDraftId", element: <ImportReviewPage /> },
                   { path: "duplicates", element: <DuplicateReviewPage /> },
                   { path: "duplicates/:candidateId", element: <DuplicateReviewPage /> },
                 ],

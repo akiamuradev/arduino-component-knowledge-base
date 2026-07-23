@@ -23,6 +23,10 @@ import type {
   JobStatus,
   ImportJob,
   ImportBackgroundJobListResponse,
+  ImportReviewActionResponse,
+  ImportReviewListResponse,
+  ImportReviewWorkspace,
+  ImportRelationType,
   RepositoryDiscoveryResponse,
   RepositoryEntryDiscoveryResponse,
   RepositoryImportInput,
@@ -267,6 +271,67 @@ export const api = {
     }),
   getImportJob: (jobId: string): Promise<ImportJob> =>
     apiRequest<ImportJob>(`/import-jobs/${encodeURIComponent(jobId)}`),
+  listImportReviews: (): Promise<ImportReviewListResponse> =>
+    apiRequest<ImportReviewListResponse>("/admin/import-reviews?status=pending"),
+  getImportReview: (reviewDraftId: string): Promise<ImportReviewWorkspace> =>
+    apiRequest<ImportReviewWorkspace>(
+      `/admin/import-reviews/${encodeURIComponent(reviewDraftId)}`,
+    ),
+  decideImportEnrichment: (
+    reviewDraftId: string,
+    enrichmentId: string,
+    input: { expected_revision: number; decision: "accept" | "reject"; reason: string },
+  ): Promise<ImportReviewActionResponse> =>
+    apiRequest<ImportReviewActionResponse>(
+      `/admin/import-reviews/${encodeURIComponent(reviewDraftId)}/enrichments/${encodeURIComponent(enrichmentId)}/decision`,
+      { method: "POST", body: JSON.stringify(input), csrf: true },
+    ),
+  changeImportEnrichmentRelation: (
+    reviewDraftId: string,
+    enrichmentId: string,
+    input: { expected_revision: number; relation_type: ImportRelationType; reason: string },
+  ): Promise<ImportReviewActionResponse> =>
+    apiRequest<ImportReviewActionResponse>(
+      `/admin/import-reviews/${encodeURIComponent(reviewDraftId)}/enrichments/${encodeURIComponent(enrichmentId)}/relation`,
+      { method: "POST", body: JSON.stringify(input), csrf: true },
+    ),
+  selectImportIdentity: (
+    reviewDraftId: string,
+    input: { expected_revision: number; identity_candidate_id: string; reason: string },
+  ): Promise<ImportReviewActionResponse> =>
+    apiRequest<ImportReviewActionResponse>(
+      `/admin/import-reviews/${encodeURIComponent(reviewDraftId)}/identity`,
+      { method: "POST", body: JSON.stringify(input), csrf: true },
+    ),
+  mapImportSpecification: (
+    reviewDraftId: string,
+    input: {
+      expected_revision: number;
+      specification_key: string;
+      taxonomy_path: string;
+      reason: string;
+    },
+  ): Promise<ImportReviewActionResponse> =>
+    apiRequest<ImportReviewActionResponse>(
+      `/admin/import-reviews/${encodeURIComponent(reviewDraftId)}/specification-mappings`,
+      { method: "POST", body: JSON.stringify(input), csrf: true },
+    ),
+  markImportParserIssue: (
+    reviewDraftId: string,
+    input: { expected_revision: number; code: string; note: string },
+  ): Promise<ImportReviewActionResponse> =>
+    apiRequest<ImportReviewActionResponse>(
+      `/admin/import-reviews/${encodeURIComponent(reviewDraftId)}/parser-issues`,
+      { method: "POST", body: JSON.stringify(input), csrf: true },
+    ),
+  confirmImportReview: (
+    reviewDraftId: string,
+    input: { expected_revision: number; reason: string },
+  ): Promise<ImportReviewActionResponse> =>
+    apiRequest<ImportReviewActionResponse>(
+      `/admin/import-reviews/${encodeURIComponent(reviewDraftId)}/confirm`,
+      { method: "POST", body: JSON.stringify(input), csrf: true },
+    ),
   listDuplicateCandidates: (): Promise<DuplicateCandidateListResponse> =>
     apiRequest<DuplicateCandidateListResponse>("/admin/duplicates?status=open"),
   getDuplicateCandidate: (candidateId: string): Promise<DuplicateCandidate> =>

@@ -219,6 +219,8 @@ from arduino_component_kb.imports.persistence_models import (  # noqa: E402, F40
     ComponentEnrichmentReviewRecord,
     ComponentIdentityCandidateRecord,
     ImportPipelineArtifact,
+    ImportReviewActionRecord,
     ImportReviewDraftRecord,
+    ImportReviewStateRecord,
     ParserEvaluationRecord,
 )

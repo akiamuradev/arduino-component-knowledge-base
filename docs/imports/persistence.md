@@ -1,9 +1,10 @@
 # Import pipeline persistence and enrichment lifecycle
 
 Stage 10 adds a PostgreSQL adapter for the evidence-first pipeline. It remains parallel to the
-release `0.21.0` import path: no HTTP endpoint, worker or current catalogue repository calls it yet.
-The adapter stores immutable source-derived snapshots and keeps KiCad lifecycle changes separate
-from the Seeed review draft and catalogue card.
+release `0.21.0` import path. Stage 11 may write it in optional shadow mode and Stage 12 reads it
+through an administrator-only review API, but neither stage makes it authoritative or publishes a
+catalogue card. The adapter stores immutable source-derived snapshots and keeps KiCad lifecycle
+changes separate from the Seeed review draft and catalogue card.
 
 ## Records
 
@@ -15,6 +16,8 @@ from the Seeed review draft and catalogue card.
 | `import_review_drafts` | Deterministic Stage 9 review draft | Immutable except nullable `component_id` attachment |
 | `component_enrichments` | KiCad candidate, evidence and current lifecycle state | Payload immutable; lifecycle/reviewer fields mutable |
 | `component_enrichment_reviews` | Append-only human accept/reject audit | Immutable |
+| `import_review_states` | Stage 12 selected identity, spec mappings, parser issues and confirmation | Versioned mutable state |
+| `import_review_actions` | Stage 12 reviewer decision history | Immutable |
 
 The normalization registry remains code-versioned. Each artifact records
 `normalization_version=SpecificationRegistry.version`, while the normalized payload preserves each
@@ -59,9 +62,10 @@ Upgrade:
 alembic upgrade 20260723_17
 ```
 
-Rollback before Stage 11 wiring:
+Rollback of Stage 10 after first removing Stage 12:
 
 ```bash
+alembic downgrade 20260723_17
 alembic downgrade 20260721_16
 ```
 
