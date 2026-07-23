@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit
 
@@ -83,6 +85,9 @@ class Settings(DatabaseSettings):
     import_pipeline_mode: ImportPipelineMode = "disabled"
     import_pipeline_stage_timeout_seconds: float = Field(default=15.0, ge=1, le=120)
     import_pipeline_safe_retry_attempts: int = Field(default=2, ge=1, le=5)
+    kicad_index_artifact_path: Path = Path("/var/lib/ackb/kicad/index.json")
+    kicad_index_expected_revision: str | None = None
+    kicad_index_expected_sha256: str | None = None
     repository_connect_timeout_seconds: float = Field(default=5.0, ge=1, le=15)
     repository_read_timeout_seconds: float = Field(default=20.0, ge=2, le=60)
     repository_total_timeout_seconds: float = Field(default=30.0, ge=5, le=120)
@@ -140,6 +145,44 @@ class Settings(DatabaseSettings):
             raise ValueError("kicad_library_allowlist must contain bounded library prefixes")
         return ",".join(prefixes)
 
+    @field_validator("kicad_index_artifact_path")
+    @classmethod
+    def require_absolute_kicad_index_path(cls, value: Path) -> Path:
+        if not value.is_absolute() or ".." in value.parts or value.name in {"", ".", ".."}:
+            raise ValueError("kicad_index_artifact_path must be an absolute file path")
+        return value
+
+    @field_validator(
+        "kicad_index_expected_revision",
+        "kicad_index_expected_sha256",
+        mode="before",
+    )
+    @classmethod
+    def empty_kicad_index_pin_is_unset(cls, value: object) -> object:
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
+    @field_validator("kicad_index_expected_revision")
+    @classmethod
+    def require_kicad_index_revision_pin(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip().casefold()
+        if re.fullmatch(r"[0-9a-f]{40}", normalized) is None:
+            raise ValueError("kicad_index_expected_revision must be a full commit SHA")
+        return normalized
+
+    @field_validator("kicad_index_expected_sha256")
+    @classmethod
+    def require_kicad_index_digest_pin(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip().casefold()
+        if re.fullmatch(r"[0-9a-f]{64}", normalized) is None:
+            raise ValueError("kicad_index_expected_sha256 must be a SHA-256 digest")
+        return normalized
+
     @property
     def kicad_library_prefixes(self) -> tuple[str, ...]:
         return tuple(part for part in self.kicad_library_allowlist.split(",") if part)
@@ -157,4 +200,11 @@ class Settings(DatabaseSettings):
             raise ValueError("minio_secure must be true in production")
         if self.minio_quarantine_bucket == self.minio_variants_bucket:
             raise ValueError("quarantine and variants buckets must be different")
+        if self.import_pipeline_shadow_enabled and (
+            self.kicad_index_expected_revision is None
+            or self.kicad_index_expected_sha256 is None
+        ):
+            raise ValueError(
+                "shadow mode requires pinned KiCad index revision and SHA-256"
+            )
         return self

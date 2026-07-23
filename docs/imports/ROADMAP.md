@@ -30,7 +30,7 @@ Knowledge Base. Он заменяет 13 разрозненных докумен
 | 10 | Идемпотентное PostgreSQL persistence и enrichment lifecycle | done |
 | 11 | Полный orchestrator и shadow mode | active / blocked for primary |
 | 12 | Evidence-first admin review workspace | done |
-| 13 | Реальные метрики, калибровка и switch-readiness | **next** |
+| 13 | Реальные метрики, калибровка и switch-readiness | active: 13.1 done, 13.2 next |
 | 14 | Контролируемое переключение authoritative pipeline | planned |
 | 15 | Удаление legacy-слоя после окна отката | planned |
 
@@ -542,8 +542,12 @@ warning count, duration и `shadow_mode=true`; source payload/exceptions не л
 quality route/score, warning codes, KiCad decisions, execution time и typed failure. Метрика
 `kicad_candidate_precision_basis_points` помечена `proxy_unreviewed` и не является precision.
 
-Online worker сейчас получает пустой revision-marked KiCad index. Это проверяет lifecycle, но не
-matcher quality. Реальный index поддерживает только bounded local batch:
+До Stage 13.1 online worker получал пустой revision-marked KiCad index. Теперь shadow mode
+fail-closed требует immutable artifact, pinned full revision и SHA-256. Manifest, records,
+per-library content digests, parser version, allowlist и counts проверяются до запуска pipeline;
+artifact кэшируется только для неизменившегося file identity. Missing/corrupt index возвращает
+конкретный safe failure code, а legacy import остаётся authoritative. Bounded local batch
+по-прежнему используется для offline comparison:
 
 ```bash
 ackb-shadow-import-batch \
@@ -558,9 +562,12 @@ Fixture result: 15 entries, 14 complete runs, 1 expected composition reject, 18 
 744 bp mean legacy-field coverage и 862 bp mean quality. Единственный failure —
 `minimal_no_summary.md` с ожидаемым `composition_quality_rejected`.
 
-Shadow включается только после migration 17:
+Shadow включается только после migration 17 и размещения проверенного index artifact:
 
 ```env
+ACKB_KICAD_INDEX_ARTIFACT_PATH=/var/lib/ackb/kicad/index-<revision>.json
+ACKB_KICAD_INDEX_EXPECTED_REVISION=<40-character-commit>
+ACKB_KICAD_INDEX_EXPECTED_SHA256=<64-character-index-digest>
 ACKB_IMPORT_PIPELINE_MODE=shadow
 ```
 
@@ -622,8 +629,8 @@ alembic downgrade 20260723_17
 
 ## Реальные blockers после Stage 12
 
-1. Online parser worker использует пустой KiCad index; без versioned index distribution нельзя
-   оценить enrichment на реальном shadow traffic.
+1. Versioned index distribution реализован, но официальный artifact ещё должен быть собран,
+   pinned и проверен в bounded real-source shadow run.
 2. Нет human-labelled precision/recall. Fixture и `proxy_unreviewed` не заменяют reviewer outcomes.
 3. 18 hashed fixture conflicts ещё не превращены в согласованные field-level acceptance thresholds.
 4. Confirmed review draft не создаёт/не связывает catalogue component и не участвует в publish.
@@ -641,21 +648,43 @@ alembic downgrade 20260723_17
 
 ### 13.1 Versioned KiCad index distribution
 
-- определить immutable manifest: repository URL, full commit, files/content digests, parser version;
-- собирать index отдельной bounded-командой или job;
-- хранить artifact вне process memory и проверять manifest/digests при загрузке;
-- атомарно выдавать worker только полностью проверенную version;
-- логировать index revision в каждом pipeline run/report;
-- при unavailable/corrupt index завершать enrichment safe failure, не использовать silent empty
-  index для acceptance traffic;
-- сохранить мгновенный rollback на предыдущий manifest и `disabled`.
+Status: **implementation done**. Operational validation на official real-source snapshot входит в
+Stage 13.4.
+
+Реализовано:
+
+- schema `kicad-index-artifact/v1` с repository URL, full commit, parser version, index SHA-256,
+  symbol count и отсортированным manifest библиотек с content digest/count;
+- bounded CLI `ackb-build-kicad-index`, который принимает только local non-symlink snapshot,
+  применяет backend allowlist и атомарно создаёт новый artifact без перезаписи существующей version;
+- strict loader с file/type/size/schema/shape/revision/digest/parser/allowlist/count validation;
+- process-local cache, привязанный к device/inode/size/mtime/ctime и configuration pins;
+- обязательные `ACKB_KICAD_INDEX_EXPECTED_REVISION` и
+  `ACKB_KICAD_INDEX_EXPECTED_SHA256` для `shadow`;
+- read-only `kicad-index-data` volume в parser-worker;
+- structured log fields `kicad_revision` и `kicad_index_sha256`;
+- safe artifact failure codes в job metrics без остановки legacy persistence.
+
+Builder:
+
+```bash
+ackb-build-kicad-index \
+  --snapshot-root /absolute/path/to/kicad-symbols \
+  --revision <40-character-commit> \
+  --output /absolute/path/index-<revision>.json
+```
+
+CLI печатает pins для environment: `source_revision`, `index_sha256`, `manifest_sha256`,
+`symbol_count`, `library_count` и bounded warnings. Artifact не содержит credentials или
+пользовательские данные.
 
 Acceptance:
 
-- online shadow run использует non-empty pinned index;
-- два worker получают одинаковый index digest и детерминированные candidate sets;
-- corrupted/partial artifact отвергается;
-- index update не меняет immutable старые reports.
+- loader не принимает empty/unpinned index — done;
+- deterministic build и два loader instance получают одинаковый digest/records — done;
+- corrupted, tampered, partial, wrong-revision, wrong-digest и symlink artifact отвергаются — done;
+- новая version создаётся отдельным immutable файлом и не перезаписывает старую — done;
+- online real-source shadow run использует official non-empty pinned index — pending Stage 13.4.
 
 ### 13.2 Human-labelled metrics
 

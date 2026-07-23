@@ -141,3 +141,56 @@ docker compose --env-file .env.production \
 assets, детерминированные partial variants и не привязанные к PostgreSQL objects старше
 `ACKB_MEDIA_RETENTION_GRACE_HOURS`. Ready originals и зарегистрированные variants сохраняются.
 Запускайте dry-run ежедневно, а apply — по утверждённому расписанию после мониторинга и backup.
+
+## 7. Versioned KiCad index для shadow mode
+
+Обычный режим `disabled` не требует index. Перед включением `shadow` checkout официального
+`kicad-symbols` должен быть зафиксирован на full commit SHA, а parser-worker — получить
+immutable artifact через read-only volume.
+
+Пример для `fish`:
+
+```fish
+set KICAD_REVISION (git -C /absolute/path/to/kicad-symbols rev-parse HEAD)
+set KICAD_ARTIFACT "index-$KICAD_REVISION.json"
+
+docker compose --env-file .env.production \
+  -f compose.yaml -f compose.production.yaml build backend
+docker volume create arduino-component-kb_kicad-index-data
+docker run --rm --network none --read-only --user 0:0 \
+  --cap-drop ALL --security-opt no-new-privileges \
+  --mount type=bind,src=/absolute/path/to/kicad-symbols,dst=/snapshot,readonly \
+  --mount type=volume,src=arduino-component-kb_kicad-index-data,dst=/output \
+  arduino-component-kb/backend:0.21.0 \
+  ackb-build-kicad-index \
+  --snapshot-root /snapshot \
+  --revision "$KICAD_REVISION" \
+  --output "/output/$KICAD_ARTIFACT"
+```
+
+Команда ничего не скачивает и не перезаписывает существующий artifact. Она печатает JSON с
+`source_revision`, `index_sha256`, `manifest_sha256`, количеством библиотек/symbols и warnings.
+Сверьте revision с checkout, затем укажите в `.env.production`:
+
+```env
+ACKB_KICAD_INDEX_ARTIFACT_PATH=/var/lib/ackb/kicad/index-<full-commit>.json
+ACKB_KICAD_INDEX_EXPECTED_REVISION=<full-commit>
+ACKB_KICAD_INDEX_EXPECTED_SHA256=<index_sha256-from-builder>
+ACKB_IMPORT_PIPELINE_MODE=shadow
+```
+
+Перезапустите только parser-worker и проверьте structured logs: каждый успешный shadow report
+должен содержать тот же `kicad_revision` и `kicad_index_sha256`.
+
+```fish
+docker compose --env-file .env.production \
+  -f compose.yaml -f compose.production.yaml up -d --no-deps parser-worker
+docker compose --env-file .env.production \
+  -f compose.yaml -f compose.production.yaml logs --tail 100 parser-worker
+```
+
+При missing/corrupt/wrong-version artifact legacy import продолжится, а shadow metrics получат
+bounded `kicad_index_*` failure code. Rollback: вернуть
+`ACKB_IMPORT_PIPELINE_MODE=disabled` либо выбрать прежний immutable artifact с его revision/SHA,
+после чего снова пересоздать parser-worker. Старые artifacts не удаляйте до завершения rollback
+window.

@@ -217,6 +217,19 @@ def test_pipeline_is_wired_only_to_stage_11_shadow_and_stage_12_review_boundarie
     assert "persist_repository_draft" in processor
 
 
+def test_online_shadow_requires_a_verified_non_empty_kicad_artifact() -> None:
+    imports_root = Path(__file__).parents[1] / "src" / "arduino_component_kb" / "imports"
+    bridge = (imports_root / "pipeline" / "worker_shadow.py").read_text(encoding="utf-8")
+    processor = (imports_root / "processor.py").read_text(encoding="utf-8")
+
+    assert "KicadIndexArtifactLoader" in bridge
+    assert "kicad_index_expected_revision" in bridge
+    assert "kicad_index_expected_sha256" in bridge
+    assert "KicadSymbolIndex(()," not in bridge
+    assert "KicadIndexArtifactError" in processor
+    assert "error.code" in processor
+
+
 def test_context_deserialization_rejects_untyped_payload() -> None:
     with pytest.raises(ValueError, match="pipeline_context_payload_invalid"):
         ImportPipelineContext.from_dict(cast(dict[str, object], {"run_id": 123}))

@@ -43,7 +43,7 @@ def test_compose_declares_only_expected_runtime_services_and_volumes() -> None:
         if line.startswith("  ") and not line.startswith("    ") and line.rstrip().endswith(":")
     }
     assert REQUIRED_SERVICES <= declared
-    assert {"postgres-data", "redis-data", "minio-data"} <= declared
+    assert {"postgres-data", "redis-data", "minio-data", "kicad-index-data"} <= declared
     assert "create_all" not in compose
     assert '"${ACKB_HTTP_PORT:-8080}:8080"' in compose
     assert "5432:5432" not in compose
@@ -63,6 +63,8 @@ def test_compose_has_migrations_private_media_and_health_gates() -> None:
     assert "condition: service_completed_successfully" in compose
     assert "condition: service_healthy" in compose
     assert "ACKB_IMPORT_PIPELINE_MODE: ${ACKB_IMPORT_PIPELINE_MODE:-disabled}" in compose
+    assert "ACKB_KICAD_INDEX_EXPECTED_REVISION: ${ACKB_KICAD_INDEX_EXPECTED_REVISION:-}" in compose
+    assert "ACKB_KICAD_INDEX_EXPECTED_SHA256: ${ACKB_KICAD_INDEX_EXPECTED_SHA256:-}" in compose
 
 
 def test_compose_isolates_data_and_media_processing_from_parser_egress() -> None:
@@ -83,6 +85,7 @@ def test_compose_isolates_data_and_media_processing_from_parser_egress() -> None
     frontend = compose.split("  frontend:", 1)[1].split("\n  reverse-proxy:", 1)[0]
     reverse_proxy = compose.split("  reverse-proxy:", 1)[1].split("\nvolumes:", 1)[0]
     assert "- parser-egress" in parser_worker
+    assert "kicad-index-data:/var/lib/ackb/kicad:ro" in parser_worker
     assert "- parser-egress" in backend
     assert "- parser-egress" not in media_worker
     assert "- ingress" not in frontend
