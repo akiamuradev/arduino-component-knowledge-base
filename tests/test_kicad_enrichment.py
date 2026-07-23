@@ -3,47 +3,27 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import UTC, datetime, timedelta
-from hashlib import sha256
-from pathlib import Path
-from uuid import UUID
+from datetime import timedelta
 
 import pytest
+from import_pipeline_helpers import (
+    KICAD_REVISION,
+    STARTED_AT,
+    SequenceClock,
+    kicad_snapshot,
+    resolved,
+)
 
-from arduino_component_kb.imports.adapters.seeed_wiki import SeeedWikiAdapter
 from arduino_component_kb.imports.pipeline import (
-    ComponentIdentity,
     EnrichmentProvider,
-    ImportPipelineContext,
     KicadCandidateSet,
     KiCadEnrichmentProvider,
     KicadEnrichmentRequest,
     KicadMatchBasis,
     KicadSymbolIndexer,
     PipelineStage,
-    SeeedFactExtractor,
-    SemanticFactNormalizer,
-    SourceArtifact,
-    SourceArtifactMetadata,
-    SourceReference,
-    StageExecution,
-    WeightedIdentityResolver,
 )
 from arduino_component_kb.imports.repository_domain import RepositorySnapshot
-
-KICAD_FIXTURES = Path(__file__).parent / "fixtures" / "kicad"
-SEEED_FIXTURES = Path(__file__).parent / "fixtures" / "seeed"
-KICAD_REVISION = "b" * 40
-SEEED_REVISION = "a" * 40
-STARTED_AT = datetime(2026, 7, 23, 10, 0, tzinfo=UTC)
-
-
-class SequenceClock:
-    def __init__(self, *values: datetime) -> None:
-        self._values = iter(values)
-
-    def now(self) -> datetime:
-        return next(self._values)
 
 
 class SequenceTimer:
@@ -52,59 +32,6 @@ class SequenceTimer:
 
     def now(self) -> float:
         return next(self._values)
-
-
-def kicad_snapshot(
-    revision: str = KICAD_REVISION,
-    files: dict[str, bytes] | None = None,
-) -> RepositorySnapshot:
-    return RepositorySnapshot(
-        "https://gitlab.com/kicad/libraries/kicad-symbols",
-        revision,
-        files
-        or {
-            path.name: path.read_bytes()
-            for path in KICAD_FIXTURES.iterdir()
-            if path.suffix == ".kicad_sym"
-        },
-    )
-
-
-async def resolved(file_name: str) -> tuple[ImportPipelineContext, ComponentIdentity]:
-    content = (SEEED_FIXTURES / file_name).read_bytes()
-    source = SourceReference(
-        "seeed_wiki",
-        SeeedWikiAdapter.repository_url,
-        file_name,
-        SEEED_REVISION,
-    )
-    artifact = SourceArtifact(
-        SourceArtifactMetadata(
-            source,
-            "text/markdown",
-            sha256(content).hexdigest(),
-            len(content),
-            STARTED_AT,
-        ),
-        content,
-    )
-    context = ImportPipelineContext(
-        UUID("aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"),
-        "seeed_wiki",
-        SeeedWikiAdapter.repository_url,
-        "2.0.0",
-        STARTED_AT,
-    ).advance(StageExecution(PipelineStage.ACQUISITION, STARTED_AT, STARTED_AT))
-    extracted = await SeeedFactExtractor(
-        SequenceClock(STARTED_AT + timedelta(seconds=1), STARTED_AT + timedelta(seconds=2))
-    ).extract(context, artifact)
-    normalized = await SemanticFactNormalizer(
-        SequenceClock(STARTED_AT + timedelta(seconds=3), STARTED_AT + timedelta(seconds=4))
-    ).normalize(extracted.context, extracted.value)
-    identity = await WeightedIdentityResolver(
-        SequenceClock(STARTED_AT + timedelta(seconds=5), STARTED_AT + timedelta(seconds=6))
-    ).resolve(normalized.context, normalized.value)
-    return identity.context, identity.value
 
 
 def test_index_extracts_reusable_symbol_records_and_search_maps() -> None:
