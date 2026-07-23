@@ -210,3 +210,15 @@ class ImportJob(Base):
     parser_name: Mapped[str | None] = mapped_column(String(80))
     parse_status: Mapped[str | None] = mapped_column(String(32))
     warnings_json: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+
+
+# Imported here so Alembic's existing imports.models registration sees the
+# parallel pipeline tables without changing runtime wiring.
+from arduino_component_kb.imports.persistence_models import (  # noqa: E402, F401
+    ComponentEnrichmentRecord,
+    ComponentEnrichmentReviewRecord,
+    ComponentIdentityCandidateRecord,
+    ImportPipelineArtifact,
+    ImportReviewDraftRecord,
+    ParserEvaluationRecord,
+)

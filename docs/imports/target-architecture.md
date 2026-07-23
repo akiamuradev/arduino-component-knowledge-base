@@ -1,8 +1,8 @@
 # Target import architecture
 
-Status: stage 9 review-draft composition implementation. The package described here exists in parallel
-with the release `0.21.0` import flow and is not connected to HTTP endpoints, Dramatiq jobs,
-adapters, ORM models or catalogue persistence.
+Status: stage 10 persistence and enrichment lifecycle implementation. The package described here
+exists in parallel with the release `0.21.0` import flow and is not connected to HTTP endpoints,
+Dramatiq jobs or current production import orchestration.
 
 The current implementation and compatibility surface are documented in
 [`current-state.md`](current-state.md).
@@ -30,7 +30,9 @@ Stages 1–5 establish the boundaries, raw fact model, Seeed extractor, semantic
 weighted identity resolution. Stage 6 adds the reusable KiCad index and low-level enrichment
 candidates. Stage 7 adds explicit relation types, calibrated confidence and review decisions.
 Stage 8 adds immutable quality reports and reject/review/compose routing. Stage 9 adds deterministic
-review drafts and an explicit legacy compatibility mapper.
+review drafts and an explicit legacy compatibility mapper. Stage 10 adds idempotent PostgreSQL
+snapshots, reviewer audit and revision-aware KiCad enrichment lifecycle without rewriting the source
+draft or legacy catalogue schema.
 
 ## Package tree
 
@@ -270,3 +272,12 @@ draft. An adapter maps review drafts to the existing `ParsedRepositoryComponent`
 wiring the new flow into production. The contract, compatibility boundary, 14-draft golden corpus
 and representative old/new comparisons are documented in
 [`card-composition.md`](card-composition.md).
+
+## Stage 10 implementation
+
+Stage 10 provides `PipelinePersistenceInput`, deterministic aggregate identifiers,
+`PostgresImportPersistenceGateway` and `EnrichmentLifecycleRepository`. Six reversible tables retain
+source artifacts, identity candidates, evaluations, review drafts, KiCad enrichments and append-only
+review decisions. Normalization registry versions are stored with artifacts, repeated writes are
+idempotent, and a KiCad source revision change marks only enrichment records stale. The schema and
+rollback contract are documented in [`persistence.md`](persistence.md).

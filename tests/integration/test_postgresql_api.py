@@ -69,7 +69,18 @@ async def assert_migrated_schema(settings: Settings) -> None:
                 )
             )
             assert revision is not None
-            assert {"users", "auth_sessions", "audit_events", "components"}.issubset(set(tables))
+            assert {
+                "users",
+                "auth_sessions",
+                "audit_events",
+                "components",
+                "import_pipeline_artifacts",
+                "component_identity_candidates",
+                "parser_evaluations",
+                "import_review_drafts",
+                "component_enrichments",
+                "component_enrichment_reviews",
+            }.issubset(set(tables))
     finally:
         await database.dispose()
 
