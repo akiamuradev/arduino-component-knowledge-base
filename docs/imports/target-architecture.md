@@ -1,6 +1,6 @@
 # Target import architecture
 
-Status: stage 8 quality-evaluation implementation. The package described here exists in parallel
+Status: stage 9 review-draft composition implementation. The package described here exists in parallel
 with the release `0.21.0` import flow and is not connected to HTTP endpoints, Dramatiq jobs,
 adapters, ORM models or catalogue persistence.
 
@@ -29,8 +29,8 @@ to shape publication-facing fields.
 Stages 1–5 establish the boundaries, raw fact model, Seeed extractor, semantic normalizer and
 weighted identity resolution. Stage 6 adds the reusable KiCad index and low-level enrichment
 candidates. Stage 7 adds explicit relation types, calibrated confidence and review decisions.
-Stage 8 adds immutable quality reports and reject/review/compose routing. Review drafts remain a
-dedicated later stage.
+Stage 8 adds immutable quality reports and reject/review/compose routing. Stage 9 adds deterministic
+review drafts and an explicit legacy compatibility mapper.
 
 ## Package tree
 
@@ -71,10 +71,15 @@ src/arduino_component_kb/imports/pipeline/
 ├── evaluation/
 │   ├── __init__.py
 │   └── quality.py
+├── composition/
+│   ├── __init__.py
+│   ├── composer.py
+│   └── legacy.py
 └── models/
     ├── __init__.py
     ├── artifact.py
     ├── component_identity.py
+    ├── composition.py
     ├── enrichment.py
     ├── extracted_facts.py
     ├── kicad.py
@@ -255,3 +260,13 @@ ready-to-compose routes. Profile expectations cover displays, sensors, boards, a
 communication modules. Missing source content is distinguished from missed extraction so absent
 upstream facts are not mislabeled as parser defects. The complete scoring policy, thresholds and
 15-fixture benchmark are documented in [`quality-evaluation.md`](quality-evaluation.md).
+
+## Stage 9 implementation
+
+Stage 9 provides immutable `CompositionInput` and `ReviewDraft`, deterministic section composition,
+field-level review metadata, separate module/KiCad pinout structures and explicit accepted/proposed
+enrichment state. Rejected quality cannot be composed and rejected KiCad candidates never enter a
+draft. An adapter maps review drafts to the existing `ParsedRepositoryComponent` contract without
+wiring the new flow into production. The contract, compatibility boundary, 14-draft golden corpus
+and representative old/new comparisons are documented in
+[`card-composition.md`](card-composition.md).
