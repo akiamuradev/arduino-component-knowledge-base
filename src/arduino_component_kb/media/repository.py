@@ -11,8 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
 from arduino_component_kb.media.domain import (
+    ComponentMedia,
     ComponentMediaUsage,
+    ComponentMediaVariant,
     MediaJobStatus,
+    MediaKind,
     MediaStatus,
     UploadReservation,
 )
@@ -40,6 +43,14 @@ class MediaRepository:
     async def lock_upload_reservations(self) -> None:
         """Serialize global and per-owner quota checks with reservation inserts."""
         await self.session.execute(select(func.pg_advisory_xact_lock(0x4D454449, 0x4155504C)))
+
+    async def lock_component_revision(self, component_id: UUID) -> int | None:
+        from arduino_component_kb.catalog.models import Component
+
+        value = await self.session.scalar(
+            select(Component.revision).where(Component.id == component_id).with_for_update()
+        )
+        return int(value) if value is not None else None
 
     async def count_pending(self, owner_id: UUID) -> int:
         count = await self.session.scalar(
@@ -73,6 +84,79 @@ class MediaRepository:
         ).one()
         images, videos, original_bytes = row
         return ComponentMediaUsage(int(images), int(videos), int(original_bytes))
+
+    async def next_component_order(self, component_id: UUID, kind: MediaKind) -> int:
+        maximum = await self.session.scalar(
+            select(func.max(MediaAsset.display_order)).where(
+                MediaAsset.component_id == component_id,
+                MediaAsset.kind == kind.value,
+            )
+        )
+        return int(maximum) + 1 if maximum is not None else 0
+
+    async def component_has_images(self, component_id: UUID) -> bool:
+        value = await self.session.scalar(
+            select(MediaAsset.id)
+            .where(
+                MediaAsset.component_id == component_id,
+                MediaAsset.kind == MediaKind.IMAGE.value,
+            )
+            .limit(1)
+        )
+        return value is not None
+
+    async def component_assets(
+        self,
+        component_id: UUID,
+        *,
+        kind: MediaKind | None = None,
+        lock: bool = False,
+    ) -> tuple[MediaAsset, ...]:
+        statement = (
+            select(MediaAsset)
+            .where(MediaAsset.component_id == component_id)
+            .order_by(MediaAsset.kind, MediaAsset.display_order, MediaAsset.id)
+        )
+        if kind is not None:
+            statement = statement.where(MediaAsset.kind == kind.value)
+        if lock:
+            statement = statement.with_for_update()
+        return tuple(await self.session.scalars(statement))
+
+    async def component_media(self, component_id: UUID) -> tuple[ComponentMedia, ...]:
+        assets = await self.component_assets(
+            component_id,
+            kind=MediaKind.IMAGE,
+        )
+        result: list[ComponentMedia] = []
+        for asset in assets:
+            variants = await self.variants(asset.id)
+            result.append(
+                ComponentMedia(
+                    asset_id=asset.id,
+                    kind=MediaKind(asset.kind),
+                    purpose=asset.purpose,
+                    alt_text=asset.alt_text,
+                    caption=asset.caption,
+                    display_order=asset.display_order,
+                    is_primary=asset.is_primary,
+                    status=MediaStatus(asset.status),
+                    width=asset.width,
+                    height=asset.height,
+                    variants=tuple(
+                        ComponentMediaVariant(
+                            name=item.variant,
+                            mime=item.mime,
+                            width=item.width,
+                            height=item.height,
+                            sha256=item.sha256,
+                        )
+                        for item in variants
+                        if item.variant in {"320w", "800w", "1600w"}
+                    ),
+                )
+            )
+        return tuple(result)
 
     async def retention_candidates(
         self, cutoff: datetime, limit: int, *, lock: bool
@@ -133,6 +217,9 @@ class MediaRepository:
         component_id: UUID | None,
         purpose: str,
         alt_text: str,
+        caption: str | None,
+        display_order: int,
+        is_primary: bool,
         attribution: str | None,
         bucket: str,
         object_key: str,
@@ -149,6 +236,9 @@ class MediaRepository:
                 kind=kind,
                 purpose=purpose,
                 alt_text=alt_text,
+                caption=caption,
+                display_order=display_order,
+                is_primary=is_primary,
                 attribution=attribution,
                 status=MediaStatus.PENDING.value,
                 bucket=bucket,

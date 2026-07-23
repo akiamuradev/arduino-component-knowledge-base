@@ -7,6 +7,8 @@ from datetime import datetime
 from enum import StrEnum
 from uuid import UUID
 
+from arduino_component_kb.media.domain import ComponentMedia
+
 
 class ComponentStatus(StrEnum):
     DRAFT = "draft"
@@ -115,6 +117,7 @@ class CatalogCard:
     updated_at: datetime
     published_at: datetime | None
     sources: tuple[SourceSnapshot, ...] = ()
+    media: tuple[ComponentMedia, ...] = ()
 
 
 class CatalogError(Exception):
@@ -122,6 +125,10 @@ class CatalogError(Exception):
 
 
 class ComponentNotFoundError(CatalogError):
+    pass
+
+
+class ComponentMediaNotFoundError(CatalogError):
     pass
 
 

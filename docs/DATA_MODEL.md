@@ -184,16 +184,25 @@ revision автоматически.
 
 ### `media_assets`
 
-Реализованный media baseline: `id`, `owner_user_id`, `component_id?`, `kind(image|video)`, `purpose`,
-`alt_text`, `attribution?`, `status(pending|processing|ready|rejected)`, `bucket`, `object_key`,
-`declared_mime`, `declared_size_bytes`, `detected_mime?`, `size_bytes?`, `sha256?`, `phash?`,
-`width?`, `height?`, `duration_ms?`, `video_codec?`, `audio_codec?`, `frame_rate?`,
-`failure_code?`, `upload_expires_at`, `created_at`, `updated_at`.
+Реализованный media aggregate: `id`, `owner_user_id`, `component_id?`, `kind(image|video)`,
+`purpose`, `alt_text`, `caption?`, `display_order`, `is_primary`, `attribution?`,
+`status(pending|processing|ready|rejected)`, `bucket`, `object_key`, `declared_mime`,
+`declared_size_bytes`, `detected_mime?`, `size_bytes?`, `sha256?`, `phash?`, `width?`, `height?`,
+`duration_ms?`, `video_codec?`, `audio_codec?`, `frame_rate?`, `failure_code?`,
+`upload_expires_at`, `created_at`, `updated_at`.
 
 Unique: `(bucket, object_key)`. Checks отражают лимиты из REQUIREMENTS. `ready` требует
 detected MIME, SHA-256 и dimensional metadata. Object key UUID-based; binary column запрещён.
-`component_id` временно nullable и без FK до появления таблицы `components`; связывать с
-published revision можно будет только `ready` asset отдельной следующей миграцией.
+`component_id` имеет FK на `components`, но остаётся nullable для безопасного logical detach.
+`display_order >= 0`; partial unique index разрешает не более одного primary image на component.
+Primary запрещён для video и unattached asset. Backend под component row lock нормализует порядок,
+автоматически назначает первое изображение primary и использует optimistic component revision.
+
+Новая публикация требует, чтобы все attached images были `ready`, коллекция была непустой и
+содержала ровно один primary. Ordered ready manifest копируется в
+`component_revisions.content_json.media` без bucket/object keys и URL. Исторический published
+snapshot без `media` читается как пустой список; последующее изменение draft collection не меняет
+уже опубликованный manifest.
 
 ### `media_variants`
 

@@ -72,6 +72,7 @@ async def test_reservation_uses_private_quarantine_and_presigned_put() -> None:
         actor=actor,
         kind=MediaKind.IMAGE,
         component_id=None,
+        component_revision=None,
         purpose="hero",
         alt_text="Arduino board",
         attribution=None,
@@ -148,6 +149,7 @@ async def test_video_reservation_uses_video_limits_and_prefix() -> None:
         actor=actor,
         kind=MediaKind.VIDEO,
         component_id=None,
+        component_revision=None,
         purpose="demo",
         alt_text="Video demonstration",
         attribution=None,
@@ -187,6 +189,7 @@ async def test_reservation_quota_is_checked_under_global_transaction_lock() -> N
             actor=actor,
             kind=MediaKind.IMAGE,
             component_id=None,
+            component_revision=None,
             purpose="hero",
             alt_text="Arduino board",
             attribution=None,
@@ -221,6 +224,7 @@ async def test_reservation_enforces_global_pending_quota() -> None:
             actor=actor,
             kind=MediaKind.VIDEO,
             component_id=None,
+            component_revision=None,
             purpose="demo",
             alt_text="Video demonstration",
             attribution=None,
@@ -243,6 +247,37 @@ async def test_asset_id_does_not_bypass_owner_authorization() -> None:
 
     with pytest.raises(MediaNotFoundError):
         await service.visible_asset(actor, foreign_asset.id, MediaKind.IMAGE)
+
+
+async def test_attached_reservation_requires_component_revision() -> None:
+    repository = Mock(spec=MediaRepository)
+    repository.lock_upload_reservations = AsyncMock()
+    repository.count_pending = AsyncMock(return_value=0)
+    repository.count_all_pending = AsyncMock(return_value=0)
+    repository.create_reservation = AsyncMock()
+    service = MediaService(
+        repository,
+        Mock(spec=AuthRepository),
+        Mock(spec=MediaStorage),
+        settings(),
+    )
+
+    with pytest.raises(MediaValidationError) as captured:
+        await service.reserve_upload(
+            actor=teacher(),
+            kind=MediaKind.IMAGE,
+            component_id=uuid4(),
+            component_revision=None,
+            purpose="product",
+            alt_text="Top view",
+            attribution=None,
+            declared_mime="image/png",
+            declared_size_bytes=100,
+            request_id="missing-revision",
+        )
+
+    assert captured.value.code == "component_revision_required"
+    repository.create_reservation.assert_not_awaited()
 
 
 @pytest.mark.parametrize(
@@ -273,6 +308,7 @@ async def test_component_media_quotas_are_enforced_before_reservation(
     repository.lock_upload_reservations = AsyncMock()
     repository.count_pending = AsyncMock(return_value=0)
     repository.count_all_pending = AsyncMock(return_value=0)
+    repository.lock_component_revision = AsyncMock(return_value=1)
     repository.component_usage = AsyncMock(return_value=usage)
     repository.create_reservation = AsyncMock()
     service = MediaService(
@@ -287,6 +323,7 @@ async def test_component_media_quotas_are_enforced_before_reservation(
             actor=actor,
             kind=kind,
             component_id=uuid4(),
+            component_revision=1,
             purpose="hero",
             alt_text="Arduino board",
             attribution=None,

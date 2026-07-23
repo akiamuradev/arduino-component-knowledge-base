@@ -61,6 +61,10 @@ class MediaStateConflictError(MediaError):
     """Asset is not in the required state."""
 
 
+class MediaRevisionConflictError(MediaError):
+    """Attached component optimistic revision is stale."""
+
+
 class MediaQuotaError(MediaError):
     """Per-user pending upload quota is exhausted."""
 
@@ -91,6 +95,38 @@ class ComponentMediaUsage:
     images: int
     videos: int
     original_bytes: int
+
+
+@dataclass(frozen=True, slots=True)
+class ComponentMediaVariant:
+    name: str
+    mime: str
+    width: int
+    height: int
+    sha256: str
+
+
+@dataclass(frozen=True, slots=True)
+class ComponentMedia:
+    asset_id: UUID
+    kind: MediaKind
+    purpose: str
+    alt_text: str
+    caption: str | None
+    display_order: int
+    is_primary: bool
+    status: MediaStatus
+    width: int | None
+    height: int | None
+    variants: tuple[ComponentMediaVariant, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class ComponentImageMutation:
+    asset_id: UUID
+    purpose: str
+    alt_text: str
+    caption: str | None
 
 
 @dataclass(frozen=True, slots=True)

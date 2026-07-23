@@ -19,7 +19,7 @@ def alembic_config() -> Config:
 
 def test_alembic_has_one_backend_head() -> None:
     scripts = ScriptDirectory.from_config(alembic_config())
-    assert scripts.get_heads() == ["20260723_18"]
+    assert scripts.get_heads() == ["20260723_19"]
 
 
 def test_alembic_upgrade_renders_offline_postgresql_sql(
@@ -105,6 +105,12 @@ def test_alembic_upgrade_renders_offline_postgresql_sql(
     assert "ck_import_review_states_revision" in sql
     assert "ck_import_review_actions_action" in sql
     assert "20260723_18" in sql
+    assert "ADD COLUMN caption" in sql
+    assert "ADD COLUMN display_order" in sql
+    assert "ADD COLUMN is_primary" in sql
+    assert "ck_media_assets_primary_image" in sql
+    assert "uq_media_assets_component_primary_image" in sql
+    assert "20260723_19" in sql
 
 
 def test_runtime_has_no_create_all_escape_hatch() -> None:

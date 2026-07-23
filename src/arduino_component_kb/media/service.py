@@ -21,6 +21,7 @@ from arduino_component_kb.media.domain import (
     MediaKind,
     MediaNotFoundError,
     MediaQuotaError,
+    MediaRevisionConflictError,
     MediaStateConflictError,
     MediaStatus,
     MediaValidationError,
@@ -39,6 +40,7 @@ class MediaQueue(Protocol):
 class PresignedUpload:
     reservation: UploadReservation
     url: str
+    component_revision: int | None
 
 
 class MediaService:
@@ -60,6 +62,7 @@ class MediaService:
         actor: Principal,
         kind: MediaKind,
         component_id: UUID | None,
+        component_revision: int | None,
         purpose: str,
         alt_text: str,
         attribution: str | None,
@@ -84,7 +87,16 @@ class MediaService:
             >= self.settings.media_global_pending_upload_limit
         ):
             raise MediaQuotaError
+        expected_component_revision: int | None = None
         if component_id is not None:
+            if component_revision is None:
+                raise MediaValidationError("component_revision_required")
+            expected_component_revision = component_revision
+            current_revision = await self.repository.lock_component_revision(component_id)
+            if current_revision is None:
+                raise MediaNotFoundError
+            if current_revision != component_revision:
+                raise MediaRevisionConflictError
             usage = await self.repository.component_usage(component_id)
             count = usage.images if kind is MediaKind.IMAGE else usage.videos
             max_count = MAX_COMPONENT_IMAGES if kind is MediaKind.IMAGE else MAX_COMPONENT_VIDEOS
@@ -92,6 +104,13 @@ class MediaService:
                 raise MediaQuotaError("media_component_count_exceeded")
             if usage.original_bytes + declared_size_bytes > MAX_COMPONENT_ORIGINAL_BYTES:
                 raise MediaQuotaError("media_component_size_exceeded")
+            display_order = await self.repository.next_component_order(component_id, kind)
+            is_primary = kind is MediaKind.IMAGE and not await self.repository.component_has_images(
+                component_id
+            )
+        else:
+            display_order = 0
+            is_primary = False
         now = datetime.now(UTC)
         expires_at = now + timedelta(seconds=self.settings.media_presign_ttl_seconds)
         asset_id = uuid4()
@@ -103,6 +122,9 @@ class MediaService:
             component_id=component_id,
             purpose=purpose,
             alt_text=alt_text.strip(),
+            caption=None,
+            display_order=display_order,
+            is_primary=is_primary,
             attribution=attribution.strip() if attribution else None,
             bucket=self.settings.minio_quarantine_bucket,
             object_key=object_key,
@@ -111,6 +133,19 @@ class MediaService:
             now=now,
             expires_at=expires_at,
         )
+        resulting_component_revision: int | None = None
+        if component_id is not None:
+            from arduino_component_kb.catalog.service import CatalogService
+
+            if expected_component_revision is None:
+                raise RuntimeError("component revision validation was skipped")
+            card = await CatalogService(self.repository.session).touch_media_attachment(
+                component_id,
+                expected_component_revision,
+                actor.user_id,
+                now,
+            )
+            resulting_component_revision = card.revision
         url = await self.storage.presigned_put(
             reservation.bucket,
             reservation.object_key,
@@ -124,8 +159,13 @@ class MediaService:
             object_id=asset_id,
             request_id=request_id,
             outcome="success",
+            details=(
+                {"component_revision": resulting_component_revision}
+                if resulting_component_revision is not None
+                else None
+            ),
         )
-        return PresignedUpload(reservation, url)
+        return PresignedUpload(reservation, url, resulting_component_revision)
 
     async def confirm_upload(
         self, *, actor: Principal, asset_id: UUID, request_id: str | None
