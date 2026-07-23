@@ -3,6 +3,7 @@
 This package is intentionally not wired into the release 0.21 production flow.
 """
 
+from arduino_component_kb.imports.pipeline.acquisition import PreparedSourceAcquirer
 from arduino_component_kb.imports.pipeline.composition import (
     CARD_COMPOSER_VERSION,
     DeterministicCardComposer,
@@ -113,8 +114,14 @@ from arduino_component_kb.imports.pipeline.models import (
     NormalizedIdentifier,
     NormalizedSpecification,
     NormalizedTextFact,
+    OrchestratorPolicy,
     PersistedPipelineDraft,
+    PipelineExecutionStatus,
     PipelinePersistenceInput,
+    PipelineRunFailure,
+    PipelineRunOutcome,
+    PipelineRunRequest,
+    PipelineRunResult,
     QualityDimension,
     QualityDimensionScore,
     QualityEvaluationInput,
@@ -128,6 +135,9 @@ from arduino_component_kb.imports.pipeline.models import (
     ResourceReference,
     ReviewDraft,
     ScoreContribution,
+    ShadowComparisonReport,
+    ShadowFieldConflict,
+    ShadowRunResult,
     SourceArtifact,
     SourceArtifactMetadata,
     SourceReference,
@@ -140,9 +150,12 @@ from arduino_component_kb.imports.pipeline.orchestration import (
     PipelineStep,
 )
 from arduino_component_kb.imports.pipeline.persistence import (
+    DryRunPersistenceGateway,
     EnrichmentLifecycleRepository,
     PostgresImportPersistenceGateway,
 )
+from arduino_component_kb.imports.pipeline.runtime import EvidenceFirstImportOrchestrator
+from arduino_component_kb.imports.pipeline.shadow import ShadowImportRunner
 
 __all__ = [
     "PIPELINE_ORDER",
@@ -170,6 +183,7 @@ __all__ = [
     "DraftSpecification",
     "DraftText",
     "DeterministicQualityEvaluator",
+    "DryRunPersistenceGateway",
     "DEFAULT_KICAD_LIBRARY_ALLOWLIST",
     "DEFAULT_QUALITY_READY_THRESHOLD",
     "DEFAULT_QUALITY_REJECT_THRESHOLD",
@@ -185,6 +199,7 @@ __all__ = [
     "EnrichmentLifecycleRepository",
     "EnrichmentError",
     "EnrichmentProvider",
+    "EvidenceFirstImportOrchestrator",
     "ErrorCategory",
     "ExtractedFacts",
     "ExtractedField",
@@ -227,15 +242,22 @@ __all__ = [
     "NormalizationConflict",
     "NormalizationProfile",
     "NormalizationTrace",
+    "OrchestratorPolicy",
     "NormalizedFacts",
     "NormalizedIdentifier",
     "NormalizedSpecification",
     "NormalizedTextFact",
     "ParsingError",
     "PersistenceError",
+    "PipelineExecutionStatus",
     "PipelineOrchestrator",
+    "PipelineRunFailure",
+    "PipelineRunOutcome",
+    "PipelineRunRequest",
+    "PipelineRunResult",
     "PipelineStage",
     "PipelineStep",
+    "PreparedSourceAcquirer",
     "QualityError",
     "QUALITY_EVALUATOR_VERSION",
     "QualityDimension",
@@ -261,6 +283,10 @@ __all__ = [
     "SourceArtifact",
     "SourceArtifactMetadata",
     "SourceReference",
+    "ShadowComparisonReport",
+    "ShadowFieldConflict",
+    "ShadowImportRunner",
+    "ShadowRunResult",
     "SeeedFactExtractor",
     "StageExecution",
     "StageResult",

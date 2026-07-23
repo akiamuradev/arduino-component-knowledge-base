@@ -90,6 +90,19 @@ async def test_persistence_is_idempotent_and_keeps_all_matcher_decisions() -> No
     )
 
 
+async def test_review_draft_identity_ignores_observational_composition_timestamp() -> None:
+    _, value = await persistence_input()
+    recomposed = PipelinePersistenceInput(
+        value.source_id,
+        value.composition,
+        replace(value.draft, composed_at=value.draft.composed_at + timedelta(minutes=5)),
+    )
+
+    assert recomposed.artifact_id == value.artifact_id
+    assert recomposed.review_draft_id == value.review_draft_id
+    assert recomposed.draft.to_json() != value.draft.to_json()
+
+
 async def test_persistence_rejects_wrong_stage_source_and_unbound_draft() -> None:
     context, value = await persistence_input()
     session = session_mock()

@@ -31,6 +31,7 @@ from arduino_component_kb.imports.domain import (
 )
 from arduino_component_kb.imports.exact import ExactKeys
 from arduino_component_kb.imports.models import ImportJob
+from arduino_component_kb.imports.pipeline.worker_shadow import run_repository_shadow
 from arduino_component_kb.imports.repository import ImportRepository
 from arduino_component_kb.imports.repository_domain import (
     ParseStatus,
@@ -200,7 +201,7 @@ async def process_import_job(job_id: UUID, settings: Settings) -> None:
                         return
                     if parsed_repository is not None:
                         locked.heartbeat_at = datetime.now(UTC)
-                        locked.metrics_json = {
+                        metrics: dict[str, object] = {
                             "files_scanned": 1,
                             "entries_discovered": 1,
                             "entries_parsed": 1,
@@ -209,6 +210,35 @@ async def process_import_job(job_id: UUID, settings: Settings) -> None:
                             "bytes_downloaded": acquired_entry.bytes_downloaded,
                             "duration_ms": round((perf_counter() - acquisition_started) * 1000, 3),
                         }
+                        if settings.import_pipeline_shadow_enabled and source.key == "seeed_wiki":
+                            try:
+                                shadow_report = await run_repository_shadow(
+                                    session,
+                                    settings,
+                                    locked,
+                                    source,
+                                    acquired_entry,
+                                    parsed_repository,
+                                )
+                                metrics["shadow_pipeline"] = shadow_report.as_dict()
+                            except Exception as error:
+                                logger.error(
+                                    "shadow_import_unavailable",
+                                    extra={
+                                        "import_run_id": str(locked.id),
+                                        "source": source.key,
+                                        "revision": parsed_repository.source_revision,
+                                        "outcome": "failed",
+                                        "failure_code": "shadow_bridge_failure",
+                                        "error_type": type(error).__name__,
+                                        "shadow_mode": True,
+                                    },
+                                )
+                                metrics["shadow_pipeline"] = {
+                                    "pipeline_status": "failed",
+                                    "failure": {"code": "shadow_bridge_failure"},
+                                }
+                        locked.metrics_json = metrics
                         await repository.persist_repository_draft(locked, source, parsed_repository)
                     elif parsed is not None:
                         await repository.persist_draft(locked, parsed)

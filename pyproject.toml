@@ -32,6 +32,7 @@ ackb-explain-search = "arduino_component_kb.catalog.explain:main"
 ackb-import-dry-run = "arduino_component_kb.imports.dry_run:main"
 ackb-validate-repository-samples = "arduino_component_kb.imports.sample_validation:main"
 ackb-validate-repository-jobs = "arduino_component_kb.imports.job_validation:main"
+ackb-shadow-import-batch = "arduino_component_kb.imports.shadow_dry_run:main"
 
 [project.optional-dependencies]
 dev = [

@@ -92,6 +92,20 @@ from arduino_component_kb.imports.pipeline.models.quality import (
     QualityReport,
     QualityRoute,
 )
+from arduino_component_kb.imports.pipeline.models.runtime import (
+    OrchestratorPolicy,
+    PipelineExecutionStatus,
+    PipelineRunFailure,
+    PipelineRunOutcome,
+    PipelineRunRequest,
+    PipelineRunResult,
+)
+from arduino_component_kb.imports.pipeline.models.shadow import (
+    ShadowComparisonReport,
+    ShadowFieldConflict,
+    ShadowRunResult,
+    shadow_value_sha256,
+)
 
 __all__ = [
     "CategoryCandidate",
@@ -144,6 +158,7 @@ __all__ = [
     "NormalizationConflict",
     "NormalizationProfile",
     "NormalizationTrace",
+    "OrchestratorPolicy",
     "NormalizedFacts",
     "NormalizedIdentifier",
     "NormalizedSpecification",
@@ -162,10 +177,19 @@ __all__ = [
     "ReviewDraft",
     "PersistedPipelineDraft",
     "PipelinePersistenceInput",
+    "PipelineExecutionStatus",
+    "PipelineRunFailure",
+    "PipelineRunOutcome",
+    "PipelineRunRequest",
+    "PipelineRunResult",
     "ScoreContribution",
     "SourceArtifact",
     "SourceArtifactMetadata",
     "SourceReference",
+    "ShadowComparisonReport",
+    "ShadowFieldConflict",
+    "ShadowRunResult",
     "UnknownFact",
     "UnmappedSpecification",
+    "shadow_value_sha256",
 ]

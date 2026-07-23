@@ -12,6 +12,7 @@ from sqlalchemy.exc import ArgumentError
 
 Environment = Literal["local", "test", "staging", "production"]
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+ImportPipelineMode = Literal["disabled", "shadow"]
 
 
 class DatabaseSettings(BaseSettings):
@@ -79,6 +80,9 @@ class Settings(DatabaseSettings):
     import_job_max_attempts: int = Field(default=4, ge=2, le=10)
     import_lock_ttl_seconds: int = Field(default=60, ge=10, le=300)
     import_lock_wait_seconds: int = Field(default=10, ge=1, le=30)
+    import_pipeline_mode: ImportPipelineMode = "disabled"
+    import_pipeline_stage_timeout_seconds: float = Field(default=15.0, ge=1, le=120)
+    import_pipeline_safe_retry_attempts: int = Field(default=2, ge=1, le=5)
     repository_connect_timeout_seconds: float = Field(default=5.0, ge=1, le=15)
     repository_read_timeout_seconds: float = Field(default=20.0, ge=2, le=60)
     repository_total_timeout_seconds: float = Field(default=30.0, ge=5, le=120)
@@ -139,6 +143,10 @@ class Settings(DatabaseSettings):
     @property
     def kicad_library_prefixes(self) -> tuple[str, ...]:
         return tuple(part for part in self.kicad_library_allowlist.split(",") if part)
+
+    @property
+    def import_pipeline_shadow_enabled(self) -> bool:
+        return self.import_pipeline_mode == "shadow"
 
     @model_validator(mode="after")
     def require_secure_production_cookie(self) -> Settings:
