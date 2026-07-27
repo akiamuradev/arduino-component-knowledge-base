@@ -108,9 +108,37 @@ def test_alembic_upgrade_renders_offline_postgresql_sql(
     assert "ADD COLUMN caption" in sql
     assert "ADD COLUMN display_order" in sql
     assert "ADD COLUMN is_primary" in sql
+    assert "row_number() OVER" in sql
+    assert "PARTITION BY component_id, kind" in sql
+    assert "ORDER BY created_at, id" in sql
+    assert "status != 'rejected'" in sql
     assert "ck_media_assets_primary_image" in sql
     assert "uq_media_assets_component_primary_image" in sql
     assert "20260723_19" in sql
+
+
+def test_multiple_images_migration_renders_reversible_downgrade(
+    monkeypatch: MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setenv(
+        "ACKB_DATABASE_URL",
+        "postgresql+asyncpg://ackb:placeholder@localhost:5432/ackb",
+    )
+    command.downgrade(
+        alembic_config(),
+        "20260723_19:20260723_18",
+        sql=True,
+    )
+    sql = capsys.readouterr().out
+    assert "DROP INDEX uq_media_assets_component_primary_image" in sql
+    assert "DROP INDEX ix_media_assets_component_order" in sql
+    assert "DROP CONSTRAINT ck_media_assets_primary_image" in sql
+    assert "DROP CONSTRAINT ck_media_assets_display_order" in sql
+    assert "DROP COLUMN is_primary" in sql
+    assert "DROP COLUMN display_order" in sql
+    assert "DROP COLUMN caption" in sql
+    assert "version_num='20260723_18'" in sql
 
 
 def test_runtime_has_no_create_all_escape_hatch() -> None:

@@ -70,11 +70,11 @@ const card: CatalogComponent = {
   }],
 };
 
-function renderCatalog(path = "/") {
+function renderCatalog(path = "/", component: CatalogComponent = card) {
   const client = createQueryClient();
   client.setQueryData(catalogKeys.categories, [category]);
-  client.setQueryData(catalogKeys.list({ query: "", categoryId: "", difficulty: "" }), { items: [card], total: 1 });
-  client.setQueryData(catalogKeys.detail(card.slug), card);
+  client.setQueryData(catalogKeys.list({ query: "", categoryId: "", difficulty: "" }), { items: [component], total: 1 });
+  client.setQueryData(catalogKeys.detail(component.slug), component);
   return render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[path]}><Routes><Route path="/" element={<CatalogPage />} /><Route path="/components/:slug" element={<CatalogComponentPage />} /></Routes></MemoryRouter></QueryClientProvider>);
 }
 
@@ -106,5 +106,22 @@ describe("student catalog", () => {
     expect(screen.getByText("Используйте pinMode.")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Показать решение" }));
     expect(view.container.querySelector(".learning-code")).toHaveTextContent("void setup");
+  });
+
+  it("keeps historical published responses without media readable", async () => {
+    const legacyCard: CatalogComponent = { ...card };
+    delete legacyCard.media;
+    renderCatalog("/components/temperature-sensor", legacyCard);
+
+    expect(await screen.findByRole("heading", {
+      name: "Датчик температуры",
+      level: 1,
+    })).toBeVisible();
+    expect(screen.queryByRole("region", {
+      name: "Галерея изображений компонента",
+    })).not.toBeInTheDocument();
+    expect(screen.getByRole("img", {
+      name: "Изображение для Датчик температуры пока не добавлено",
+    })).toBeVisible();
   });
 });

@@ -10,7 +10,7 @@
 | 2. Backend | done |
 | 3. Frontend editor | done |
 | 4. Preview и публичная карточка | done |
-| 5. Полная test matrix | next |
+| 5. Полная test matrix | done |
 
 Stage 2 реализован без замены media-архитектуры: Alembic revision `20260723_19`, ordered image
 aggregate, first-image-primary, атомарная mutation metadata/order/primary/detach с optimistic
@@ -301,8 +301,36 @@ frontend lint/typecheck/test/build и Docker smoke.
 - catalog tile выбирает `is_primary`, а unsafe/expired URL заменяется fallback;
 - gallery не создаёт horizontal overflow на mobile и desktop layouts.
 
-Следующая работа выполняется по Stage 5: полная regression/test matrix, включая end-to-end
-publication flow с двумя реальными processed images.
+## Проверка Stage 5
+
+Backend matrix закрепляет:
+
+- upgrade/backfill и обратимый downgrade Alembic revision `20260723_19`;
+- draft без images, publish gates для отсутствующего, pending, rejected и missing-primary image;
+- first-image-primary, PostgreSQL at-most-one-primary, deterministic reorder и detach;
+- optimistic stale revision как защита concurrent primary/reorder;
+- immutable published order/metadata и отсутствие storage identifiers;
+- teacher/administrator RBAC, student deny и обязательный CSRF через общую route-security matrix;
+- foreign asset как `404`/domain not-found без раскрытия существования;
+- объединение двух ordered media collections с сохранением primary survivor;
+- signed GET только для совпавшего processed variant из published snapshot.
+
+Frontend matrix закрепляет повторную multi-upload, все состояния pending/processing/ready/rejected
+и status error, upload failure, редактирование metadata/primary/order/remove, revision conflict,
+preview/public gallery, keyboard navigation, URL fallback и historical response без `media`.
+Thumbnail после неуспешной загрузки повторно пробуется, когда backend выдаёт обновлённый signed URL.
+
+Playwright выполняет полный stateful сценарий: создаёт draft без images, последовательно загружает
+два файла, дожидается ready, меняет primary/order/alt/caption, публикует, проверяет student gallery
+и отсутствие original/object key, затем меняет draft order и подтверждает неизменность
+опубликованного snapshot до следующей публикации.
+
+Во время matrix test найден и исправлен прежний дефект duplicate merge: draft loser переводился
+в `archived` без обязательной lifecycle timestamp и нарушал `ck_components_published_at`.
+Финальный Docker smoke также выявил устаревший upstream address после пересоздания backend:
+оба reverse-proxy шаблона переведены на динамическое обновление Docker DNS, сценарий частичного
+перезапуска backend/frontend проверен без перезапуска proxy.
+Версия `0.21.0` остаётся согласованной во всех release artifacts; пятиэтапный план завершён.
 
 ## Не входит в изменение
 

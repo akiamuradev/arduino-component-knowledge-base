@@ -1,5 +1,5 @@
 import { QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -183,6 +183,7 @@ function renderEditor(
       <Harness initialCard={initialCard} saved={saved} />
     </QueryClientProvider>,
   );
+  return queryClient;
 }
 
 afterEach(() => {
@@ -324,6 +325,134 @@ describe("component images editor", () => {
       .map(([, options]) => JSON.parse(requestBody(options)) as { component_revision: number });
     expect(reserveBodies.map((body) => body.component_revision)).toEqual([7, 8]);
     expect(saved).toHaveBeenCalledWith(expect.objectContaining({ revision: 9 }));
+  });
+
+  it("shows pending, processing, ready, rejected and status error states", async () => {
+    const sourceStates: ComponentMedia[] = [
+      { ...firstImage, asset_id: "10000000-0000-4000-8000-000000000005" },
+      {
+        ...secondImage,
+        asset_id: "10000000-0000-4000-8000-000000000006",
+        status: "processing",
+      },
+      {
+        ...secondImage,
+        asset_id: "10000000-0000-4000-8000-000000000007",
+        status: "pending",
+      },
+      {
+        ...secondImage,
+        asset_id: "10000000-0000-4000-8000-000000000008",
+        status: "rejected",
+      },
+      {
+        ...secondImage,
+        asset_id: "10000000-0000-4000-8000-000000000009",
+        status: "pending",
+      },
+    ];
+    const states = sourceStates.map(
+      (image, index): ComponentMedia => ({ ...image, display_order: index }),
+    );
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input) => {
+      await Promise.resolve();
+      const url = requestUrl(input);
+      const image = states.find((item) => url.includes(item.asset_id));
+      if (image === undefined) throw new Error(`Unexpected request: ${url}`);
+      if (image.asset_id.endsWith("0009")) {
+        return jsonResponse({ detail: { code: "media_status_unavailable" } }, 503);
+      }
+      const response = asset(image);
+      if (image.status === "processing") {
+        return jsonResponse({
+          ...response,
+          job_status: "running",
+          phase: "uploading",
+          progress_percent: 42,
+        });
+      }
+      if (image.status === "rejected") {
+        return jsonResponse({
+          ...response,
+          failure_code: "image_magic_invalid",
+          job_status: "failed",
+          phase: "failed",
+        });
+      }
+      return jsonResponse(response);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    renderEditor(vi.fn(), { ...card, media: states });
+
+    expect(await screen.findByText("Готово")).toBeVisible();
+    expect(await screen.findByText("Обработка · 42%")).toBeVisible();
+    expect(await screen.findByText("Ожидает обработки")).toBeVisible();
+    expect(await screen.findByText("Отклонено")).toBeVisible();
+    expect(await screen.findByText("image_magic_invalid")).toBeVisible();
+    expect(await screen.findByText("Статус недоступен")).toBeVisible();
+  });
+
+  it("recovers a failed thumbnail when the backend renews its signed URL", async () => {
+    const ready = asset(firstImage);
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockResolvedValue(jsonResponse(ready)));
+    const queryClient = renderEditor(vi.fn(), { ...card, media: [firstImage] });
+    act(() => {
+      queryClient.setQueryData(["media", "image", firstImage.asset_id], ready);
+    });
+
+    const initial = await screen.findByAltText(firstImage.alt_text);
+    fireEvent.error(initial);
+    expect(await screen.findByText("Превью готовится")).toBeVisible();
+
+    act(() => {
+      queryClient.setQueryData(["media", "image", firstImage.asset_id], {
+        ...ready,
+        variants: ready.variants.map((variant) => ({
+          ...variant,
+          url: `${variant.url}&renewed=1`,
+        })),
+      });
+    });
+    expect(await screen.findByAltText(firstImage.alt_text)).toHaveAttribute(
+      "src",
+      expect.stringContaining("renewed=1"),
+    );
+  });
+
+  it("keeps the editor usable after a storage upload error", async () => {
+    document.cookie = "ackb_csrf=media-csrf; Path=/";
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input) => {
+      await Promise.resolve();
+      const url = requestUrl(input);
+      if (url === "/api/v1/media/images/uploads") {
+        return jsonResponse({
+          asset_id: "10000000-0000-4000-8000-000000000010",
+          upload_url: "/media-storage/quarantine/failed?signed=1",
+          upload_headers: { "Content-Type": "image/png" },
+          expires_at: "2026-07-23T06:00:00Z",
+          component_revision: 8,
+        }, 201);
+      }
+      if (url.startsWith("/media-storage/")) return new Response(null, { status: 500 });
+      if (url === `/api/v1/workspace/components/${card.id}`) {
+        return jsonResponse(card);
+      }
+      if (url.includes("/api/v1/media/images/")) {
+        return jsonResponse(asset(url.includes(firstImage.asset_id) ? firstImage : secondImage));
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    renderEditor(vi.fn());
+
+    const input = screen.getByLabelText("Добавить изображения", { selector: "input" });
+    await userEvent.upload(
+      input,
+      new File(["broken"], "broken.png", { type: "image/png" }),
+    );
+
+    expect(await screen.findByText(/MinIO не принял файл/)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Добавить изображения" })).toBeEnabled();
   });
 
   it("removes an image and lets backend-normalized first remaining image become primary", async () => {
