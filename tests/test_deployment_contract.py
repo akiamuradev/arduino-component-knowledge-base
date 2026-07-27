@@ -133,6 +133,17 @@ def test_reverse_proxy_overwrites_forwarded_client_address() -> None:
     assert '"--forwarded-allow-ips", "*"' in backend_dockerfile
 
 
+def test_reverse_proxy_refreshes_docker_service_addresses() -> None:
+    for path in (
+        ROOT / "deploy" / "reverse-proxy" / "default.conf",
+        ROOT / "deploy" / "reverse-proxy" / "internal-https.conf.template",
+    ):
+        nginx = path.read_text(encoding="utf-8")
+        assert "resolver 127.0.0.11 valid=10s ipv6=off;" in nginx
+        for service in ("backend:8000", "frontend:8080", "minio:9000"):
+            assert f"server {service} resolve;" in nginx
+
+
 def test_reverse_proxy_exposes_only_signed_same_origin_media_transport() -> None:
     for path in (
         ROOT / "deploy" / "reverse-proxy" / "default.conf",

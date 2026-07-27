@@ -526,6 +526,7 @@ class CatalogService:
         survivor.updated_by = actor_id
         survivor.updated_at = now
         loser.status = ComponentStatus.ARCHIVED.value
+        loser.published_at = loser.published_at or now
         loser.revision += 1
         loser.updated_by = actor_id
         loser.updated_at = now

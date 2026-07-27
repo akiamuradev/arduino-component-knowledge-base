@@ -107,7 +107,7 @@ function ImageThumbnail({
   image: ComponentMedia;
   localPreview?: string;
 }) {
-  const [failed, setFailed] = useState(false);
+  const [failedUrl, setFailedUrl] = useState<string>();
   const status = useQuery({
     queryKey: ["media", "image", image.asset_id],
     queryFn: () => api.getComponentImage(image.asset_id),
@@ -123,7 +123,7 @@ function ImageThumbnail({
 
   return (
     <div className="image-editor-card__preview">
-      {failed || url === undefined ? (
+      {url === undefined || failedUrl === url ? (
         <div
           className="image-editor-card__fallback"
           role="img"
@@ -135,7 +135,7 @@ function ImageThumbnail({
       ) : (
         <img
           alt={image.alt_text}
-          onError={() => { setFailed(true); }}
+          onError={(event) => { setFailedUrl(event.currentTarget.src); }}
           src={url}
         />
       )}

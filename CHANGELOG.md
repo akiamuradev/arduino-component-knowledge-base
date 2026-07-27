@@ -9,6 +9,7 @@ All notable changes to this project are documented here. Versions follow semanti
 - Repository parser taxonomy, bounded preview/discovery validation and import-quality diagnostics.
 - Global pending-upload quotas and deterministic MinIO media retention with dry-run/apply modes.
 - X-ray release audit, dependency vulnerability gates and a cross-artifact release contract.
+- Full backend, frontend and stateful E2E regression matrix for multiple component images.
 
 ### Changed
 
@@ -19,8 +20,13 @@ All notable changes to this project are documented here. Versions follow semanti
 
 ### Fixed
 
+- Reverse-proxy routes now survive backend, frontend and object-storage container recreation
+  by refreshing Docker DNS addresses at runtime.
 - Generic `request_failed` component creation failures caused by invalid parser output.
 - Orphaned MinIO objects left by failed processing or stale uploads.
+- Duplicate merge of draft cards now archives the loser without violating the published timestamp
+  database invariant.
+- Editor thumbnails recover when a renewed signed media URL replaces a failed or expired URL.
 
 ### Security
 

@@ -9,15 +9,18 @@ from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from arduino_component_kb.auth.domain import Principal, Role
 from arduino_component_kb.auth.models import User
 from arduino_component_kb.auth.repository import AuthRepository
 from arduino_component_kb.catalog.domain import (
     CatalogValidationError,
+    ComponentMediaNotFoundError,
     ComponentStatus,
     Difficulty,
     DraftData,
+    RevisionConflictError,
 )
 from arduino_component_kb.catalog.models import Category, ComponentRevision
 from arduino_component_kb.catalog.service import CatalogService
@@ -101,6 +104,14 @@ async def test_image_aggregate_order_primary_publish_and_snapshot(
             card = await catalog.create(_draft(category_id, suffix), user_id)
             assert card.revision == 1
             assert card.media == ()
+            with pytest.raises(CatalogValidationError) as missing_image:
+                await catalog.transition(
+                    card.id,
+                    card.revision,
+                    ComponentStatus.PUBLISHED,
+                    user_id,
+                )
+            assert missing_image.value.code == "component_image_required"
 
             storage = Mock(spec=MediaStorage)
             storage.presigned_put = AsyncMock(
@@ -155,8 +166,16 @@ async def test_image_aggregate_order_primary_publish_and_snapshot(
                 await catalog.transition(card.id, 3, ComponentStatus.PUBLISHED, user_id)
             assert pending.value.code == "component_image_not_ready"
 
+            assets[0].status = "rejected"
+            assets[0].failure_code = "image_magic_invalid"
+            await session.flush()
+            with pytest.raises(CatalogValidationError) as rejected:
+                await catalog.transition(card.id, 3, ComponentStatus.PUBLISHED, user_id)
+            assert rejected.value.code == "component_image_not_ready"
+
             for index, asset in enumerate(assets):
                 asset.status = "ready"
+                asset.failure_code = None
                 asset.detected_mime = "image/png"
                 asset.size_bytes = 100
                 asset.sha256 = f"{index + 1:064x}"
@@ -178,6 +197,12 @@ async def test_image_aggregate_order_primary_publish_and_snapshot(
                     )
                 )
             await session.flush()
+            with pytest.raises(IntegrityError):
+                async with session.begin_nested():
+                    assets[1].is_primary = True
+                    await session.flush()
+            await session.refresh(assets[1])
+            assert assets[1].is_primary is False
             for asset in assets:
                 asset.is_primary = False
             await session.flush()
@@ -211,6 +236,27 @@ async def test_image_aggregate_order_primary_publish_and_snapshot(
                 assets[0].id,
             ]
             assert [item.is_primary for item in reordered.media] == [True, False]
+            with pytest.raises(RevisionConflictError):
+                await catalog.mutate_images(
+                    card.id,
+                    3,
+                    (
+                        ComponentImageMutation(
+                            assets[0].id,
+                            "product",
+                            "Stale first view",
+                            None,
+                        ),
+                        ComponentImageMutation(
+                            assets[1].id,
+                            "detail",
+                            "Stale second view",
+                            None,
+                        ),
+                    ),
+                    assets[0].id,
+                    user_id,
+                )
 
             published = await catalog.transition(
                 card.id,
@@ -285,6 +331,135 @@ async def test_image_aggregate_order_primary_publish_and_snapshot(
             assert detached.media[0].asset_id == assets[1].id
             assert detached.media[0].is_primary is True
             assert assets[0].component_id is None
+
+            await transaction.rollback()
+    finally:
+        await database.dispose()
+
+
+async def test_duplicate_merge_combines_media_and_hides_foreign_assets(
+    integration_settings: Settings,
+) -> None:
+    database = Database(integration_settings)
+    try:
+        async with database.sessions() as session:
+            transaction = await session.begin()
+            now = datetime.now(UTC)
+            user_id = uuid4()
+            category_id = uuid4()
+            suffix = uuid4().hex
+            session.add_all(
+                (
+                    User(
+                        id=user_id,
+                        login=f"media-merge-{suffix}",
+                        display_name="Media merge reviewer",
+                        password_hash=f"integration-{suffix}",
+                        status="active",
+                        created_at=now,
+                        updated_at=now,
+                        last_login_at=None,
+                    ),
+                    Category(
+                        id=category_id,
+                        key=f"media-merge-{suffix}",
+                        name="Media merge",
+                        description=None,
+                        parent_id=None,
+                        position=9001,
+                        is_active=True,
+                    ),
+                )
+            )
+            await session.flush()
+            catalog = CatalogService(session)
+            left = await catalog.create(_draft(category_id, f"left-{suffix}"), user_id)
+            right = await catalog.create(_draft(category_id, f"right-{suffix}"), user_id)
+            storage = Mock(spec=MediaStorage)
+            storage.presigned_put = AsyncMock(
+                side_effect=tuple(f"https://storage.invalid/{suffix}/{index}" for index in range(4))
+            )
+            media = MediaService(
+                MediaRepository(session),
+                AuthRepository(session),
+                storage,
+                integration_settings,
+            )
+            actor = _actor(user_id)
+
+            revisions = {left.id: left.revision, right.id: right.revision}
+            for component, label in ((left, "left"), (right, "right")):
+                for position in range(2):
+                    reservation = await media.reserve_upload(
+                        actor=actor,
+                        kind=MediaKind.IMAGE,
+                        component_id=component.id,
+                        component_revision=revisions[component.id],
+                        purpose="product" if position == 0 else "detail",
+                        alt_text=f"{label} image {position}",
+                        attribution=None,
+                        declared_mime="image/png",
+                        declared_size_bytes=100,
+                        request_id=f"media-merge-{suffix}-{label}-{position}",
+                    )
+                    assert reservation.component_revision is not None
+                    revisions[component.id] = reservation.component_revision
+
+            repository = MediaRepository(session)
+            left_assets = await repository.component_assets(
+                left.id,
+                kind=MediaKind.IMAGE,
+                lock=True,
+            )
+            right_assets = await repository.component_assets(
+                right.id,
+                kind=MediaKind.IMAGE,
+                lock=True,
+            )
+            for index, asset in enumerate((*left_assets, *right_assets), start=1):
+                asset.status = "ready"
+                asset.detected_mime = "image/png"
+                asset.size_bytes = 100
+                asset.sha256 = f"{index:064x}"
+                asset.phash = f"{index:016x}"
+                asset.width = 640
+                asset.height = 480
+            await session.flush()
+
+            with pytest.raises(ComponentMediaNotFoundError):
+                await catalog.mutate_images(
+                    left.id,
+                    revisions[left.id],
+                    (
+                        ComponentImageMutation(
+                            right_assets[0].id,
+                            "detail",
+                            "Foreign image",
+                            None,
+                        ),
+                    ),
+                    right_assets[0].id,
+                    user_id,
+                )
+
+            before_left, before_right, merged = await catalog.resolve_duplicate_pair(
+                left.id,
+                right.id,
+                revisions[left.id],
+                revisions[right.id],
+                left.id,
+                {},
+                user_id,
+                merge_fields=False,
+            )
+            assert len(before_left.media) == 2
+            assert len(before_right.media) == 2
+            assert [item.asset_id for item in merged.media] == [
+                item.id for item in (*left_assets, *right_assets)
+            ]
+            assert [item.display_order for item in merged.media] == [0, 1, 2, 3]
+            assert [item.is_primary for item in merged.media] == [True, False, False, False]
+            assert all(asset.component_id == left.id for asset in (*left_assets, *right_assets))
 
             await transaction.rollback()
     finally:
