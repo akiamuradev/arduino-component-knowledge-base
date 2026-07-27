@@ -39,19 +39,121 @@ describe("content presentation", () => {
     expect(screen.getByText(/CC-BY-SA-4.0/)).toBeVisible();
   });
 
-  it("renders lazy images, native video and a deterministic fallback", () => {
+  it("renders a primary-first keyboard gallery with captions and safe URL fallback", () => {
     const items: CatalogMedia[] = [
-      { id: "image", kind: "image", alt: "Датчик", thumbnailUrl: "/media/sensor.webp" },
-      { id: "video", kind: "video", alt: "Демонстрация", processedUrl: "/media/demo.mp4", posterUrl: "/media/poster.webp" },
+      {
+        asset_id: "secondary",
+        kind: "image",
+        purpose: "detail",
+        alt_text: "Разъёмы датчика",
+        caption: "Крупный план",
+        display_order: 0,
+        is_primary: false,
+        width: 800,
+        height: 600,
+        variants: [{
+          name: "320w",
+          mime: "image/webp",
+          width: 320,
+          height: 240,
+          sha256: "1".repeat(64),
+          url: "http://untrusted.invalid/secondary.webp",
+        }],
+      },
+      {
+        asset_id: "primary",
+        kind: "image",
+        purpose: "product",
+        alt_text: "Датчик целиком",
+        caption: "Основной вид",
+        display_order: 1,
+        is_primary: true,
+        width: 1600,
+        height: 1200,
+        variants: [
+          {
+            name: "320w",
+            mime: "image/webp",
+            width: 320,
+            height: 240,
+            sha256: "2".repeat(64),
+            url: "/media-storage/primary-320.webp?signed=1",
+          },
+          {
+            name: "1600w",
+            mime: "image/webp",
+            width: 1600,
+            height: 1200,
+            sha256: "3".repeat(64),
+            url: "/media-storage/primary-1600.webp?signed=1",
+          },
+        ],
+      },
+      {
+        asset_id: "video",
+        kind: "video",
+        purpose: "demonstration",
+        alt_text: "Демонстрация датчика",
+        caption: "Видео подключения",
+        display_order: 0,
+        is_primary: false,
+        width: 1280,
+        height: 720,
+        variants: [{
+          name: "720p",
+          mime: "video/mp4",
+          width: 1280,
+          height: 720,
+          sha256: "4".repeat(64),
+          url: "/media-storage/demo.mp4?signed=1",
+        }],
+      },
     ];
-    render(<MediaGallery items={items} />);
-    const image = screen.getByRole("img", { name: "Датчик" });
-    expect(image).toHaveAttribute("loading", "lazy");
-    const video = screen.getByLabelText("Демонстрация");
+    const view = render(<MediaGallery items={items} />);
+
+    const primary = screen.getByRole("img", { name: "Датчик целиком" });
+    expect(primary).toHaveAttribute("fetchpriority", "high");
+    expect(primary).toHaveAttribute("srcset", expect.stringContaining("1600w"));
+    expect(screen.getByText("Основной вид")).toBeVisible();
+    expect(screen.getByText("Изображение 1 из 2")).toBeVisible();
+    const video = screen.getByLabelText("Демонстрация датчика");
     expect(video).toHaveAttribute("controls");
     expect(video).not.toHaveAttribute("autoplay");
-    fireEvent.error(image);
-    expect(screen.getByRole("img", { name: "Датчик" })).toHaveTextContent("Медиа недоступно");
+
+    const primaryThumbnail = screen.getByRole("button", {
+      name: "Показать изображение 1: Датчик целиком",
+    });
+    const secondaryThumbnail = screen.getByRole("button", {
+      name: "Показать изображение 2: Разъёмы датчика",
+    });
+    primaryThumbnail.focus();
+    fireEvent.keyDown(primaryThumbnail, { key: "ArrowRight" });
+    expect(secondaryThumbnail).toHaveFocus();
+    expect(screen.getByRole("img", { name: "Разъёмы датчика" })).toHaveTextContent(
+      "Изображение недоступно",
+    );
+    expect(screen.getByText("Крупный план")).toBeVisible();
+
+    fireEvent.click(primaryThumbnail);
+    fireEvent.error(screen.getByRole("img", { name: "Датчик целиком" }));
+    expect(screen.getByRole("img", { name: "Датчик целиком" })).toHaveTextContent(
+      "Изображение недоступно",
+    );
+
+    const renewedItems = items.map((item) => item.asset_id === "primary"
+      ? {
+          ...item,
+          variants: item.variants.map((variant) => ({
+            ...variant,
+            url: `${variant.url}&renewed=1`,
+          })),
+        }
+      : item);
+    view.rerender(<MediaGallery items={renewedItems} />);
+    expect(screen.getByRole("img", { name: "Датчик целиком" })).toHaveAttribute(
+      "src",
+      expect.stringContaining("renewed=1"),
+    );
   });
 
   it("does not invent attribution for manual material", () => {

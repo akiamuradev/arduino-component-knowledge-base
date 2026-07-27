@@ -4,13 +4,45 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 
-import type { CatalogComponent, Category } from "../api/contracts";
+import type { CatalogComponent, CatalogMedia, Category } from "../api/contracts";
 import { catalogKeys } from "../catalog/queries";
 import { createQueryClient } from "../app/query-client";
 import { CatalogComponentPage } from "./CatalogComponentPage";
 import { CatalogPage } from "./CatalogPage";
 
 const category: Category = { id: "00000000-0000-0000-0000-000000000020", slug: "sensors", name: "Датчики" };
+const media: CatalogMedia[] = [
+  {
+    asset_id: "10000000-0000-4000-8000-000000000001",
+    kind: "image",
+    purpose: "detail",
+    alt_text: "Разъёмы датчика",
+    caption: "Детальный вид",
+    display_order: 0,
+    is_primary: false,
+    width: 800,
+    height: 600,
+    variants: [{
+      name: "320w", mime: "image/webp", width: 320, height: 240,
+      sha256: "1".repeat(64), url: "/media-storage/secondary.webp?signed=1",
+    }],
+  },
+  {
+    asset_id: "10000000-0000-4000-8000-000000000002",
+    kind: "image",
+    purpose: "product",
+    alt_text: "Основной вид датчика",
+    caption: "Датчик целиком",
+    display_order: 1,
+    is_primary: true,
+    width: 1600,
+    height: 1200,
+    variants: [{
+      name: "320w", mime: "image/webp", width: 320, height: 240,
+      sha256: "2".repeat(64), url: "/media-storage/primary.webp?signed=1",
+    }],
+  },
+];
 const card: CatalogComponent = {
   id: "00000000-0000-0000-0000-000000000021", slug: "temperature-sensor",
   title: "Датчик температуры", summary: "Учебная карточка датчика температуры Arduino.",
@@ -26,6 +58,7 @@ const card: CatalogComponent = {
     hints: ["Используйте pinMode."], body: "void setup() { pinMode(13, OUTPUT); }", libraries: [],
     explanation: "Пин переводится в режим выхода.", visibility: "student", position: 0,
   }],
+  media,
   sources: [{
     display_name: "Seeed Studio Wiki", original_url: "https://wiki.seeedstudio.com/Grove-Button/",
     repository_url: "https://github.com/Seeed-Studio/wiki-documents",
@@ -52,6 +85,7 @@ describe("student catalog", () => {
     expect(screen.getByRole("searchbox", { name: "Поиск" })).toBeVisible();
     expect(screen.getAllByRole("combobox")).toHaveLength(2);
     expect(screen.getByText("Проверенный источник · GPL-3.0-only")).toBeVisible();
+    expect(screen.getByRole("img", { name: "Основной вид датчика" })).toBeVisible();
   });
 
   it("renders component details and safety notes", async () => {
@@ -65,6 +99,8 @@ describe("student catalog", () => {
     expect(screen.getByRole("heading", { name: "Источник материала" })).toBeVisible();
     expect(screen.getByRole("link", { name: /Открыть источник/ })).toHaveAttribute("rel", "noopener noreferrer");
     expect(screen.getByRole("link", { name: /Каталог компонентов/ })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("region", { name: "Галерея изображений компонента" })).toBeVisible();
+    expect(screen.getByText("Датчик целиком")).toBeVisible();
     expect(view.container.querySelector(".learning-code")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Показать подсказку 1" }));
     expect(screen.getByText("Используйте pinMode.")).toBeVisible();

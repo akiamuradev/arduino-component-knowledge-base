@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, cast
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -36,6 +36,7 @@ from arduino_component_kb.catalog.domain import (
     TechnicalSpecification,
 )
 from arduino_component_kb.catalog.service import CatalogService
+from arduino_component_kb.config import Settings
 from arduino_component_kb.imports.models import Source
 from arduino_component_kb.logging import current_request_id
 from arduino_component_kb.media.domain import (
@@ -43,6 +44,8 @@ from arduino_component_kb.media.domain import (
     ComponentMedia,
     ComponentMediaVariant,
 )
+from arduino_component_kb.media.repository import MediaRepository
+from arduino_component_kb.media.storage import MediaStorage
 
 router = APIRouter(prefix="/api/v1/workspace", tags=["catalog-workspace"])
 admin_router = APIRouter(prefix="/api/v1/admin/catalog", tags=["catalog-administration"])
@@ -268,6 +271,23 @@ class ComponentMediaResponse(BaseModel):
     variants: list[ComponentMediaVariantResponse]
 
 
+class PublicComponentMediaVariantResponse(ComponentMediaVariantResponse):
+    url: str
+
+
+class PublicComponentMediaResponse(BaseModel):
+    asset_id: UUID
+    kind: str
+    purpose: str
+    alt_text: str
+    caption: str | None
+    display_order: int
+    is_primary: bool
+    width: int | None
+    height: int | None
+    variants: list[PublicComponentMediaVariantResponse]
+
+
 class ComponentResponse(BaseModel):
     id: str
     slug: str
@@ -322,7 +342,7 @@ class PublicComponentResponse(BaseModel):
     compatibility: list[CompatibilityResponse]
     code_examples: list[CodeExampleResponse]
     sources: list[SourceSnapshotResponse]
-    media: list[ComponentMediaResponse]
+    media: list[PublicComponentMediaResponse]
 
 
 class PublicComponentListResponse(BaseModel):
@@ -430,10 +450,79 @@ def response(card: CatalogCard) -> ComponentResponse:
     )
 
 
-def public_response(card: CatalogCard) -> PublicComponentResponse:
+async def public_component_media_response(
+    item: ComponentMedia,
+    repository: MediaRepository,
+    storage: MediaStorage,
+    expires_seconds: int,
+) -> PublicComponentMediaResponse | None:
+    asset = await repository.get_asset(item.asset_id)
+    if asset is None or asset.status != item.status.value or asset.kind != item.kind.value:
+        return None
+    current = {variant.variant: variant for variant in await repository.variants(item.asset_id)}
+    variants: list[PublicComponentMediaVariantResponse] = []
+    for snapshot_variant in item.variants:
+        row = current.get(snapshot_variant.name)
+        if (
+            row is None
+            or row.mime != snapshot_variant.mime
+            or row.width != snapshot_variant.width
+            or row.height != snapshot_variant.height
+            or row.sha256 != snapshot_variant.sha256
+        ):
+            continue
+        variants.append(
+            PublicComponentMediaVariantResponse(
+                name=snapshot_variant.name,
+                mime=snapshot_variant.mime,
+                width=snapshot_variant.width,
+                height=snapshot_variant.height,
+                sha256=snapshot_variant.sha256,
+                url=await storage.presigned_get(
+                    row.bucket,
+                    row.object_key,
+                    expires_seconds,
+                ),
+            )
+        )
+    if not variants:
+        return None
+    return PublicComponentMediaResponse(
+        asset_id=item.asset_id,
+        kind=item.kind.value,
+        purpose=item.purpose,
+        alt_text=item.alt_text,
+        caption=item.caption,
+        display_order=item.display_order,
+        is_primary=item.is_primary,
+        width=item.width,
+        height=item.height,
+        variants=variants,
+    )
+
+
+async def public_response(
+    card: CatalogCard,
+    repository: MediaRepository,
+    storage: MediaStorage,
+    expires_seconds: int,
+) -> PublicComponentResponse:
     data = card.data
     if card.published_at is None:
         raise ValueError("published card requires published_at")
+    media = [
+        projected
+        for item in card.media
+        if (
+            projected := await public_component_media_response(
+                item,
+                repository,
+                storage,
+                expires_seconds,
+            )
+        )
+        is not None
+    ]
     return PublicComponentResponse(
         id=str(card.id),
         slug=data.slug,
@@ -456,7 +545,7 @@ def public_response(card: CatalogCard) -> PublicComponentResponse:
         compatibility=[compatibility_response(item) for item in data.compatibility],
         code_examples=[code_example_response(item) for item in data.code_examples],
         sources=[source_snapshot_response(item) for item in card.sources],
-        media=[component_media_response(item) for item in card.media],
+        media=media,
     )
 
 
@@ -486,6 +575,8 @@ async def public_sources(
 
 @public_router.get("/components", response_model=PublicComponentListResponse)
 async def public_components(
+    request: Request,
+    response: Response,
     _: Annotated[Principal, Depends(current_principal)],
     session: Annotated[AsyncSession, Depends(database_session)],
     query: Annotated[str | None, Query(alias="q", min_length=1, max_length=100)] = None,
@@ -496,17 +587,41 @@ async def public_components(
     cards, total = await CatalogService(session).list_published(
         query, category_id, difficulty, limit
     )
-    return PublicComponentListResponse(items=[public_response(card) for card in cards], total=total)
+    repository = MediaRepository(session)
+    storage = cast(MediaStorage, request.app.state.media_storage)
+    settings = cast(Settings, request.app.state.settings)
+    response.headers["Cache-Control"] = "no-store"
+    return PublicComponentListResponse(
+        items=[
+            await public_response(
+                card,
+                repository,
+                storage,
+                settings.media_presign_ttl_seconds,
+            )
+            for card in cards
+        ],
+        total=total,
+    )
 
 
 @public_router.get("/components/{slug}", response_model=PublicComponentResponse)
 async def public_component(
     slug: str,
+    request: Request,
+    response: Response,
     _: Annotated[Principal, Depends(current_principal)],
     session: Annotated[AsyncSession, Depends(database_session)],
 ) -> PublicComponentResponse:
     try:
-        return public_response(await CatalogService(session).get_published(slug))
+        card = await CatalogService(session).get_published(slug)
+        response.headers["Cache-Control"] = "no-store"
+        return await public_response(
+            card,
+            MediaRepository(session),
+            cast(MediaStorage, request.app.state.media_storage),
+            cast(Settings, request.app.state.settings).media_presign_ttl_seconds,
+        )
     except CatalogError as error:
         raise HTTPException(404, detail={"code": "component_not_found"}) from error
 

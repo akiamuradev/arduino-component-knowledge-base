@@ -34,6 +34,38 @@ const component = {
     hints: ["Подключите библиотеку DHT."], body: "#include <DHT.h>\nvoid setup() { Serial.begin(9600); }", libraries: ["DHT sensor library"],
     explanation: "Значение можно читать после инициализации датчика.", visibility: "student", position: 0,
   }],
+  media: [
+    {
+      asset_id: "40000000-0000-4000-8000-000000000001",
+      kind: "image",
+      purpose: "detail",
+      alt_text: "Разъёмы DHT22",
+      caption: "Контакты датчика",
+      display_order: 0,
+      is_primary: false,
+      width: 800,
+      height: 600,
+      variants: [{
+        name: "320w", mime: "image/webp", width: 320, height: 240,
+        sha256: "1".repeat(64), url: "/media-storage/dht22-detail.svg?signed=1",
+      }],
+    },
+    {
+      asset_id: "40000000-0000-4000-8000-000000000002",
+      kind: "image",
+      purpose: "product",
+      alt_text: "Основной вид DHT22",
+      caption: "Датчик DHT22",
+      display_order: 1,
+      is_primary: true,
+      width: 1600,
+      height: 1200,
+      variants: [{
+        name: "320w", mime: "image/webp", width: 320, height: 240,
+        sha256: "2".repeat(64), url: "/media-storage/dht22-primary.svg?signed=1",
+      }],
+    },
+  ],
   sources: [{
     display_name: "Seeed Studio Wiki", original_url: "https://wiki.seeedstudio.com/Grove-Temperature_And_Humidity_Sensor_Pro/",
     repository_url: "https://github.com/Seeed-Studio/wiki-documents", license_name: "GNU General Public License v3.0 only",
@@ -45,6 +77,13 @@ const component = {
 };
 
 async function mockCatalog(page: Page) {
+  await page.route("**/media-storage/**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "image/svg+xml",
+      body: "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"320\" height=\"240\"><rect width=\"320\" height=\"240\" fill=\"#168e52\"/></svg>",
+    });
+  });
   await page.route("**/api/v1/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
     if (path === "/api/v1/auth/me") {
@@ -84,11 +123,19 @@ test("student browses the catalog, switches theme and opens sourced learning con
   await expect(page.locator(".hero__splat")).toHaveAttribute("aria-hidden", "true");
   await expect(page.getByText("Проверенный источник · GPL-3.0-only")).toBeVisible();
   await expect(page.getByRole("link", { name: /Добавить компонент/ })).toHaveCount(0);
+  await expect(page.getByRole("img", { name: "Основной вид DHT22" })).toBeVisible();
   await page.keyboard.press("Tab");
   await expect(page.locator(":focus")).toBeVisible();
   await page.getByRole("button", { name: "Тёмная тема" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.getByRole("link", { name: /Датчик температуры DHT22/ }).click();
+  const primaryThumbnail = page.getByRole("button", {
+    name: "Показать изображение 1: Основной вид DHT22",
+  });
+  await primaryThumbnail.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByRole("img", { name: "Разъёмы DHT22" })).toBeVisible();
+  await expect(page.getByText("Контакты датчика")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Источник материала" })).toBeVisible();
   const source = page.getByRole("link", { name: /Открыть источник/ });
   await expect(source).toHaveAttribute("target", "_blank");

@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQueries,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { type SyntheticEvent, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -10,6 +15,7 @@ import type {
   ComponentCard,
   ComponentDraftInput,
   ComponentMedia,
+  CatalogMedia,
   Difficulty,
   TechnicalSpecificationInput,
 } from "../api/contracts";
@@ -17,6 +23,7 @@ import { api, ApiError } from "../api/client";
 import { ErrorState, LoadingState } from "../components/AsyncStates";
 import { ComponentImagesEditor } from "../components/ComponentImagesEditor";
 import { LearningExample } from "../components/LearningExample";
+import { MediaGallery } from "../components/MediaGallery";
 import { SourceAttributionBlock } from "../components/SourceAttributionBlock";
 import {
   workspaceCategoriesQuery,
@@ -458,12 +465,53 @@ function EditorTextArea({ label, value, maxLength, required, onChange, rows = 4 
   return <label>{label}<textarea value={value} maxLength={maxLength} required={required} rows={rows} onChange={(event) => { onChange(event.target.value); }} /></label>;
 }
 
+function EditorMediaPreview({ images }: { images: ComponentMedia[] }) {
+  const ordered = [...images].sort(
+    (left, right) => left.display_order - right.display_order,
+  );
+  const statuses = useQueries({
+    queries: ordered.map((image) => ({
+      queryKey: ["media", "image", image.asset_id],
+      queryFn: () => api.getComponentImage(image.asset_id),
+      refetchInterval: image.status === "ready" || image.status === "rejected"
+        ? false
+        : 1500,
+    })),
+  });
+  const galleryItems: CatalogMedia[] = ordered.map((image, index) => {
+    const asset = statuses[index]?.data;
+    return {
+      asset_id: image.asset_id,
+      kind: image.kind,
+      purpose: image.purpose,
+      alt_text: image.alt_text,
+      caption: image.caption,
+      display_order: image.display_order,
+      is_primary: image.is_primary,
+      width: image.width,
+      height: image.height,
+      variants: asset?.status === "ready"
+        ? asset.variants.map((variant) => ({
+            name: variant.name,
+            mime: variant.mime,
+            width: variant.width,
+            height: variant.height,
+            sha256: variant.sha256,
+            url: variant.url,
+          }))
+        : [],
+    };
+  });
+  return galleryItems.length === 0 ? null : <MediaGallery items={galleryItems} />;
+}
+
 function ComponentPreview({ state, categories, status }: { state: EditorState; categories: Category[]; status: string }) {
   const category = categories.find((item) => item.id === state.primaryCategoryId);
   return <article className="component-preview">
     <div className="preview-meta"><span className={`status-badge status-badge--${status}`}>{status}</span><span>{category?.name ?? "Без категории"}</span><span>{state.difficulty}</span></div>
     <p className="eyebrow">Предпросмотр карточки</p><h1>{state.title || "Без названия"}</h1>
     <p className="preview-summary">{state.summary || "Аннотация ещё не заполнена."}</p>
+    <EditorMediaPreview images={state.images} />
     <div className="preview-body"><section><h2>Описание</h2><p>{state.description || "Описание ещё не заполнено."}</p></section>
       {state.purpose ? <section><h2>Назначение</h2><p>{state.purpose}</p></section> : null}
       {state.specifications.length > 0 ? <section><h2>Характеристики</h2><dl className="specification-list">{state.specifications.map((item) => <div key={item.key}><dt>{item.label}</dt><dd>{item.value_text}{item.unit ? ` ${item.unit}` : ""}</dd></div>)}</dl></section> : null}

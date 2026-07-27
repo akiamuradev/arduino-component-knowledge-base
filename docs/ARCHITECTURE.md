@@ -214,6 +214,12 @@ published snapshot. На publication backend копирует source/license dat
 3. Backend подтверждает фактический MinIO size, фиксирует durable job в PostgreSQL и после
    commit ставит её в Dramatiq. Если broker временно недоступен, тот же `complete` повторно
    возвращает job UUID и безопасно повторяет доставку.
+
+При student read media берётся только из последнего immutable published snapshot. Backend
+повторно сверяет asset status и каждый variant по name, MIME, dimensions и SHA-256 с текущей
+private storage metadata; только после этого создаётся короткий same-origin presigned GET.
+Несовпавший или исчезнувший variant пропускается, а API response с signed URLs имеет
+`Cache-Control: no-store`.
 4. Worker проверяет size, MIME/magic bytes, декодирует с resource limits, создаёт variants
    и сохраняет hashes/metadata в PostgreSQL; image pipeline не увеличивает originals.
    Video worker выполняет bounded `ffprobe`, локальный H.264/AAC transcode и WebP poster,

@@ -34,6 +34,9 @@ PostgreSQL, Redis и MinIO доступны только внутри deployment
 - Frontend route guard не считается security control; прямой API вызов получает тот же deny.
 - Frontend API base обязан быть same-origin path. `fetch` отправляет opaque cookies только в
   `/api/v1`; CSRF cookie читается лишь для формирования header mutation-запроса.
+- Frontend является client-only Vite SPA и не включает React Router RSC/server actions. Поэтому
+  dependency audit точечно допускает только `GHSA-qwww-vcr4-c8h2`; все остальные high/critical
+  findings остаются fail-closed.
 - Session token и role snapshot не сохраняются в `localStorage`/`sessionStorage`. Query cache
   очищается после logout, а защищённый route всегда зависит от backend `/auth/me`.
 - Editorial preview не использует `dangerouslySetInnerHTML`: до отдельного проверенного
@@ -60,6 +63,9 @@ PostgreSQL, Redis и MinIO доступны только внутри deployment
 - Browser media transfer использует только same-origin `/media-storage/...` с короткой MinIO
   signature. Reverse proxy сохраняет подписанный internal Host и query, не добавляет CORS и не
   делает bucket публичным; frontend отправляет signed PUT без cookies.
+- Student API выдаёт signed GET только для processed variant из immutable published snapshot
+  после повторной проверки MIME, dimensions и SHA-256. Ответ не кешируется, не содержит bucket,
+  object key или original URL; unsafe/expired URL во frontend закрывается локальным fallback.
 
 ## SSRF-защита parser
 

@@ -8,6 +8,7 @@
     "node": ">=22.12 <26"
   },
   "scripts": {
+    "audit": "node scripts/dependency-audit.mjs",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint . --max-warnings 0",

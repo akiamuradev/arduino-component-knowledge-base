@@ -9,8 +9,8 @@
 | 1. Аудит | done |
 | 2. Backend | done |
 | 3. Frontend editor | done |
-| 4. Preview и публичная карточка | next |
-| 5. Полная test matrix | planned |
+| 4. Preview и публичная карточка | done |
+| 5. Полная test matrix | next |
 
 Stage 2 реализован без замены media-архитектуры: Alembic revision `20260723_19`, ordered image
 aggregate, first-image-primary, атомарная mutation metadata/order/primary/detach с optimistic
@@ -23,6 +23,12 @@ thumbnail/status, purpose, alt, caption, primary, logical remove и доступ
 Изменения коллекции отправляются атомарно с последней component revision; конфликт не стирает
 локальную коллекцию. Presigned MinIO URL преобразуются в same-origin `/media-storage/...`, а
 reverse proxy передаёт только подписанный запрос в private MinIO с исходным signed Host.
+
+Stage 4 проецирует публичные processed variants только после повторной сверки со snapshot и
+добавляет short-lived same-origin URL с `Cache-Control: no-store`. Editor preview и student card
+используют одну primary-first gallery: responsive variants, caption/alt, thumbnails, кнопки и
+Arrow/Home/End navigation. Catalog tile выбирает только `is_primary`; unsafe или expired URL
+переходит в детерминированный fallback.
 
 ## Цель и ограничения
 
@@ -282,8 +288,21 @@ frontend lint/typecheck/test/build и Docker smoke.
 - local и production reverse proxy сохраняют private bucket, signed query и MinIO Host, не
   включая CORS или public policy.
 
-Следующая работа выполняется по Stage 4: primary-first preview и публичная клавиатурно доступная
-галерея из immutable published snapshot.
+## Проверка Stage 4
+
+- public response подписывает только processed variant, чьи name/MIME/size/hash совпадают с
+  immutable published snapshot;
+- bucket, object key и original URL отсутствуют в response, а изменившийся variant закрывается
+  без выдачи signed URL;
+- editor preview использует локальные primary/order/alt/caption и готовые безопасные variants;
+- student gallery начинает с primary, сохраняет snapshot order остальных изображений и
+  поддерживает thumbnail, previous/next, ArrowLeft/ArrowRight/Home/End;
+- caption рендерится через `figcaption`, alt — на крупном изображении, thumbnail декоративный;
+- catalog tile выбирает `is_primary`, а unsafe/expired URL заменяется fallback;
+- gallery не создаёт horizontal overflow на mobile и desktop layouts.
+
+Следующая работа выполняется по Stage 5: полная regression/test matrix, включая end-to-end
+publication flow с двумя реальными processed images.
 
 ## Не входит в изменение
 
