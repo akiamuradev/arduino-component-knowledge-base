@@ -79,8 +79,11 @@ npm test
 npm run build
 npm run smoke
 npm run test:e2e
-npm audit --audit-level=high
+npm run audit
 ```
+
+`npm run audit` блокирует любые high/critical findings, кроме явно проверенного advisory React
+Router для RSC/server actions: приложение является client-only Vite SPA и этот режим не включает.
 
 Visual screenshots обновляются только явно и используют browser route fixtures, отсутствующие в
 production bundle:

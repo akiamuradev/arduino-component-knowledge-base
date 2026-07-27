@@ -4,7 +4,12 @@ import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { Category, ComponentCard, User } from "../api/contracts";
+import type {
+  Category,
+  ComponentCard,
+  ComponentMedia,
+  User,
+} from "../api/contracts";
 import { currentUserQueryKey } from "../auth/queries";
 import { createQueryClient } from "../app/query-client";
 import { routes } from "../app/routes";
@@ -55,6 +60,41 @@ const card: ComponentCard = {
     libraries: [], explanation: "HIGH включает светодиод.", visibility: "student", position: 0,
   }],
 };
+
+const editorImages: ComponentMedia[] = [
+  {
+    asset_id: "10000000-0000-4000-8000-000000000001",
+    kind: "image",
+    purpose: "detail",
+    alt_text: "Разъёмы редактора",
+    caption: "Детальный вид",
+    display_order: 0,
+    is_primary: false,
+    status: "ready",
+    width: 800,
+    height: 600,
+    variants: [{
+      name: "320w", mime: "image/webp", width: 320, height: 240,
+      sha256: "1".repeat(64),
+    }],
+  },
+  {
+    asset_id: "10000000-0000-4000-8000-000000000002",
+    kind: "image",
+    purpose: "product",
+    alt_text: "Основной вид редактора",
+    caption: "Основной кадр",
+    display_order: 1,
+    is_primary: true,
+    status: "ready",
+    width: 1600,
+    height: 1200,
+    variants: [{
+      name: "320w", mime: "image/webp", width: 320, height: 240,
+      sha256: "2".repeat(64),
+    }],
+  },
+];
 
 function renderEditor(component: ComponentCard = card) {
   const queryClient = createQueryClient();
@@ -154,6 +194,39 @@ describe("component editor", () => {
     expect(screen.getByText("Частота")).toBeVisible();
     expect(screen.getByText("16 МГц")).toBeVisible();
     expect(screen.getByText("Arduino Uno", { selector: "strong" })).toBeVisible();
+  });
+
+  it("renders editor image state as a primary-first preview gallery", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>().mockImplementation((input) => {
+        const url = typeof input === "string"
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : input.url;
+        const image = editorImages.find((item) => url.includes(item.asset_id));
+        if (image === undefined) throw new Error(`Unexpected request: ${url}`);
+        return Promise.resolve(jsonResponse({
+          status: "ready",
+          variants: image.variants.map((variant) => ({
+            ...variant,
+            url: `/media-storage/${image.asset_id}/${variant.name}.webp?signed=1`,
+          })),
+        }));
+      }),
+    );
+    renderEditor({ ...card, media: editorImages });
+    await userEvent.click(screen.getByRole("button", { name: "Preview" }));
+
+    const gallery = await screen.findByRole("region", {
+      name: "Галерея изображений компонента",
+    });
+    expect(screen.getByRole("img", { name: "Основной вид редактора" })).toBeVisible();
+    expect(screen.getByText("Основной кадр")).toBeVisible();
+    expect(gallery).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Следующее изображение" }));
+    expect(screen.getByRole("img", { name: "Разъёмы редактора" })).toBeVisible();
   });
 
   it("keeps local edits and stops a blind overwrite on revision conflict", async () => {

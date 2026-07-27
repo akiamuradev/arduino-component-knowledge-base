@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 
-import type { CatalogComponent, Difficulty } from "../api/contracts";
+import type { CatalogComponent, CatalogMedia, Difficulty } from "../api/contracts";
 import { BrandSplat } from "./BrandSplat";
 
 const difficultyLabels: Record<Difficulty, string> = {
@@ -9,14 +10,20 @@ const difficultyLabels: Record<Difficulty, string> = {
   advanced: "Продвинутый",
 };
 
-function preferredImage(component: CatalogComponent): string | undefined {
-  const image = component.media?.find((item) => item.kind === "image");
-  const candidate = image?.thumbnailUrl ?? image?.processedUrl ?? image?.originalUrl;
-  if (candidate === undefined) return undefined;
+function preferredImage(
+  component: CatalogComponent,
+): { image: CatalogMedia; url: string } | undefined {
+  const image = component.media?.find(
+    (item) => item.kind === "image" && item.is_primary,
+  );
+  const candidate = image === undefined
+    ? undefined
+    : [...image.variants].sort((left, right) => left.width - right.width)[0]?.url;
+  if (image === undefined || candidate === undefined) return undefined;
   try {
     const parsed = new URL(candidate, window.location.origin);
     return parsed.protocol === "https:" || parsed.origin === window.location.origin
-      ? parsed.toString()
+      ? { image, url: parsed.toString() }
       : undefined;
   } catch {
     return undefined;
@@ -32,6 +39,8 @@ function specification(component: CatalogComponent, patterns: RegExp[]): string 
 
 export function ComponentCard({ component }: { component: CatalogComponent }) {
   const image = preferredImage(component);
+  const [failedUrl, setFailedUrl] = useState<string>();
+  const showImage = image !== undefined && image.url !== failedUrl;
   const voltage = specification(component, [/voltage/i, /напряж/i, /питан/i]);
   const componentInterface = specification(component, [/interface/i, /интерфейс/i, /protocol/i]);
   const sourceLabel = component.sources.length === 0
@@ -42,7 +51,7 @@ export function ComponentCard({ component }: { component: CatalogComponent }) {
   return (
     <Link className="catalog-card" to={`/components/${component.slug}`}>
       <div className="catalog-card__media">
-        {image === undefined ? <span className="catalog-card__fallback" role="img" aria-label={`Изображение для ${component.title} пока не добавлено`}><BrandSplat size="8.5rem" opacity={0.62} rotation={-6} variant="muted" /><b aria-hidden="true">{component.title.charAt(0).toUpperCase()}</b></span> : <img alt={component.media?.find((item) => item.kind === "image")?.alt ?? component.title} loading="lazy" src={image} />}
+        {!showImage ? <span className="catalog-card__fallback" role="img" aria-label={`Изображение для ${component.title} пока недоступно`}><BrandSplat size="8.5rem" opacity={0.62} rotation={-6} variant="muted" /><b aria-hidden="true">{component.title.charAt(0).toUpperCase()}</b></span> : <img alt={image.image.alt_text} loading="lazy" onError={() => { setFailedUrl(image.url); }} src={image.url} />}
         <span className="status-badge">{component.primary_category.name}</span>
       </div>
       <div className="catalog-card__body">

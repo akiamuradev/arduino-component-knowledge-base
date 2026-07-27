@@ -562,24 +562,21 @@ export interface ImportReviewActionResponse {
   status: ImportReviewStatus;
 }
 
-export interface MediaSource {
-  sourceName: string;
-  sourceUrl: string;
-  originalMediaUrl?: string;
-  originalAuthor?: string;
-  contentLicense?: string;
-  importedAt: string;
+export interface CatalogMedia {
+  asset_id: string;
+  kind: MediaKind;
+  purpose: string;
+  alt_text: string;
+  caption: string | null;
+  display_order: number;
+  is_primary: boolean;
+  width: number | null;
+  height: number | null;
+  variants: CatalogMediaVariant[];
 }
 
-export interface CatalogMedia {
-  id: string;
-  kind: "image" | "video";
-  alt: string;
-  thumbnailUrl?: string;
-  processedUrl?: string;
-  originalUrl?: string;
-  posterUrl?: string;
-  source?: MediaSource;
+export interface CatalogMediaVariant extends ComponentMediaVariant {
+  url: string;
 }
 
 export type DuplicateDecision = "merge" | "attach" | "create" | "reject";
