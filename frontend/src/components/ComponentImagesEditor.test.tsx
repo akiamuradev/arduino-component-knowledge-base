@@ -389,7 +389,9 @@ describe("component images editor", () => {
     expect(await screen.findByText("Обработка · 42%")).toBeVisible();
     expect(await screen.findByText("Ожидает обработки")).toBeVisible();
     expect(await screen.findByText("Отклонено")).toBeVisible();
-    expect(await screen.findByText("image_magic_invalid")).toBeVisible();
+    expect(
+      await screen.findByText("Содержимое файла не соответствует формату изображения."),
+    ).toBeVisible();
     expect(await screen.findByText("Состояние недоступно")).toBeVisible();
   });
 
@@ -452,7 +454,7 @@ describe("component images editor", () => {
       new File(["broken"], "broken.png", { type: "image/png" }),
     );
 
-    expect(await screen.findByText(/MinIO не принял файл/)).toBeVisible();
+    expect(await screen.findByText(/не удалось загрузить файл, попробуйте снова/i)).toBeVisible();
     expect(screen.getByRole("button", { name: "Добавить изображения" })).toBeEnabled();
   });
 

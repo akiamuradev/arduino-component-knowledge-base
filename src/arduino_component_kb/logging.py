@@ -17,6 +17,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 
 from arduino_component_kb.config import LogLevel
+from arduino_component_kb.errors import public_error_payload
 from arduino_component_kb.security import SECURITY_HEADERS
 
 REQUEST_ID_HEADER: Final = "X-Request-ID"
@@ -98,6 +99,7 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         request_id = normalize_request_id(request.headers.get(REQUEST_ID_HEADER))
+        request.state.request_id = request_id
         token: Token[str | None] = _request_id.set(request_id)
         started = perf_counter()
         response: Response | None = None
@@ -114,13 +116,11 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
             )
             response = JSONResponse(
                 status_code=500,
-                content={
-                    "error": {
-                        "code": "internal_error",
-                        "message": "Unexpected server error.",
-                        "request_id": request_id,
-                    }
-                },
+                content=public_error_payload(
+                    status_code=500,
+                    code="internal_error",
+                    request_id=request_id,
+                ),
                 headers={REQUEST_ID_HEADER: request_id, **SECURITY_HEADERS},
             )
             return response

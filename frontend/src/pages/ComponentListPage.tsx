@@ -19,7 +19,7 @@ export function ComponentListPage() {
   if (components.isError) {
     return (
       <ErrorState
-        message="Не удалось получить карточки с сервера."
+        message="Не удалось загрузить карточки. Попробуйте снова."
         onRetry={() => void components.refetch()}
       />
     );

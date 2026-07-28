@@ -38,7 +38,7 @@ function Snapshot({ source }: { source: SourceSnapshot }) {
         <div><dt>Версия источника</dt><dd><code>{revisionLabel(source)}</code></dd></div>
         {source.source_file_path === null ? null : <div><dt>Файл</dt><dd><code>{source.source_file_path}</code></dd></div>}
         {source.source_entry_name === null ? null : <div><dt>Запись</dt><dd>{source.source_entry_name}</dd></div>}
-        <div><dt>Обработчик</dt><dd>{source.parser_name} {source.parser_version}</dd></div>
+        <div><dt>Версия импорта</dt><dd>{source.parser_version}</dd></div>
         <div><dt>Импортировано</dt><dd>{formatDate(source.imported_at)}</dd></div>
       </dl>
       <p><strong>Сведения об авторстве:</strong> {source.attribution}</p>

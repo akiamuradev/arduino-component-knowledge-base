@@ -30,19 +30,84 @@ describe("apiRequest", () => {
     expect(new Headers(options?.headers).get("X-CSRF-Token")).toBe("csrf-value");
   });
 
-  it("preserves backend status and typed error code", async () => {
+  it("preserves the unified backend error contract", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn<typeof fetch>().mockResolvedValue(
-        new Response(JSON.stringify({ detail: { code: "permission_denied" } }), {
-          status: 403,
+        new Response(
+          JSON.stringify({
+            error: {
+              code: "permission_denied",
+              message: "Это действие недоступно для вашей роли.",
+              retryable: false,
+              request_id: "request-1",
+            },
+          }),
+          {
+            status: 403,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+      ),
+    );
+
+    await expect(apiRequest("/admin/users")).rejects.toEqual(
+      expect.objectContaining({
+        status: 403,
+        code: "permission_denied",
+        message: "Это действие недоступно для вашей роли.",
+        retryable: false,
+        requestId: "request-1",
+      }),
+    );
+  });
+
+  it("keeps compatibility with the previous typed detail during rollout", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>().mockResolvedValue(
+        new Response(JSON.stringify({ detail: { code: "revision_conflict" } }), {
+          status: 409,
           headers: { "Content-Type": "application/json" },
         }),
       ),
     );
 
-    await expect(apiRequest("/admin/users")).rejects.toEqual(
-      expect.objectContaining({ status: 403, code: "permission_denied" }),
+    await expect(apiRequest("/workspace/components/id")).rejects.toEqual(
+      expect.objectContaining({ status: 409, code: "revision_conflict" }),
+    );
+  });
+
+  it("turns a network failure into a retryable Russian error", async () => {
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockRejectedValue(new TypeError("Failed to fetch")));
+
+    await expect(apiRequest("/workspace/components")).rejects.toEqual(
+      expect.objectContaining({
+        status: 0,
+        code: "network_unavailable",
+        retryable: true,
+        message: "Нет связи с сервисом. Проверьте подключение и попробуйте снова.",
+      }),
+    );
+  });
+
+  it("does not expose a malformed non-JSON response", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>().mockResolvedValue(
+        new Response("<h1>PostgreSQL connection traceback</h1>", {
+          status: 500,
+          headers: { "Content-Type": "text/html" },
+        }),
+      ),
+    );
+
+    await expect(apiRequest("/workspace/components")).rejects.toEqual(
+      expect.objectContaining({
+        status: 500,
+        code: "request_failed",
+        message: "Не удалось выполнить запрос.",
+      }),
     );
   });
 

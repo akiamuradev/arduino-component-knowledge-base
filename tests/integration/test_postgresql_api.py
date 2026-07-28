@@ -130,7 +130,7 @@ def test_real_postgresql_login_rbac_csrf_and_logout(integration_settings: Settin
                 },
             )
             assert missing_csrf.status_code == 403
-            assert missing_csrf.json()["detail"]["code"] == "csrf_validation_failed"
+            assert missing_csrf.json()["error"]["code"] == "csrf_validation_failed"
 
             created = administrator.post(
                 "/api/v1/admin/users",
@@ -184,7 +184,7 @@ def test_real_postgresql_login_rbac_csrf_and_logout(integration_settings: Settin
                 },
             )
             assert forbidden.status_code == 403
-            assert forbidden.json()["detail"]["code"] == "permission_denied"
+            assert forbidden.json()["error"]["code"] == "permission_denied"
     finally:
         asyncio.run(remove_test_identities(integration_settings, created_ids))
 

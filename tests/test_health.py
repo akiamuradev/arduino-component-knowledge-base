@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from fastapi import FastAPI, Request
+import pytest
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.testclient import TestClient
 
 from arduino_component_kb.config import Settings
@@ -103,7 +104,9 @@ def test_interactive_docs_can_be_enabled_explicitly() -> None:
     assert response.status_code == 200
 
 
-def test_unhandled_error_is_typed_and_correlated_without_detail_leak() -> None:
+def test_unhandled_error_is_typed_and_correlated_without_detail_leak(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     app = create_app(settings(), FakeDatabase())
 
     @app.get("/test-error")
@@ -116,8 +119,86 @@ def test_unhandled_error_is_typed_and_correlated_without_detail_leak() -> None:
     assert response.json() == {
         "error": {
             "code": "internal_error",
-            "message": "Unexpected server error.",
+            "message": "Не удалось выполнить запрос. Попробуйте снова.",
+            "retryable": True,
             "request_id": "error-request-1",
         }
     }
     assert "sensitive failure detail" not in response.text
+    captured = capsys.readouterr().out
+    assert '"error_type":"RuntimeError"' in captured
+    assert "sensitive failure detail" not in captured
+
+
+def test_http_errors_use_one_safe_envelope_and_preserve_retry_headers() -> None:
+    app = create_app(settings(), FakeDatabase())
+
+    @app.get("/test-temporary-error")
+    async def test_temporary_error() -> None:
+        raise HTTPException(
+            status_code=503,
+            detail={"code": "media_enqueue_failed", "database": "must-not-leak"},
+            headers={"Retry-After": "3"},
+        )
+
+    with TestClient(app) as client:
+        response = client.get(
+            "/test-temporary-error",
+            headers={"X-Request-ID": "temporary-request-1"},
+        )
+
+    assert response.status_code == 503
+    assert response.headers["Retry-After"] == "3"
+    assert response.json() == {
+        "error": {
+            "code": "media_enqueue_failed",
+            "message": "Обработка файла временно недоступна. Попробуйте снова.",
+            "retryable": True,
+            "request_id": "temporary-request-1",
+        }
+    }
+    assert "database" not in response.text
+
+
+def test_validation_errors_hide_field_internals() -> None:
+    app = create_app(settings(), FakeDatabase())
+
+    @app.get("/test-validation")
+    async def test_validation(amount: int) -> dict[str, int]:
+        return {"amount": amount}
+
+    with TestClient(app) as client:
+        response = client.get(
+            "/test-validation",
+            params={"amount": "secret-invalid-value"},
+            headers={"X-Request-ID": "validation-request-1"},
+        )
+
+    assert response.status_code == 422
+    assert response.json() == {
+        "error": {
+            "code": "validation_failed",
+            "message": "Проверьте заполнение полей.",
+            "retryable": False,
+            "request_id": "validation-request-1",
+        }
+    }
+    assert "secret-invalid-value" not in response.text
+
+
+def test_framework_not_found_uses_the_same_error_envelope() -> None:
+    with TestClient(create_app(settings(), FakeDatabase())) as client:
+        response = client.get(
+            "/api/v1/does-not-exist",
+            headers={"X-Request-ID": "not-found-request-1"},
+        )
+
+    assert response.status_code == 404
+    assert response.json() == {
+        "error": {
+            "code": "not_found",
+            "message": "Запрашиваемые данные не найдены.",
+            "retryable": False,
+            "request_id": "not-found-request-1",
+        }
+    }

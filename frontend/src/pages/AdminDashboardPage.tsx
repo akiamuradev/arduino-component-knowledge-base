@@ -23,7 +23,7 @@ export function AdminDashboardPage() {
     return (
       <ErrorState
         title="Обзор недоступен"
-        message="Сервер не вернул список карточек."
+        message="Не удалось загрузить карточки. Попробуйте снова."
         onRetry={() => void components.refetch()}
       />
     );

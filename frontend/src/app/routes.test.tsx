@@ -217,10 +217,11 @@ describe("application routes", () => {
   it("renders durable jobs only for an administrator", async () => {
     renderRoute("/admin/jobs", administrator);
     expect(await screen.findByRole("heading", { name: "Диагностика обработки" })).toBeVisible();
-    expect(screen.getByText("process_media_video")).toBeVisible();
-    expect(screen.getByText("media_storage_failed")).toBeVisible();
+    expect(screen.getByText("Обработка видео")).toBeVisible();
+    expect(screen.getByText("Не удалось прочитать или сохранить файл.")).toBeVisible();
     expect(screen.getByText(/Grove-Button\.md/)).toBeVisible();
-    expect(screen.getByText("catalog_conflict")).toBeVisible();
+    expect(screen.getByText("Карточка конфликтует с уже сохранёнными данными.")).toBeVisible();
+    expect(screen.queryByText(/process_media_video|media_storage_failed|catalog_conflict/)).not.toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Повторить" })).toHaveLength(2);
   });
 

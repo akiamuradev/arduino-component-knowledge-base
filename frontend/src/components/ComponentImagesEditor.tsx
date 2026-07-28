@@ -13,6 +13,7 @@ import type {
   MediaAsset,
 } from "../api/contracts";
 import { api, ApiError, uploadReservedFile } from "../api/client";
+import { processingFailureMessage, userErrorMessage } from "../api/errors";
 
 const MAX_COMPONENT_IMAGES = 12;
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
@@ -146,25 +147,25 @@ function ImageThumbnail({
       </span>
       {status.data?.failure_code === null || status.data?.failure_code === undefined
         ? null
-        : <small className="image-editor-card__error">{status.data.failure_code}</small>}
+        : <small className="image-editor-card__error">{processingFailureMessage(status.data.failure_code)}</small>}
     </div>
   );
 }
 
 function errorLabel(error: unknown): string {
-  if (!(error instanceof ApiError)) return "непредвиденная ошибка";
+  if (!(error instanceof ApiError)) return "не удалось выполнить действие";
   const labels: Record<string, string> = {
-    csrf_token_missing: "сессия не содержит CSRF-токен",
+    csrf_token_missing: "сессия устарела, обновите страницу",
     image_declared_mime_not_allowed: "неподдерживаемый формат изображения",
     media_component_count_exceeded: "достигнут лимит изображений",
     media_component_size_exceeded: "достигнут лимит размера медиа",
     media_pending_quota_exceeded: "слишком много незавершённых загрузок",
-    media_upload_failed: "MinIO не принял файл",
-    media_enqueue_failed: "обработчик изображений временно недоступен",
+    media_upload_failed: "не удалось загрузить файл, попробуйте снова",
+    media_enqueue_failed: "обработка изображений временно недоступна",
     media_not_found: "изображение больше недоступно",
     component_image_metadata_invalid: "проверьте назначение, альтернативный текст и подпись",
   };
-  return labels[error.code] ?? error.code;
+  return labels[error.code] ?? userErrorMessage(error).toLocaleLowerCase("ru-RU");
 }
 
 export function ComponentImagesEditor({
@@ -224,7 +225,7 @@ export function ComponentImagesEditor({
             declared_size_bytes: file.size,
           });
           if (reservation.component_revision === null) {
-            throw new Error("Сервер не вернул версию карточки");
+            throw new Error("Не удалось подтвердить актуальную версию карточки");
           }
           if (typeof URL.createObjectURL === "function") {
             const preview = URL.createObjectURL(file);

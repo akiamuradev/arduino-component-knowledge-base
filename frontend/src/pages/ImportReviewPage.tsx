@@ -58,7 +58,7 @@ function Evidence({ values }: { values: Record<string, unknown>[] }) {
         <li key={`${text(item.section, "source")}-${String(index)}`}>
           <strong>{text(item.section, "Источник")}</strong>
           <span>{text(item.locator ?? item.source_path ?? item.source)}</span>
-          <small>{text(item.parser_version, "Версия обработчика не указана")}</small>
+          <small>{text(item.parser_version, "Версия импорта не указана")}</small>
         </li>
       ))}
     </ul>
@@ -388,8 +388,8 @@ function ReviewWorkspace({ workspace }: { workspace: ImportReviewWorkspace }) {
       </section>
 
       <section className="review-section parser-issue-form">
-        <h3>Пометить проблему обработчика</h3>
-        <label>Код<input maxLength={80} value={issueCode} onChange={(event) => { setIssueCode(event.target.value); }} /></label>
+        <h3>Пометить проблему распознавания</h3>
+        <label>Категория<input maxLength={80} value={issueCode} onChange={(event) => { setIssueCode(event.target.value); }} /></label>
         <label>Описание<textarea maxLength={1000} rows={3} value={issueNote} onChange={(event) => { setIssueNote(event.target.value); }} /></label>
         <button
           className="button button--quiet"
@@ -403,10 +403,10 @@ function ReviewWorkspace({ workspace }: { workspace: ImportReviewWorkspace }) {
             });
           }}
         >
-          Сохранить проблему обработчика
+          Сохранить проблему распознавания
         </button>
         {workspace.parser_issues.map((item) => (
-          <p key={text(item.code)}><code>{text(item.code)}</code> · {text(item.note)}</p>
+          <p key={text(item.code)}>{text(item.note)}</p>
         ))}
       </section>
 
@@ -473,7 +473,7 @@ export function ImportReviewPage() {
   }
   if (listQuery.isPending) return <LoadingState label="Загружаем очередь проверки…" />;
   if (listQuery.isError) {
-    return <ErrorState title="Очередь проверки импорта недоступна" message="Сервер не вернул черновики для проверки." onRetry={() => { void listQuery.refetch(); }} />;
+    return <ErrorState title="Список проверки импорта недоступен" message="Не удалось загрузить черновики для проверки. Попробуйте снова." onRetry={() => { void listQuery.refetch(); }} />;
   }
   return (
     <section className="import-review-page">

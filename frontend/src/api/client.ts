@@ -60,6 +60,8 @@ export class ApiError extends Error {
     public readonly code: string,
     public readonly details?: Readonly<Record<string, unknown>>,
     message = "Запрос к серверу не выполнен",
+    public readonly retryable = false,
+    public readonly requestId?: string,
   ) {
     super(message);
     this.name = "ApiError";
@@ -98,17 +100,38 @@ function errorCode(body: unknown): string {
     return "request_failed";
   }
   const candidate = body as ApiErrorBody;
-  return typeof candidate.detail?.code === "string"
-    ? candidate.detail.code
-    : "request_failed";
+  if (typeof candidate.error?.code === "string") return candidate.error.code;
+  if (typeof candidate.detail?.code === "string") return candidate.detail.code;
+  return "request_failed";
 }
 
 function errorDetails(body: unknown): Readonly<Record<string, unknown>> | undefined {
   if (typeof body !== "object" || body === null) {
     return undefined;
   }
-  const detail = (body as ApiErrorBody).detail;
-  return detail;
+  return (body as ApiErrorBody).detail;
+}
+
+function errorMessage(body: unknown): string {
+  if (typeof body !== "object" || body === null) {
+    return "Не удалось выполнить запрос.";
+  }
+  const message = (body as ApiErrorBody).error?.message;
+  return typeof message === "string" && message.trim().length > 0 && message.length <= 300
+    ? message
+    : "Не удалось выполнить запрос.";
+}
+
+function errorRetryable(body: unknown): boolean {
+  return typeof body === "object"
+    && body !== null
+    && (body as ApiErrorBody).error?.retryable === true;
+}
+
+function errorRequestId(body: unknown): string | undefined {
+  if (typeof body !== "object" || body === null) return undefined;
+  const requestId = (body as ApiErrorBody).error?.request_id;
+  return typeof requestId === "string" && requestId.length <= 128 ? requestId : undefined;
 }
 
 interface RequestOptions extends RequestInit {
@@ -124,19 +147,47 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   if (options.csrf === true) {
     const csrf = readCookie(CSRF_COOKIE);
     if (csrf === undefined) {
-      throw new ApiError(403, "csrf_token_missing", undefined, "CSRF token is missing");
+      throw new ApiError(
+        403,
+        "csrf_token_missing",
+        undefined,
+        "Сессия устарела. Обновите страницу и повторите действие.",
+      );
     }
     headers.set("X-CSRF-Token", csrf);
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers,
-    credentials: "include",
-  });
-  const body = await responseBody(response);
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers,
+      credentials: "include",
+    });
+  } catch {
+    throw new ApiError(
+      0,
+      "network_unavailable",
+      undefined,
+      "Нет связи с сервисом. Проверьте подключение и попробуйте снова.",
+      true,
+    );
+  }
+  let body: unknown;
+  try {
+    body = await responseBody(response);
+  } catch {
+    body = undefined;
+  }
   if (!response.ok) {
-    throw new ApiError(response.status, errorCode(body), errorDetails(body));
+    throw new ApiError(
+      response.status,
+      errorCode(body),
+      errorDetails(body),
+      errorMessage(body),
+      errorRetryable(body),
+      errorRequestId(body),
+    );
   }
   return body as T;
 }
@@ -145,14 +196,31 @@ export async function uploadReservedFile(
   reservation: UploadReservation,
   file: File,
 ): Promise<void> {
-  const response = await fetch(reservation.upload_url, {
-    method: "PUT",
-    headers: reservation.upload_headers,
-    body: file,
-    credentials: "omit",
-  });
+  let response: Response;
+  try {
+    response = await fetch(reservation.upload_url, {
+      method: "PUT",
+      headers: reservation.upload_headers,
+      body: file,
+      credentials: "omit",
+    });
+  } catch {
+    throw new ApiError(
+      0,
+      "network_unavailable",
+      undefined,
+      "Нет связи с сервисом. Проверьте подключение и попробуйте снова.",
+      true,
+    );
+  }
   if (!response.ok) {
-    throw new ApiError(response.status, "media_upload_failed");
+    throw new ApiError(
+      response.status,
+      "media_upload_failed",
+      undefined,
+      "Не удалось загрузить файл. Попробуйте снова.",
+      response.status >= 500,
+    );
   }
 }
 

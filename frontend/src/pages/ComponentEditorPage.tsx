@@ -22,6 +22,7 @@ import type {
   TechnicalSpecificationInput,
 } from "../api/contracts";
 import { api, ApiError } from "../api/client";
+import { userErrorMessage } from "../api/errors";
 import { hasPermission } from "../auth/permissions";
 import { useCurrentUser } from "../auth/queries";
 import { ErrorState, LoadingState } from "../components/AsyncStates";
@@ -212,7 +213,7 @@ export function ComponentEditorPage({ mode }: { mode: EditorMode }) {
     return <LoadingState label="Открываем редактор…" />;
   }
   if (categories.isError) {
-    return <ErrorState message="Сервер не вернул категории для редактора." onRetry={() => void categories.refetch()} />;
+    return <ErrorState message="Не удалось загрузить категории. Попробуйте снова." onRetry={() => void categories.refetch()} />;
   }
   if (categories.data.length === 0) {
     return <ErrorState message="Нельзя создать карточку без категории." />;
@@ -411,7 +412,7 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
           {reloadServer === undefined ? null : <button className="button button--quiet" type="button" onClick={() => { void reload(); }}>Загрузить версию с сервера</button>}
         </div>
       )}
-      {otherError === undefined ? null : <div className="inline-error" role="alert">Операция не выполнена: {backendValidation ?? (otherError instanceof ApiError ? otherError.code : "ошибка сервера")}. Изменения остаются в редакторе.</div>}
+      {otherError === undefined ? null : <div className="inline-error" role="alert">Операция не выполнена: {backendValidation ?? userErrorMessage(otherError).toLocaleLowerCase("ru-RU")} Изменения остаются в редакторе.</div>}
       {hasUnknownLicense ? <div className="license-warning" role="alert"><strong>Лицензия источника не подтверждена</strong><span>Условия использования материала не определены. Перед публикацией проверьте правила исходного ресурса.</span></div> : null}
       {workingCard === undefined || workingCard.sources.length === 0 ? null : <SourceAttributionBlock sources={workingCard.sources} />}
 
