@@ -336,9 +336,9 @@ def test_direct_api_denies_every_role_missing_a_route_permission() -> None:
                     headers={CSRF_HEADER: "csrf-value"},
                     json={} if method in {"POST", "PUT", "PATCH", "DELETE"} else None,
                 )
-                if response.status_code != 403 or response.json() != {
-                    "detail": {"code": "permission_denied"}
-                }:
+                if response.status_code != 403 or response.json()["error"]["code"] != (
+                    "permission_denied"
+                ):
                     failures.append(f"{role.value} {method} {path}: {response.status_code}")
     app.dependency_overrides.clear()
     assert checked_roles == {Role.STUDENT, Role.TEACHER, Role.EDITOR}
@@ -351,7 +351,12 @@ def test_administrator_mutation_still_requires_csrf_at_direct_api_boundary() -> 
     with TestClient(app) as client:
         response = client.post(f"/api/v1/admin/jobs/{uuid4()}/retry")
     assert response.status_code == 403
-    assert response.json() == {"detail": {"code": "csrf_validation_failed"}}
+    assert response.json()["error"] == {
+        "code": "csrf_validation_failed",
+        "message": "Сессия устарела. Обновите страницу и повторите действие.",
+        "retryable": False,
+        "request_id": response.headers["X-Request-ID"],
+    }
 
 
 def test_security_headers_are_present_without_permissive_cors() -> None:
@@ -389,7 +394,12 @@ def test_same_origin_request_is_allowed_and_cross_origin_preflight_is_denied() -
         )
     assert allowed.status_code == 200
     assert denied.status_code == 403
-    assert denied.json() == {"detail": {"code": "cross_origin_forbidden"}}
+    assert denied.json()["error"] == {
+        "code": "cross_origin_forbidden",
+        "message": "Запрос с этой страницы недоступен.",
+        "retryable": False,
+        "request_id": denied.headers["X-Request-ID"],
+    }
     assert len(denied.headers["X-Request-ID"]) == 36
     assert "access-control-allow-origin" not in denied.headers
 

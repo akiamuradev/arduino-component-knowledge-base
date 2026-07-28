@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
+import { processingFailureMessage, userErrorMessage } from "../api/errors";
 import type { JobStatus } from "../api/contracts";
 import { ErrorState, LoadingState } from "../components/AsyncStates";
 import { SplatEmptyState } from "../components/SplatEmptyState";
@@ -21,6 +22,23 @@ const statuses: { value: JobStatus | "all"; label: string }[] = [
   { value: "succeeded", label: "Завершены" },
 ];
 
+const phaseLabels: Readonly<Record<string, string>> = {
+  queued: "Ожидает запуска",
+  starting: "Запускается",
+  downloading: "Получение файла",
+  probing: "Проверка файла",
+  transcoding: "Подготовка версии для просмотра",
+  poster: "Подготовка обложки",
+  uploading: "Сохранение результата",
+  retrying: "Ожидает повторной попытки",
+  completed: "Готово",
+  failed: "Обработка остановлена",
+};
+
+function mediaTitle(kind: "image" | "video"): string {
+  return kind === "video" ? "Обработка видео" : "Обработка изображения";
+}
+
 export function AdminJobsPage() {
   const [status, setStatus] = useState<JobStatus | "all">("all");
   const jobs = useAdminJobs(status === "all" ? undefined : status);
@@ -35,7 +53,10 @@ export function AdminJobsPage() {
     return (
       <ErrorState
         title="Монитор задач недоступен"
-        message="Сервер не вернул сохранённое состояние фоновых задач."
+        message={userErrorMessage(
+          jobs.error ?? importJobs.error,
+          "Не удалось загрузить состояние обработки. Попробуйте снова.",
+        )}
         onRetry={() => {
           void Promise.all([jobs.refetch(), importJobs.refetch()]);
         }}
@@ -65,29 +86,29 @@ export function AdminJobsPage() {
         </label>
       </div>
       <p className="lede">
-        PostgreSQL является источником состояния. Список обновляется каждые пять секунд;
-        очистка Redis не меняет результат уже сохранённой задачи.
+        Здесь показано сохранённое состояние импорта и обработки файлов. Список обновляется
+        автоматически каждые пять секунд.
       </p>
-      {retry.isError ? <p className="form-error" role="alert">Не удалось поставить задачу повторно.</p> : null}
-      {retryImport.isError ? <p className="form-error" role="alert">Не удалось повторить импорт.</p> : null}
+      {retry.isError ? <p className="form-error" role="alert">{userErrorMessage(retry.error, "Не удалось повторить обработку файла. Попробуйте снова.")}</p> : null}
+      {retryImport.isError ? <p className="form-error" role="alert">{userErrorMessage(retryImport.error, "Не удалось повторить импорт. Попробуйте снова.")}</p> : null}
       <div className="section-heading"><div><p className="section-kicker">Задачи импорта</p><h3>Импорт карточек</h3></div><span>{importJobs.data.total}</span></div>
       {importJobs.data.items.length === 0 ? (
-        <p className="muted">Задач импорта для выбранного статуса нет.</p>
+        <SplatEmptyState icon="✓" title="Импортов пока нет" description="Для выбранного состояния нет сохранённых загрузок." />
       ) : (
         <div className="job-table" aria-label="Задачи импорта">
           {importJobs.data.items.map((job) => (
             <article className="job-row" key={job.id}>
               <div>
                 <strong>{job.source_entry_name ?? job.source_file_path ?? "Импорт из репозитория"}</strong>
-                <small>импорт · очередь: imports · {job.id.slice(0, 8)}</small>
+                <small>Импорт компонента · {job.id.slice(0, 8)}</small>
               </div>
               <span className={`status-badge status-badge--${job.status}`}>{JOB_STATUS_LABELS[job.status]}</span>
               <div className="job-progress">
                 <span>{job.repository_url ?? "Репозиторий не указан"}</span>
                 {job.draft_component_id === null ? null : <Link to={`/admin/components/${job.draft_component_id}/edit`}>Открыть черновик</Link>}
               </div>
-              <span>{job.attempts}/{job.max_attempts}</span>
-              <span className="job-error">{job.error_code ?? "—"}</span>
+              <span>Попытка {job.attempts} из {job.max_attempts}</span>
+              <span className="job-error">{processingFailureMessage(job.error_code)}</span>
               {job.retryable ? (
                 <button
                   className="button button--quiet"
@@ -108,22 +129,22 @@ export function AdminJobsPage() {
       {jobs.data.items.length === 0 && importJobs.data.items.length === 0 ? (
         <SplatEmptyState icon="↻" title="Задач пока нет" description="Для выбранного статуса фоновые задачи отсутствуют." />
       ) : jobs.data.items.length === 0 ? (
-        <p className="muted">Задач обработки медиа для выбранного статуса нет.</p>
+        <SplatEmptyState icon="✓" title="Файлов в обработке нет" description="Для выбранного состояния задачи обработки файлов отсутствуют." />
       ) : (
         <div className="job-table" aria-label="Диагностика фоновых задач">
           {jobs.data.items.map((job) => (
             <article className="job-row" key={job.id}>
               <div>
-                <strong>{job.task_name}</strong>
-                <small>тип: {job.kind} · очередь: {job.queue_name} · {job.id.slice(0, 8)}</small>
+                <strong>{mediaTitle(job.kind)}</strong>
+                <small>{job.kind === "video" ? "Видео" : "Изображение"} · {job.id.slice(0, 8)}</small>
               </div>
               <span className={`status-badge status-badge--${job.status}`}>{JOB_STATUS_LABELS[job.status]}</span>
               <div className="job-progress">
-                <span>этап: {job.phase} · {job.progress_percent}%</span>
+                <span>{phaseLabels[job.phase] ?? "Обработка"} · {job.progress_percent}%</span>
                 <progress max={100} value={job.progress_percent}>{job.progress_percent}%</progress>
               </div>
-              <span>{job.attempts}/{job.max_attempts}</span>
-              <span className="job-error">{job.error_code ?? "—"}</span>
+              <span>Попытка {job.attempts} из {job.max_attempts}</span>
+              <span className="job-error">{processingFailureMessage(job.error_code)}</span>
               {job.status === "failed" ? (
                 <button
                   className="button button--quiet"

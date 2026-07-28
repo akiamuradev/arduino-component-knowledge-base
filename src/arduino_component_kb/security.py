@@ -8,6 +8,8 @@ from starlette.datastructures import Headers, MutableHeaders
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from arduino_component_kb.errors import public_error_payload
+
 CONTENT_SECURITY_POLICY = (
     "default-src 'self'; "
     "base-uri 'none'; "
@@ -82,8 +84,14 @@ class BrowserSecurityMiddleware:
         scheme = request_headers.get("x-forwarded-proto", scope.get("scheme", "http"))
         host = request_headers.get("host", "")
         if origin is not None and not is_same_origin(origin, scheme, host):
+            state = scope.get("state", {})
+            request_id = state.get("request_id") if isinstance(state, dict) else None
             response = JSONResponse(
-                {"detail": {"code": "cross_origin_forbidden"}},
+                public_error_payload(
+                    status_code=403,
+                    code="cross_origin_forbidden",
+                    request_id=request_id if isinstance(request_id, str) else None,
+                ),
                 status_code=403,
                 headers=SECURITY_HEADERS,
             )

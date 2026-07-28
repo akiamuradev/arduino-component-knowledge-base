@@ -288,14 +288,18 @@ worker. Durable imports still execute only in the parser worker; media workers h
 
 ## Logging, audit и privacy
 
-Structured logs содержат request/job ID, typed error code и bounded labels. Запрещено
+Structured logs содержат request/job ID, typed error code, класс исключения и bounded labels. Запрещено
 логировать passwords, tokens, cookies, presigned URLs, full remote response, raw upload,
 teacher notes или URL query values. Ошибка не скрывается: клиент получает безопасный code,
-оператор — correlation ID, audit — outcome.
+русское сообщение и признак безопасного повтора, оператор — correlation ID, audit — outcome.
+Любая HTTP-ошибка, включая validation, CSRF, same-origin и необработанное исключение, использует
+единый envelope `error.code/message/retryable/request_id`; произвольный `detail` наружу не
+передаётся.
 
 Editor polling для failed import заменяет внутренний `error_code` на
 `import_processing_failed` и очищает metrics/heartbeat. Исходный typed code и bounded metrics
-доступны только administrator diagnostics с `system.diagnostics`.
+сохраняются в защищённом журнале. Административный интерфейс показывает только безопасное
+описание и допустимое действие.
 
 Audit обязателен для login failures, role/source policy changes, import, upload rejection,
 publication, archive, duplicate decision, merge и administrative export. Audit append-only,
@@ -314,11 +318,12 @@ Bootstrap первого administrator интерактивен, не прини
 - Bounded exponential backoff только для transient errors; dead-letter/failed jobs видимы admin.
 - PostgreSQL остаётся durable job truth, поэтому очистка Redis не превращает failed job в
   success и не отменяет audit.
-- Общий monitor и media retry доступны только administrator. Editor может повторить только
+- Общий monitor и повторная обработка доступны только administrator. Editor может повторить только
   собственный import job; чужой UUID возвращает `404`. Любой retry повторно проходит backend
   RBAC, mutation требует CSRF и audit. UI guard не заменяет эти проверки.
 - Stable idempotency key, row lock и heartbeat lease ограничивают duplicate delivery. Monitor
-  отдаёт typed error codes и coarse progress, но не raw exception, object URL или credentials.
+  отдаёт безопасное описание и укрупнённый progress, но не typed error code, raw exception,
+  object URL или credentials.
 - MinIO capacity, PostgreSQL storage, queue depth, failures и certificate expiry мониторятся.
 - Backup охватывает PostgreSQL и versioned MinIO consistently; restore drill обязателен.
 

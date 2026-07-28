@@ -4,6 +4,7 @@ import { type SyntheticEvent, useState } from "react";
 import type { ManagedUser } from "../api/contracts";
 import { api, ApiError } from "../api/client";
 import { ErrorState, LoadingState } from "../components/AsyncStates";
+import { SplatEmptyState } from "../components/SplatEmptyState";
 
 const managedUsersQueryKey = ["administration", "users"] as const;
 
@@ -161,7 +162,7 @@ export function UserManagementPage() {
     return (
       <ErrorState
         title="Пользователи недоступны"
-        message="Сервер не вернул список учётных записей."
+        message="Не удалось загрузить учётные записи. Попробуйте снова."
         onRetry={() => void users.refetch()}
       />
     );
@@ -242,6 +243,13 @@ export function UserManagementPage() {
       </form>
 
       <div className="managed-users" aria-label="Список пользователей">
+        {users.data.items.length === 0 ? (
+          <SplatEmptyState
+            icon="◇"
+            title="Учётных записей пока нет"
+            description="Создайте временного редактора с помощью формы выше."
+          />
+        ) : null}
         {users.data.items.map((managedUser) => {
           const isAdministrator = managedUser.roles.includes("administrator");
           const isEditor = managedUser.roles.includes("editor");

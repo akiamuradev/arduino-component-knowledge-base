@@ -147,7 +147,7 @@ export function DuplicateReviewPage() {
   const detail = useDuplicateCandidate(candidateId);
   const query = candidateId === undefined ? list : detail;
   if (query.isPending) return <LoadingState label="Загружаем кандидатов…" />;
-  if (query.isError) return <ErrorState title="Проверка дубликатов недоступна" message="Сервер не вернул подтверждённые данные." onRetry={() => { void query.refetch(); }} />;
+  if (query.isError) return <ErrorState title="Проверка дубликатов недоступна" message="Не удалось загрузить данные для проверки. Попробуйте снова." onRetry={() => { void query.refetch(); }} />;
   if (candidateId !== undefined && detail.data !== undefined) return <ReviewPanel candidate={detail.data} />;
   if (list.data === undefined) return null;
   return (

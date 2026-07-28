@@ -33,6 +33,14 @@ const forbiddenUserCopy = [
   "Parser version",
   "Revision policy",
   ">Preview<",
+  "Сервер не вернул",
+  "ошибка сервера",
+  "PostgreSQL",
+  "Redis",
+  "Dramatiq",
+  "MinIO",
+  "request_failed",
+  "Версия обработчика",
 ] as const;
 
 describe("Russian user interface copy contract", () => {

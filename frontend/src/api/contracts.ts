@@ -252,6 +252,13 @@ export interface JobMutationResponse {
 }
 
 export interface ApiErrorBody {
+  error?: {
+    code?: string;
+    message?: string;
+    retryable?: boolean;
+    request_id?: string | null;
+  };
+  /** Temporary compatibility with servers deployed before the unified error envelope. */
   detail?: {
     code?: string;
     [key: string]: unknown;

@@ -7,6 +7,8 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException
 
 from arduino_component_kb.api.admin import router as admin_router
 from arduino_component_kb.api.auth import router as auth_router
@@ -22,6 +24,7 @@ from arduino_component_kb.api.media import router as media_router
 from arduino_component_kb.auth.passwords import PasswordManager
 from arduino_component_kb.config import Settings
 from arduino_component_kb.db import Database, DatabaseGateway
+from arduino_component_kb.errors import http_exception_handler, validation_exception_handler
 from arduino_component_kb.imports.queue import DramatiqImportQueue, ImportQueue
 from arduino_component_kb.logging import RequestContextMiddleware, configure_logging
 from arduino_component_kb.media.queue import DramatiqMediaQueue
@@ -70,6 +73,8 @@ def create_app(
     app.state.media_storage = resolved_media_storage
     app.state.media_queue = resolved_media_queue
     app.state.import_queue = resolved_import_queue
+    app.add_exception_handler(HTTPException, http_exception_handler)
+    app.add_exception_handler(RequestValidationError, validation_exception_handler)
     app.add_middleware(BrowserSecurityMiddleware)
     app.add_middleware(RequestContextMiddleware)
     app.include_router(health_router)
