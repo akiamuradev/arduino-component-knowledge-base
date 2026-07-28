@@ -135,6 +135,11 @@ async function mockLoggedOut(page: Page) {
   });
 }
 
+async function selectTheme(page: Page, label: "Светлое" | "Тёмное" | "Как на устройстве") {
+  await page.getByRole("button", { name: /^Оформление:/ }).click();
+  await page.getByRole("menuitemradio", { name: label }).click();
+}
+
 test("student browses the catalog, switches theme and opens sourced learning content", async ({ page }) => {
   const consoleErrors: string[] = [];
   page.on("console", (message) => {
@@ -149,13 +154,17 @@ test("student browses the catalog, switches theme and opens sourced learning con
   await expect(page.locator(".account__copy small")).toHaveText("Ученик");
   await expect(page.getByRole("navigation", { name: "Основная навигация" }).getByRole("link"))
     .toHaveText(["Каталог"]);
+  const themeTrigger = page.getByRole("button", { name: /^Оформление:/ });
+  await expect(themeTrigger).toHaveAttribute("title", "Настроить оформление");
+  await expect(themeTrigger).toHaveCSS("height", "44px");
+  await expect(themeTrigger).toHaveCSS("width", "44px");
   await expect(page.locator(".hero__splat")).toHaveAttribute("aria-hidden", "true");
   await expect(page.getByText("Проверенный источник · GPL-3.0-only")).toBeVisible();
   await expect(page.getByRole("link", { name: /Добавить компонент/ })).toHaveCount(0);
   await expect(page.getByRole("img", { name: "Основной вид DHT22" })).toBeVisible();
   await page.keyboard.press("Tab");
   await expect(page.locator(":focus")).toBeVisible();
-  await page.getByRole("button", { name: "Тёмная тема" }).click();
+  await selectTheme(page, "Тёмное");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.getByRole("link", { name: /Датчик температуры DHT22/ }).click();
   const primaryThumbnail = page.getByRole("button", {
@@ -216,10 +225,14 @@ test("editor navigation remains usable at 320px and hides administrator tools", 
   await expect(page.getByRole("heading", { name: "Администрирование" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Пользователи" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Диагностика" })).toHaveCount(0);
+  await page.getByRole("button", { name: /^Оформление:/ }).click();
+  await expect(page.getByRole("menu", { name: "Выбор оформления" })).toBeVisible();
   const overflows = await page.evaluate(
     () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
   );
   expect(overflows).toBe(false);
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menu", { name: "Выбор оформления" })).toHaveCount(0);
 });
 
 test("captures approved responsive theme views", async ({ page }) => {
@@ -227,10 +240,10 @@ test("captures approved responsive theme views", async ({ page }) => {
   await mockCatalog(page);
   await page.setViewportSize({ width: 1440, height: 1050 });
   await page.goto("/");
-  await page.getByRole("button", { name: "Светлая тема" }).click();
+  await selectTheme(page, "Светлое");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await page.screenshot({ fullPage: true, path: "../docs/screenshots/frontend-light-desktop.png" });
-  await page.getByRole("button", { name: "Тёмная тема" }).click();
+  await selectTheme(page, "Тёмное");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
@@ -241,10 +254,10 @@ test("captures approved responsive theme views", async ({ page }) => {
   await mockLoggedOut(page);
   await page.setViewportSize({ width: 360, height: 800 });
   await page.goto("/login");
-  await page.getByRole("button", { name: "Светлая тема" }).click();
+  await selectTheme(page, "Светлое");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await page.screenshot({ fullPage: true, path: "../docs/screenshots/frontend-light-mobile.png" });
-  await page.getByRole("button", { name: "Тёмная тема" }).click();
+  await selectTheme(page, "Тёмное");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
