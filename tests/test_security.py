@@ -103,6 +103,7 @@ def _permission_set(dependant: Dependant) -> frozenset[Permission] | None:
 
 
 ROUTE_PERMISSIONS: dict[tuple[str, str], frozenset[Permission]] = {
+    ("GET", "/api/v1/admin/audit-events"): frozenset({Permission.AUDIT_VIEW}),
     ("GET", "/api/v1/admin/users"): frozenset({Permission.USERS_VIEW}),
     ("POST", "/api/v1/admin/users/editors"): frozenset(
         {Permission.USERS_MANAGE, Permission.ROLES_ASSIGN}

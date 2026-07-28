@@ -1,5 +1,7 @@
 import type {
   ApiErrorBody,
+  AuditEventFilters,
+  AuditEventListResponse,
   BackgroundJobListResponse,
   CatalogSource,
   CatalogComponent,
@@ -241,6 +243,19 @@ export const api = {
     }),
   listUsers: (): Promise<ManagedUserListResponse> =>
     apiRequest<ManagedUserListResponse>("/admin/users"),
+  listAuditEvents: (filters: AuditEventFilters = {}): Promise<AuditEventListResponse> => {
+    const search = new URLSearchParams();
+    if (filters.userId !== undefined) search.set("user_id", filters.userId);
+    if (filters.action !== undefined) search.set("action", filters.action);
+    if (filters.occurredFrom !== undefined) {
+      search.set("occurred_from", filters.occurredFrom);
+    }
+    if (filters.occurredTo !== undefined) search.set("occurred_to", filters.occurredTo);
+    if (filters.limit !== undefined) search.set("limit", String(filters.limit));
+    if (filters.offset !== undefined) search.set("offset", String(filters.offset));
+    const query = search.size === 0 ? "" : `?${search.toString()}`;
+    return apiRequest<AuditEventListResponse>(`/admin/audit-events${query}`);
+  },
   createEditor: (input: CreateEditorInput): Promise<User> =>
     apiRequest<User>("/admin/users/editors", {
       method: "POST",

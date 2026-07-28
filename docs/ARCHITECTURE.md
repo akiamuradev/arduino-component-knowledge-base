@@ -54,6 +54,7 @@ Frontend организован по маршрутам и server-state boundary
 - `layouts`: student shell и вложенный administrator workspace;
 - `pages/components`: route screens и общие loading/error/forbidden states.
 - `workspace`: dashboard/list/detail queries и mutations редактора с optimistic revision.
+- `audit`: read-only administrator query и русский экран с user/action/date filters.
 
 Frontend не принимает authorization decisions: permissions из `/auth/me` управляют только
 навигацией и доступностью действий. Роли используются для отображаемого названия профиля.
@@ -112,6 +113,18 @@ fallback scraper нет.
    editor inputs принимают срок, но не роль: временный редактор создаётся с постоянным
    `student`, grant/early revoke не заменяют базовые роли и сохраняют прошлые строки grants.
 10. Первый administrator создаётся одноразовой интерактивной bootstrap-командой после Alembic.
+
+### Журнал действий
+
+1. Серверные authentication, identity, catalog, import, media, retention и settings операции
+   добавляют bounded event через общий `AuthRepository.audit`; allowlist метаданных не принимает
+   произвольные поля или вложенные payload.
+2. PostgreSQL хранит append-only event с UTC-временем, actor, action, object и outcome.
+   Индексы `actor_user_id+occurred_at` и `action+occurred_at` обслуживают точные фильтры.
+3. `GET /api/v1/admin/audit-events` требует `audit.view`, ограничивает limit/offset и возвращает
+   отдельную safe projection без details/request ID с `Cache-Control: no-store`.
+4. `/admin/audit` показывает русские actor/action/object/outcome labels. UI не содержит
+   mutation controls; student, teacher и editor получают backend deny независимо от route guard.
 
 ### Чтение каталога
 

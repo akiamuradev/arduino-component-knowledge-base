@@ -1,6 +1,7 @@
 import { ApiError } from "./client";
 
 const ERROR_MESSAGES: Readonly<Record<string, string>> = {
+  audit_date_range_invalid: "Проверьте диапазон дат журнала.",
   authentication_rate_limited: "Слишком много попыток. Подождите и попробуйте снова.",
   authentication_required: "Войдите, чтобы продолжить.",
   csrf_token_missing: "Сессия устарела. Обновите страницу и повторите действие.",

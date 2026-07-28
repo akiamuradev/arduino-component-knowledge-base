@@ -52,6 +52,12 @@ entry selection, preview с license/provenance, создание draft job и п
 connection/internal components/KiCad symbol, confidence/evidence, optimistic review actions и
 administrator-only маршрут `/admin/import-reviews`.
 
+Журнал действий проверяется на обеих границах: backend contract требует ровно `audit.view`,
+не допускает mutation route, применяет точные user/action/date filters, ограничивает страницу
+и не включает `details_safe_json`/request ID. Allowlist durable details отвергает поля
+`password`, `token`, `secret`, вложенные и неограниченные значения. Vitest подтверждает русский
+read-only экран, безопасные actor/action/object labels и формирование всех трёх фильтров.
+
 Контракт `ui-copy.contract.test.ts` проверяет утверждённые русские названия продукта и запрещает
 возвращение ключевых демонстрационных или англоязычных строк в пользовательские страницы,
 компоненты, макеты и route guards. Он также блокирует пользовательские упоминания внутренних
@@ -107,6 +113,8 @@ pytest -m integration --strict-markers
   идемпотентный replay без повторного расходования лимита;
 - safe audit для accepted/rejected upload/import без raw path, содержимого, presigned URL или
   внутреннего exception;
+- read-only audit journal, обязательный `audit.view`, safe projection, фильтры
+  user/action/date и индексы `actor+occurred_at`/`action+occurred_at`;
 - полный PostgreSQL lifecycle временного editor: создание с безопасной базовой ролью, срок,
   досрочный отзыв, повторное назначение, session revocation, disable, история grants и audit;
 - PostgreSQL unique constraint для login;

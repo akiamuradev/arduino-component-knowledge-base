@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import type { User } from "../api/contracts";
 import { currentUserQueryKey } from "../auth/queries";
+import { auditKeys } from "../audit/queries";
 import { catalogKeys } from "../catalog/queries";
 import { duplicateKeys } from "../duplicates/queries";
 import { jobKeys } from "../jobs/queries";
@@ -67,6 +68,7 @@ const administrator: User = {
     "users.view",
     "users.manage",
     "roles.assign",
+    "audit.view",
     "system.diagnostics",
   ],
 };
@@ -159,6 +161,17 @@ function renderRoute(path: string, user: User) {
   queryClient.setQueryData(duplicateKeys.all, { items: [], total: 0 });
   queryClient.setQueryData(importReviewKeys.all, { items: [] });
   queryClient.setQueryData(["administration", "users"], { items: [], total: 0 });
+  queryClient.setQueryData(
+    auditKeys.list({
+      userId: undefined,
+      action: undefined,
+      occurredFrom: undefined,
+      occurredTo: undefined,
+      limit: 50,
+      offset: 0,
+    }),
+    { items: [], total: 0, limit: 50, offset: 0, available_actions: [] },
+  );
   const router = createMemoryRouter(routes, { initialEntries: [path] });
   return render(
     <ThemeProvider><QueryClientProvider client={queryClient}>
@@ -205,6 +218,15 @@ describe("application routes", () => {
     expect(screen.getByRole("link", { name: "Пользователи" })).toBeVisible();
     view.unmount();
     renderRoute("/admin/users", editor);
+    expect(await screen.findByRole("heading", { name: "Недостаточно прав" })).toBeVisible();
+  });
+
+  it("exposes the read-only audit journal only with the server permission", async () => {
+    const view = renderRoute("/admin/audit", administrator);
+    expect(await screen.findByRole("heading", { name: "Журнал действий" })).toBeVisible();
+    expect(screen.getByText(/доступен только для чтения/i)).toBeVisible();
+    view.unmount();
+    renderRoute("/admin/audit", editor);
     expect(await screen.findByRole("heading", { name: "Недостаточно прав" })).toBeVisible();
   });
 

@@ -5,6 +5,7 @@ import { StudentLayout } from "../layouts/StudentLayout";
 import { AdminDashboardPage } from "../pages/AdminDashboardPage";
 import { AdminJobsPage } from "../pages/AdminJobsPage";
 import { AdminImportPage } from "../pages/AdminImportPage";
+import { AuditLogPage } from "../pages/AuditLogPage";
 import { AboutPage } from "../pages/AboutPage";
 import { CatalogPage } from "../pages/CatalogPage";
 import { CatalogComponentPage } from "../pages/CatalogComponentPage";
@@ -66,6 +67,12 @@ export const routes: RouteObject[] = [
                 element: <RequirePermission permission="users.view" />,
                 children: [
                   { path: "users", element: <UserManagementPage /> },
+                ],
+              },
+              {
+                element: <RequirePermission permission="audit.view" />,
+                children: [
+                  { path: "audit", element: <AuditLogPage /> },
                 ],
               },
               {

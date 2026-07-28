@@ -56,6 +56,7 @@ const administrator: User = {
     "users.view",
     "users.manage",
     "roles.assign",
+    "audit.view",
     "system.diagnostics",
   ],
 };
@@ -95,6 +96,7 @@ describe("permission-based navigation", () => {
     expect(labels(administrator, "administration")).toEqual([
       "Пользователи",
       "Диагностика",
+      "Журнал действий",
     ]);
     expect(primaryRoleLabel(administrator.roles)).toBe("Администратор");
   });

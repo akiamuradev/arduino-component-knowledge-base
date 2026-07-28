@@ -104,6 +104,22 @@ class ManagedUserIdentity:
 
 
 @dataclass(frozen=True, slots=True)
+class AuditRecord:
+    """Safe read model for one immutable audit event."""
+
+    id: UUID
+    occurred_at: datetime
+    actor_user_id: UUID | None
+    actor_type: str
+    actor_login: str | None
+    actor_display_name: str | None
+    action: str
+    object_type: str
+    object_id: UUID | None
+    outcome: str
+
+
+@dataclass(frozen=True, slots=True)
 class Principal:
     """Authenticated session principal."""
 

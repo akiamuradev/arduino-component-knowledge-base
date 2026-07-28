@@ -301,9 +301,18 @@ Editor polling для failed import заменяет внутренний `error
 сохраняются в защищённом журнале. Административный интерфейс показывает только безопасное
 описание и допустимое действие.
 
-Audit обязателен для login failures, role/source policy changes, import, upload rejection,
-publication, archive, duplicate decision, merge и administrative export. Audit append-only,
-имеет retention/backup и контролируемый доступ administrator.
+Audit обязателен для входа и выхода, bounded login failures, создания/блокировки пользователя,
+назначения/отзыва/изменения срока роли, card mutations и lifecycle, import/upload/retry,
+publication/archive, retention cleanup, category settings, duplicate decision и merge.
+Обычный HTTP-контур append-only: существует только защищённый `GET`, операций записи,
+изменения или удаления журнала в UI/API нет. Запись выполняется внутри серверных mutation
+transactions. Retention/backup выполняются отдельным эксплуатационным контуром.
+
+`GET /api/v1/admin/audit-events` требует backend permission `audit.view`, возвращает только
+время, безопасную identity субъекта, действие, объект и исход и устанавливает
+`Cache-Control: no-store`. `details_safe_json` и request ID не входят в response. Exact-фильтры
+по user/action/date применяются в PostgreSQL; frontend показывает только русские названия и
+не использует raw action как пользовательский текст.
 
 Raw password, session/CSRF token, login throttle key и client address не попадают в audit.
 Bootstrap первого administrator интерактивен, не принимает пароль через CLI и блокируется,

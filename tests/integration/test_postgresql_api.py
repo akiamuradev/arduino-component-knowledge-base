@@ -146,6 +146,26 @@ def test_real_postgresql_login_rbac_csrf_and_logout(integration_settings: Settin
             student_id = UUID(created.json()["id"])
             created_ids.add(student_id)
 
+            audit = administrator.get(
+                "/api/v1/admin/audit-events",
+                params={
+                    "user_id": str(admin_id),
+                    "action": "auth.login",
+                    "occurred_from": (datetime.now(UTC) - timedelta(days=1)).isoformat(),
+                    "occurred_to": (datetime.now(UTC) + timedelta(days=1)).isoformat(),
+                },
+            )
+            assert audit.status_code == 200
+            assert audit.headers["cache-control"] == "no-store"
+            assert audit.json()["total"] >= 1
+            assert audit.json()["available_actions"]
+            login_event = audit.json()["items"][0]
+            assert login_event["actor"]["id"] == str(admin_id)
+            assert login_event["action"] == "auth.login"
+            assert login_event["object"]["type"] == "session"
+            assert "details_safe_json" not in login_event
+            assert "request_id" not in login_event
+
             logout = administrator.post("/api/v1/auth/logout", headers={"X-CSRF-Token": csrf})
             assert logout.status_code == 200
             assert administrator.get("/api/v1/auth/me").status_code == 401
@@ -171,6 +191,7 @@ def test_real_postgresql_login_rbac_csrf_and_logout(integration_settings: Settin
             assert student_login_response.json()["user"]["permissions"] == [
                 Permission.COMPONENTS_VIEW.value
             ]
+            assert student.get("/api/v1/admin/audit-events").status_code == 403
             student_csrf = student.cookies.get("ackb_csrf")
             assert student_csrf is not None
             forbidden = student.post(
