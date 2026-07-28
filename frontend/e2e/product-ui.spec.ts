@@ -180,10 +180,21 @@ test("student browses the catalog, switches theme and opens sourced learning con
         name: "Каталог",
       }),
     ).toBeVisible();
-    const overflows = await page.evaluate(
-      () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
-    );
-    expect(overflows, `horizontal overflow at ${String(width)}px`).toBe(false);
+    const layout = await page.evaluate(() => ({
+      clientWidth: document.documentElement.clientWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+      outsideViewport: [...document.querySelectorAll<HTMLElement>("body *")]
+        .filter((element) => {
+          const bounds = element.getBoundingClientRect();
+          return bounds.right > window.innerWidth + 1 || bounds.left < -1;
+        })
+        .slice(0, 8)
+        .map((element) => `${element.tagName.toLowerCase()}.${element.className}`),
+    }));
+    expect(
+      layout.scrollWidth,
+      `horizontal overflow at ${String(width)}px: ${layout.outsideViewport.join(", ")}`,
+    ).toBe(layout.clientWidth);
   }
   await page.goto("/");
   await page.emulateMedia({ reducedMotion: "reduce" });
