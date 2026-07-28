@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 
+import type { ComponentStatus } from "../api/contracts";
 import { hasPermission } from "../auth/permissions";
 import { useCurrentUser } from "../auth/queries";
 import { ErrorState, LoadingState } from "../components/AsyncStates";
@@ -27,8 +28,8 @@ export function AdminDashboardPage() {
     );
   }
 
-  const count = (status: "draft" | "published" | "archived") =>
-    components.data.items.filter((component) => component.status === status).length;
+  const count = (...statuses: ComponentStatus[]) =>
+    components.data.items.filter((component) => statuses.includes(component.status)).length;
 
   return (
     <section>
@@ -45,9 +46,10 @@ export function AdminDashboardPage() {
         публикуйте материалы для студентов.
       </p>
       <div className="status-grid">
-        <article className="status-card status-card--draft"><span className="status-card__icon" aria-hidden="true">✎</span><strong>{count("draft")}</strong><span>Черновики</span><small>Требуют подготовки</small></article>
+        <article className="status-card status-card--draft"><span className="status-card__icon" aria-hidden="true">✎</span><strong>{count("draft", "changes_requested")}</strong><span>В работе</span><small>Черновики и исправления</small></article>
+        <article className="status-card status-card--draft"><span className="status-card__icon" aria-hidden="true">⌕</span><strong>{count("in_review", "approved")}</strong><span>На проверке</span><small>Ожидают решения</small></article>
         <article className="status-card status-card--published"><span className="status-card__icon" aria-hidden="true">✓</span><strong>{count("published")}</strong><span>Опубликовано</span><small>Доступны студентам</small></article>
-        <article className="status-card status-card--archived"><span className="status-card__icon" aria-hidden="true">□</span><strong>{count("archived")}</strong><span>В архиве</span><small>Скрыты из каталога</small></article>
+        <article className="status-card status-card--archived"><span className="status-card__icon" aria-hidden="true">□</span><strong>{count("hidden", "archived")}</strong><span>Не в каталоге</span><small>Скрытые и архивные</small></article>
       </div>
       <div className="recent-list">
         <div className="section-heading section-heading--compact">

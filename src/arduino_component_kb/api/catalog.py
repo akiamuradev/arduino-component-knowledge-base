@@ -27,6 +27,7 @@ from arduino_component_kb.catalog.domain import (
     CodeExampleVisibility,
     CompatibilityItem,
     ComponentMediaNotFoundError,
+    ComponentNotFoundError,
     ComponentStatus,
     Difficulty,
     DraftData,
@@ -53,6 +54,8 @@ viewer = require_permissions(Permission.COMPONENTS_VIEW)
 editor = require_permissions(Permission.COMPONENTS_EDIT)
 creator = require_permissions(Permission.COMPONENTS_CREATE)
 archiver = require_permissions(Permission.COMPONENTS_ARCHIVE)
+submitter = require_permissions(Permission.COMPONENTS_SUBMIT_FOR_REVIEW)
+reviewer = require_permissions(Permission.COMPONENTS_REVIEW)
 publisher = require_permissions(Permission.COMPONENTS_PUBLISH)
 administrator = require_permissions(Permission.SYSTEM_SETTINGS)
 
@@ -313,6 +316,7 @@ class ComponentResponse(BaseModel):
     teacher_notes: str | None
     manual_original: bool
     published_at: datetime | None
+    archived_from_status: ComponentStatus | None
     specifications: list[SpecificationResponse]
     compatibility: list[CompatibilityResponse]
     code_examples: list[CodeExampleResponse]
@@ -425,6 +429,7 @@ def response(card: CatalogCard) -> ComponentResponse:
         revision=card.revision,
         updated_at=card.updated_at,
         published_at=card.published_at,
+        archived_from_status=card.archived_from_status,
         primary_category_id=str(data.primary_category_id),
         aliases=list(data.aliases),
         tags=list(data.tags),
@@ -638,12 +643,17 @@ async def _commit(session: AsyncSession, action: str, actor: Principal, card: Ca
         object_id=card.id,
         request_id=current_request_id(),
         outcome="success",
-        details={"revision": card.revision},
+        details={
+            "revision": card.revision,
+            "status": card.status.value,
+        },
     )
     await session.commit()
 
 
 def _error(error: Exception) -> HTTPException:
+    if isinstance(error, ComponentNotFoundError):
+        return HTTPException(404, detail={"code": "component_not_found"})
     if isinstance(error, RevisionConflictError):
         return HTTPException(409, detail={"code": "revision_conflict"})
     if isinstance(error, CatalogValidationError):
@@ -801,16 +811,104 @@ async def _transition(
     actor: Principal,
     session: AsyncSession,
     target: ComponentStatus,
+    action: str,
 ) -> ComponentResponse:
     try:
         card = await CatalogService(session).transition(
             component_id, payload.revision, target, actor.user_id
         )
-        await _commit(session, f"component.{target.value}", actor, card)
+        await _commit(session, action, actor, card)
         return response(card)
     except CatalogError as error:
         await session.rollback()
         raise _error(error) from error
+
+
+async def _special_transition(
+    component_id: UUID,
+    payload: LifecycleRequest,
+    actor: Principal,
+    session: AsyncSession,
+    action: str,
+    operation: str,
+) -> ComponentResponse:
+    try:
+        service = CatalogService(session)
+        if operation == "show":
+            card = await service.show_hidden(component_id, payload.revision, actor.user_id)
+        elif operation == "restore":
+            card = await service.restore_archived(
+                component_id,
+                payload.revision,
+                actor.user_id,
+            )
+        else:
+            raise ValueError("unsupported lifecycle operation")
+        await _commit(session, action, actor, card)
+        return response(card)
+    except CatalogError as error:
+        await session.rollback()
+        raise _error(error) from error
+
+
+@router.post(
+    "/components/{component_id}/submit-for-review",
+    response_model=ComponentResponse,
+)
+async def submit_component_for_review(
+    component_id: UUID,
+    payload: LifecycleRequest,
+    actor: Annotated[Principal, Depends(submitter)],
+    _: Annotated[Principal, Depends(csrf_principal)],
+    session: Annotated[AsyncSession, Depends(database_session)],
+) -> ComponentResponse:
+    return await _transition(
+        component_id,
+        payload,
+        actor,
+        session,
+        ComponentStatus.IN_REVIEW,
+        "component.submitted_for_review",
+    )
+
+
+@router.post(
+    "/components/{component_id}/request-changes",
+    response_model=ComponentResponse,
+)
+async def request_component_changes(
+    component_id: UUID,
+    payload: LifecycleRequest,
+    actor: Annotated[Principal, Depends(reviewer)],
+    _: Annotated[Principal, Depends(csrf_principal)],
+    session: Annotated[AsyncSession, Depends(database_session)],
+) -> ComponentResponse:
+    return await _transition(
+        component_id,
+        payload,
+        actor,
+        session,
+        ComponentStatus.CHANGES_REQUESTED,
+        "component.changes_requested",
+    )
+
+
+@router.post("/components/{component_id}/approve", response_model=ComponentResponse)
+async def approve_component(
+    component_id: UUID,
+    payload: LifecycleRequest,
+    actor: Annotated[Principal, Depends(reviewer)],
+    _: Annotated[Principal, Depends(csrf_principal)],
+    session: Annotated[AsyncSession, Depends(database_session)],
+) -> ComponentResponse:
+    return await _transition(
+        component_id,
+        payload,
+        actor,
+        session,
+        ComponentStatus.APPROVED,
+        "component.approved",
+    )
 
 
 @router.post("/components/{component_id}/publish", response_model=ComponentResponse)
@@ -821,7 +919,50 @@ async def publish_component(
     _: Annotated[Principal, Depends(csrf_principal)],
     session: Annotated[AsyncSession, Depends(database_session)],
 ) -> ComponentResponse:
-    return await _transition(component_id, payload, actor, session, ComponentStatus.PUBLISHED)
+    return await _transition(
+        component_id,
+        payload,
+        actor,
+        session,
+        ComponentStatus.PUBLISHED,
+        "component.published",
+    )
+
+
+@router.post("/components/{component_id}/hide", response_model=ComponentResponse)
+async def hide_component(
+    component_id: UUID,
+    payload: LifecycleRequest,
+    actor: Annotated[Principal, Depends(publisher)],
+    _: Annotated[Principal, Depends(csrf_principal)],
+    session: Annotated[AsyncSession, Depends(database_session)],
+) -> ComponentResponse:
+    return await _transition(
+        component_id,
+        payload,
+        actor,
+        session,
+        ComponentStatus.HIDDEN,
+        "component.hidden",
+    )
+
+
+@router.post("/components/{component_id}/show", response_model=ComponentResponse)
+async def show_component(
+    component_id: UUID,
+    payload: LifecycleRequest,
+    actor: Annotated[Principal, Depends(publisher)],
+    _: Annotated[Principal, Depends(csrf_principal)],
+    session: Annotated[AsyncSession, Depends(database_session)],
+) -> ComponentResponse:
+    return await _special_transition(
+        component_id,
+        payload,
+        actor,
+        session,
+        "component.shown",
+        "show",
+    )
 
 
 @router.post("/components/{component_id}/archive", response_model=ComponentResponse)
@@ -832,4 +973,29 @@ async def archive_component(
     _: Annotated[Principal, Depends(csrf_principal)],
     session: Annotated[AsyncSession, Depends(database_session)],
 ) -> ComponentResponse:
-    return await _transition(component_id, payload, actor, session, ComponentStatus.ARCHIVED)
+    return await _transition(
+        component_id,
+        payload,
+        actor,
+        session,
+        ComponentStatus.ARCHIVED,
+        "component.archived",
+    )
+
+
+@router.post("/components/{component_id}/restore", response_model=ComponentResponse)
+async def restore_component(
+    component_id: UUID,
+    payload: LifecycleRequest,
+    actor: Annotated[Principal, Depends(archiver)],
+    _: Annotated[Principal, Depends(csrf_principal)],
+    session: Annotated[AsyncSession, Depends(database_session)],
+) -> ComponentResponse:
+    return await _special_transition(
+        component_id,
+        payload,
+        actor,
+        session,
+        "component.restored",
+        "restore",
+    )

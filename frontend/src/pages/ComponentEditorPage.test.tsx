@@ -26,6 +26,8 @@ const administrator: User = {
     "components.create",
     "components.edit",
     "components.archive",
+    "components.submit_for_review",
+    "components.review",
     "components.publish",
   ],
 };
@@ -40,6 +42,7 @@ const editor: User = {
     "components.create",
     "components.edit",
     "components.archive",
+    "components.submit_for_review",
   ],
 };
 
@@ -69,6 +72,7 @@ const card: ComponentCard = {
   teacher_notes: "Проверить подключение питания.",
   manual_original: true,
   published_at: null,
+  archived_from_status: null,
   revision: 7,
   updated_at: "2026-07-15T20:00:00Z",
   sources: [],
@@ -268,31 +272,54 @@ describe("component editor", () => {
     expect(screen.getByRole("button", { name: "Загрузить серверную revision" })).toBeVisible();
   });
 
-  it("publishes and archives with the current optimistic revision", async () => {
+  it("runs review, publication, visibility and reversible archive transitions", async () => {
     document.cookie = "ackb_csrf=csrf-value; Path=/";
-    const published = { ...card, status: "published" as const, revision: 8, published_at: "2026-07-15T21:00:00Z" };
-    const archived = { ...published, status: "archived" as const, revision: 9 };
+    const inReview = { ...card, status: "in_review" as const, revision: 8 };
+    const changesRequested = { ...card, status: "changes_requested" as const, revision: 9 };
+    const resubmitted = { ...card, status: "in_review" as const, revision: 10 };
+    const approved = { ...card, status: "approved" as const, revision: 11 };
+    const published = { ...card, status: "published" as const, revision: 12, published_at: "2026-07-15T21:00:00Z" };
+    const hidden = { ...published, status: "hidden" as const, revision: 13 };
+    const shown = { ...published, revision: 14 };
+    const archived = { ...shown, status: "archived" as const, revision: 15, archived_from_status: "published" as const };
+    const restored = { ...shown, revision: 16 };
     const fetchMock = vi
       .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse(inReview))
+      .mockResolvedValueOnce(jsonResponse(changesRequested))
+      .mockResolvedValueOnce(jsonResponse(resubmitted))
+      .mockResolvedValueOnce(jsonResponse(approved))
       .mockResolvedValueOnce(jsonResponse(published))
+      .mockResolvedValueOnce(jsonResponse(hidden))
+      .mockResolvedValueOnce(jsonResponse(shown))
       .mockResolvedValueOnce(jsonResponse(archived));
+    fetchMock.mockResolvedValueOnce(jsonResponse(restored));
     vi.stubGlobal("fetch", fetchMock);
     renderEditor();
 
-    await userEvent.click(screen.getByRole("button", { name: "Опубликовать" }));
+    await userEvent.click(screen.getByRole("button", { name: "Отправить на проверку" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Запросить исправления" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Отправить на проверку" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Одобрить" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Опубликовать" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Скрыть" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Вернуть в каталог" }));
     await userEvent.click(await screen.findByRole("button", { name: "В архив" }));
     await userEvent.click(screen.getByRole("button", { name: "Подтвердить" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Восстановить из архива" }));
 
-    expect(await screen.findByText("Revision 9")).toBeVisible();
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(await screen.findByText("Revision 16")).toBeVisible();
+    expect(fetchMock).toHaveBeenCalledTimes(9);
     expect(fetchMock.mock.calls[0]?.[1]?.body).toBe('{"revision":7}');
-    expect(fetchMock.mock.calls[1]?.[1]?.body).toBe('{"revision":8}');
+    expect(fetchMock.mock.calls[8]?.[1]?.body).toBe('{"revision":15}');
   });
 
-  it("does not render publication controls without the server permission", () => {
+  it("lets an editor submit but not review or publish", () => {
     renderEditor(card, editor);
 
     expect(screen.queryByRole("button", { name: "Опубликовать" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Одобрить" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Отправить на проверку" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Сохранить draft" })).toBeEnabled();
   });
 });

@@ -9,7 +9,11 @@ import { useWorkspaceComponents } from "../workspace/queries";
 
 const statusLabels: Record<ComponentStatus, string> = {
   draft: "Черновик",
+  in_review: "На проверке",
+  changes_requested: "Требует исправлений",
+  approved: "Одобрена",
   published: "Опубликовано",
+  hidden: "Скрыта",
   archived: "Архив",
 };
 
@@ -34,7 +38,7 @@ export function ComponentListPage() {
   return (
     <section>
       <div className="section-heading">
-        <div><p className="eyebrow">Материалы редакции</p><h2>Карточки компонентов</h2><p className="section-description">Черновики, опубликованные материалы и архив в одном списке.</p></div>
+        <div><p className="eyebrow">Материалы редакции</p><h2>Карточки компонентов</h2><p className="section-description">Подготовка, проверка, публикация и архив в одном списке.</p></div>
         {canCreate ? <Link className="button button--primary" to="/admin/components/new">Новая карточка</Link> : null}
       </div>
       {components.data.items.length === 0 ? (

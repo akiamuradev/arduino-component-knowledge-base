@@ -172,10 +172,30 @@ ROUTE_PERMISSIONS: dict[tuple[str, str], frozenset[Permission]] = {
     ("PUT", "/api/v1/workspace/components/{component_id}/images"): frozenset(
         {Permission.COMPONENTS_EDIT}
     ),
+    (
+        "POST",
+        "/api/v1/workspace/components/{component_id}/submit-for-review",
+    ): frozenset({Permission.COMPONENTS_SUBMIT_FOR_REVIEW}),
+    (
+        "POST",
+        "/api/v1/workspace/components/{component_id}/request-changes",
+    ): frozenset({Permission.COMPONENTS_REVIEW}),
+    ("POST", "/api/v1/workspace/components/{component_id}/approve"): frozenset(
+        {Permission.COMPONENTS_REVIEW}
+    ),
     ("POST", "/api/v1/workspace/components/{component_id}/publish"): frozenset(
         {Permission.COMPONENTS_PUBLISH}
     ),
+    ("POST", "/api/v1/workspace/components/{component_id}/hide"): frozenset(
+        {Permission.COMPONENTS_PUBLISH}
+    ),
+    ("POST", "/api/v1/workspace/components/{component_id}/show"): frozenset(
+        {Permission.COMPONENTS_PUBLISH}
+    ),
     ("POST", "/api/v1/workspace/components/{component_id}/archive"): frozenset(
+        {Permission.COMPONENTS_ARCHIVE}
+    ),
+    ("POST", "/api/v1/workspace/components/{component_id}/restore"): frozenset(
         {Permission.COMPONENTS_ARCHIVE}
     ),
     ("POST", "/api/v1/admin/catalog/categories"): frozenset({Permission.SYSTEM_SETTINGS}),
@@ -244,7 +264,7 @@ def test_every_protected_route_has_exact_server_permission_contract() -> None:
     assert actual == ROUTE_PERMISSIONS
 
 
-def test_unimplemented_lifecycle_actions_are_not_exposed_by_partial_routes() -> None:
+def test_unimplemented_destructive_actions_are_not_exposed_by_partial_routes() -> None:
     app = create_app(settings(), FakeDatabase())
     used_permissions = {
         permission
@@ -252,7 +272,6 @@ def test_unimplemented_lifecycle_actions_are_not_exposed_by_partial_routes() -> 
         for permission in (_permission_set(dependant) or ())
     }
     assert Permission.COMPONENTS_DELETE not in used_permissions
-    assert Permission.COMPONENTS_SUBMIT_FOR_REVIEW not in used_permissions
     assert Permission.IMPORTS_CANCEL not in used_permissions
 
 

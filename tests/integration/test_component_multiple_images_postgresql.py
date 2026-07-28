@@ -17,6 +17,7 @@ from arduino_component_kb.auth.repository import AuthRepository
 from arduino_component_kb.catalog.domain import (
     CatalogValidationError,
     ComponentMediaNotFoundError,
+    ComponentNotFoundError,
     ComponentStatus,
     Difficulty,
     DraftData,
@@ -105,12 +106,7 @@ async def test_image_aggregate_order_primary_publish_and_snapshot(
             assert card.revision == 1
             assert card.media == ()
             with pytest.raises(CatalogValidationError) as missing_image:
-                await catalog.transition(
-                    card.id,
-                    card.revision,
-                    ComponentStatus.PUBLISHED,
-                    user_id,
-                )
+                await catalog._validate_publish_media(card.id)
             assert missing_image.value.code == "component_image_required"
 
             storage = Mock(spec=MediaStorage)
@@ -163,14 +159,14 @@ async def test_image_aggregate_order_primary_publish_and_snapshot(
             assert [item.is_primary for item in assets] == [True, False]
 
             with pytest.raises(CatalogValidationError) as pending:
-                await catalog.transition(card.id, 3, ComponentStatus.PUBLISHED, user_id)
+                await catalog._validate_publish_media(card.id)
             assert pending.value.code == "component_image_not_ready"
 
             assets[0].status = "rejected"
             assets[0].failure_code = "image_magic_invalid"
             await session.flush()
             with pytest.raises(CatalogValidationError) as rejected:
-                await catalog.transition(card.id, 3, ComponentStatus.PUBLISHED, user_id)
+                await catalog._validate_publish_media(card.id)
             assert rejected.value.code == "component_image_not_ready"
 
             for index, asset in enumerate(assets):
@@ -207,7 +203,7 @@ async def test_image_aggregate_order_primary_publish_and_snapshot(
                 asset.is_primary = False
             await session.flush()
             with pytest.raises(CatalogValidationError) as missing_primary:
-                await catalog.transition(card.id, 3, ComponentStatus.PUBLISHED, user_id)
+                await catalog._validate_publish_media(card.id)
             assert missing_primary.value.code == "component_primary_image_required"
 
             reordered = await catalog.mutate_images(
@@ -258,13 +254,37 @@ async def test_image_aggregate_order_primary_publish_and_snapshot(
                     user_id,
                 )
 
-            published = await catalog.transition(
+            submitted = await catalog.transition(
                 card.id,
                 reordered.revision,
+                ComponentStatus.IN_REVIEW,
+                user_id,
+            )
+            changes_requested = await catalog.transition(
+                card.id,
+                submitted.revision,
+                ComponentStatus.CHANGES_REQUESTED,
+                user_id,
+            )
+            resubmitted = await catalog.transition(
+                card.id,
+                changes_requested.revision,
+                ComponentStatus.IN_REVIEW,
+                user_id,
+            )
+            approved = await catalog.transition(
+                card.id,
+                resubmitted.revision,
+                ComponentStatus.APPROVED,
+                user_id,
+            )
+            published = await catalog.transition(
+                card.id,
+                approved.revision,
                 ComponentStatus.PUBLISHED,
                 user_id,
             )
-            assert published.revision == 5
+            assert published.revision == 9
             await session.flush()
             snapshot = await session.scalar(
                 select(ComponentRevision).where(
@@ -283,9 +303,37 @@ async def test_image_aggregate_order_primary_publish_and_snapshot(
             assert "object_key" not in rendered
             assert integration_settings.minio_variants_bucket not in rendered
 
-            changed_draft = await catalog.mutate_images(
+            hidden = await catalog.transition(
                 card.id,
                 published.revision,
+                ComponentStatus.HIDDEN,
+                user_id,
+            )
+            with pytest.raises(ComponentNotFoundError):
+                await catalog.get_published(card.data.slug)
+            shown = await catalog.show_hidden(card.id, hidden.revision, user_id)
+            assert shown.status is ComponentStatus.PUBLISHED
+
+            archived = await catalog.transition(
+                card.id,
+                shown.revision,
+                ComponentStatus.ARCHIVED,
+                user_id,
+            )
+            assert archived.archived_from_status is ComponentStatus.PUBLISHED
+            with pytest.raises(ComponentNotFoundError):
+                await catalog.get_published(card.data.slug)
+            restored = await catalog.restore_archived(
+                card.id,
+                archived.revision,
+                user_id,
+            )
+            assert restored.status is ComponentStatus.PUBLISHED
+            assert restored.archived_from_status is None
+
+            changed_draft = await catalog.mutate_images(
+                card.id,
+                restored.revision,
                 (
                     ComponentImageMutation(
                         assets[0].id,
@@ -305,7 +353,7 @@ async def test_image_aggregate_order_primary_publish_and_snapshot(
             )
             assert changed_draft.status is ComponentStatus.DRAFT
             public = await catalog.get_published(card.data.slug)
-            assert public.revision == 5
+            assert public.revision == restored.revision
             assert [item.asset_id for item in public.media] == [
                 assets[1].id,
                 assets[0].id,

@@ -39,6 +39,7 @@ function card(id: string, title: string, model: string): ComponentCard {
     teacher_notes: null,
     manual_original: false,
     published_at: null,
+    archived_from_status: null,
     revision: 2,
     updated_at: "2026-07-16T12:00:00Z",
     sources: [],

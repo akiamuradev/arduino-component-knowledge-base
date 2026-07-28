@@ -35,6 +35,15 @@ import {
 
 type EditorMode = "new" | "edit";
 type EditorView = "edit" | "preview";
+type LifecycleAction =
+  | "submit"
+  | "request-changes"
+  | "approve"
+  | "publish"
+  | "hide"
+  | "show"
+  | "archive"
+  | "restore";
 
 interface EditorState {
   slug: string;
@@ -243,9 +252,17 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
   const canPublish = currentUser.data === undefined
     ? false
     : hasPermission(currentUser.data, "components.publish");
+  const canSubmit = currentUser.data === undefined
+    ? false
+    : hasPermission(currentUser.data, "components.submit_for_review");
+  const canReview = currentUser.data === undefined
+    ? false
+    : hasPermission(currentUser.data, "components.review");
   const canArchive = currentUser.data === undefined
     ? false
     : hasPermission(currentUser.data, "components.archive");
+  const editable = workingCard === undefined
+    || ["draft", "changes_requested", "published"].includes(workingCard.status);
 
   const acceptSaved = (saved: ComponentCard, syncImages = false) => {
     setWorkingCard(saved);
@@ -279,13 +296,27 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
   });
 
   const lifecycle = useMutation({
-    mutationFn: async (action: "publish" | "archive") => {
+    mutationFn: async (action: LifecycleAction) => {
       if (workingCard === undefined) throw new Error("Save the draft before changing lifecycle");
-      return action === "publish"
-        ? api.publishComponent(workingCard.id, workingCard.revision)
-        : api.archiveComponent(workingCard.id, workingCard.revision);
+      const operations: Record<
+        LifecycleAction,
+        (componentId: string, revision: number) => Promise<ComponentCard>
+      > = {
+        submit: api.submitComponentForReview,
+        "request-changes": api.requestComponentChanges,
+        approve: api.approveComponent,
+        publish: api.publishComponent,
+        hide: api.hideComponent,
+        show: api.showComponent,
+        archive: api.archiveComponent,
+        restore: api.restoreComponent,
+      };
+      return operations[action](workingCard.id, workingCard.revision);
     },
-    onSuccess: (saved) => { acceptSaved(saved); },
+    onSuccess: (saved) => {
+      setArchiveConfirmation(false);
+      acceptSaved(saved);
+    },
   });
 
   const conflict = [save.error, lifecycle.error].find(
@@ -307,6 +338,8 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
     component_image_required: "добавьте хотя бы одно готовое изображение",
     component_image_not_ready: "дождитесь обработки всех изображений",
     component_primary_image_required: "выберите одно основное изображение",
+    lifecycle_transition_denied: "этот переход недоступен из текущего состояния",
+    component_edit_locked: "карточка заблокирована на этапе проверки",
   };
   const backendValidation = otherError instanceof ApiError
     ? backendValidationLabels[otherError.code]
@@ -453,13 +486,20 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
             <button className="button button--quiet" disabled={state.codeExamples.length >= 10} type="button" onClick={() => { update("codeExamples", [...state.codeExamples, { title: "", language: "arduino", practical_task: "", hints: [], body: "", libraries: "", explanation: null, visibility: "student" }]); }}>Добавить учебный пример</button>
           </fieldset>
           <div className="editor-actions">
-            <button className="button button--primary" disabled={save.isPending || lifecycle.isPending} type="submit">{save.isPending ? "Сохраняем…" : "Сохранить draft"}</button>
-            {workingCard?.status === "draft" && canPublish ? <button className="button button--success" disabled={problems.length > 0 || imagesDirty || save.isPending || lifecycle.isPending} type="button" onClick={() => { lifecycle.mutate("publish"); }}>Опубликовать</button> : null}
-            {workingCard?.status === "published" && canArchive && !archiveConfirmation ? <button className="button button--danger" type="button" onClick={() => { setArchiveConfirmation(true); }}>В архив</button> : null}
-            {archiveConfirmation ? <><span>Архивировать опубликованную карточку?</span><button className="button button--danger" type="button" onClick={() => { lifecycle.mutate("archive"); }}>Подтвердить</button><button className="button button--quiet" type="button" onClick={() => { setArchiveConfirmation(false); }}>Отмена</button></> : null}
+            <button className="button button--primary" disabled={!editable || save.isPending || lifecycle.isPending} type="submit">{save.isPending ? "Сохраняем…" : "Сохранить draft"}</button>
+            {workingCard !== undefined && ["draft", "changes_requested"].includes(workingCard.status) && canSubmit ? <button className="button button--success" disabled={problems.length > 0 || imagesDirty || save.isPending || lifecycle.isPending} type="button" onClick={() => { lifecycle.mutate("submit"); }}>Отправить на проверку</button> : null}
+            {workingCard?.status === "in_review" && canReview ? <><button className="button button--quiet" disabled={lifecycle.isPending} type="button" onClick={() => { lifecycle.mutate("request-changes"); }}>Запросить исправления</button><button className="button button--success" disabled={lifecycle.isPending} type="button" onClick={() => { lifecycle.mutate("approve"); }}>Одобрить</button></> : null}
+            {workingCard?.status === "approved" && canReview ? <button className="button button--quiet" disabled={lifecycle.isPending} type="button" onClick={() => { lifecycle.mutate("request-changes"); }}>Запросить исправления</button> : null}
+            {workingCard?.status === "approved" && canPublish ? <button className="button button--success" disabled={problems.length > 0 || imagesDirty || lifecycle.isPending} type="button" onClick={() => { lifecycle.mutate("publish"); }}>Опубликовать</button> : null}
+            {workingCard?.status === "published" && canPublish ? <button className="button button--quiet" disabled={lifecycle.isPending} type="button" onClick={() => { lifecycle.mutate("hide"); }}>Скрыть</button> : null}
+            {workingCard?.status === "hidden" && canPublish ? <button className="button button--success" disabled={lifecycle.isPending} type="button" onClick={() => { lifecycle.mutate("show"); }}>Вернуть в каталог</button> : null}
+            {workingCard?.status === "archived" && canArchive ? <button className="button button--success" disabled={lifecycle.isPending} type="button" onClick={() => { lifecycle.mutate("restore"); }}>Восстановить из архива</button> : null}
+            {workingCard !== undefined && workingCard.status !== "archived" && canArchive && !archiveConfirmation ? <button className="button button--danger" type="button" onClick={() => { setArchiveConfirmation(true); }}>В архив</button> : null}
+            {archiveConfirmation ? <><span>Архивировать карточку? Действие можно отменить.</span><button className="button button--danger" type="button" onClick={() => { lifecycle.mutate("archive"); }}>Подтвердить</button><button className="button button--quiet" type="button" onClick={() => { setArchiveConfirmation(false); }}>Отмена</button></> : null}
           </div>
-          {workingCard?.status === "draft" && canPublish && problems.length > 0 ? <p className="validation-note">Для публикации заполните: {problems.join(", ")}.</p> : null}
-          {workingCard?.status === "draft" && canPublish && imagesDirty ? <p className="validation-note">Перед публикацией сохраните изменения изображений.</p> : null}
+          {!editable ? <p className="validation-note">Содержимое заблокировано в состоянии «{workingCard.status}». Используйте доступный переход жизненного цикла.</p> : null}
+          {workingCard !== undefined && ["draft", "changes_requested", "approved"].includes(workingCard.status) && problems.length > 0 ? <p className="validation-note">Для проверки и публикации заполните: {problems.join(", ")}.</p> : null}
+          {workingCard !== undefined && ["draft", "changes_requested", "approved"].includes(workingCard.status) && imagesDirty ? <p className="validation-note">Перед переходом сохраните изменения изображений.</p> : null}
         </form>
       )}
     </section>

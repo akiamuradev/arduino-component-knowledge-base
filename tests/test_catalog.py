@@ -15,6 +15,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from arduino_component_kb.api.catalog import DraftRequest, UpdateRequest, editor
 from arduino_component_kb.auth.domain import Principal, Role
 from arduino_component_kb.catalog.domain import (
+    EDITABLE_COMPONENT_STATUSES,
+    LIFECYCLE_TRANSITION_SOURCES,
     CatalogValidationError,
     ComponentStatus,
     Difficulty,
@@ -167,6 +169,68 @@ async def test_stale_revision_is_rejected_before_mutation() -> None:
     service = CatalogService(cast(AsyncSession, session))
     with pytest.raises(RevisionConflictError):
         await service.transition(uuid4(), 2, target=ComponentStatus.PUBLISHED, actor_id=uuid4())
+
+
+def test_component_lifecycle_state_and_transition_matrix_is_exact() -> None:
+    assert tuple(status.value for status in ComponentStatus) == (
+        "draft",
+        "in_review",
+        "changes_requested",
+        "approved",
+        "published",
+        "hidden",
+        "archived",
+    )
+    assert LIFECYCLE_TRANSITION_SOURCES == {
+        ComponentStatus.IN_REVIEW: frozenset(
+            {
+                ComponentStatus.DRAFT,
+                ComponentStatus.CHANGES_REQUESTED,
+            }
+        ),
+        ComponentStatus.CHANGES_REQUESTED: frozenset(
+            {
+                ComponentStatus.IN_REVIEW,
+                ComponentStatus.APPROVED,
+            }
+        ),
+        ComponentStatus.APPROVED: frozenset({ComponentStatus.IN_REVIEW}),
+        ComponentStatus.PUBLISHED: frozenset({ComponentStatus.APPROVED}),
+        ComponentStatus.HIDDEN: frozenset({ComponentStatus.PUBLISHED}),
+        ComponentStatus.ARCHIVED: frozenset(
+            status for status in ComponentStatus if status is not ComponentStatus.ARCHIVED
+        ),
+    }
+    assert EDITABLE_COMPONENT_STATUSES == frozenset(
+        {
+            ComponentStatus.DRAFT,
+            ComponentStatus.CHANGES_REQUESTED,
+            ComponentStatus.PUBLISHED,
+        }
+    )
+
+
+async def test_direct_draft_publication_and_locked_review_edit_are_rejected() -> None:
+    component = Mock(spec=Component)
+    component.revision = 1
+    component.status = ComponentStatus.DRAFT.value
+    session = Mock(spec=AsyncSession)
+    session.scalar = AsyncMock(return_value=component)
+    service = CatalogService(cast(AsyncSession, session))
+
+    with pytest.raises(CatalogValidationError) as transition:
+        await service.transition(
+            uuid4(),
+            1,
+            target=ComponentStatus.PUBLISHED,
+            actor_id=uuid4(),
+        )
+    assert transition.value.code == "lifecycle_transition_denied"
+
+    component.status = ComponentStatus.IN_REVIEW.value
+    with pytest.raises(CatalogValidationError) as edit:
+        service._require_editable(component)
+    assert edit.value.code == "component_edit_locked"
 
 
 async def test_orm_difficulty_is_restored_to_domain_enum_before_publish() -> None:

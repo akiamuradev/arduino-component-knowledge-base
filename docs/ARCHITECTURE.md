@@ -131,12 +131,19 @@ fallback scraper нет.
 2. Frontend загружает категории и текущую draft/revision через TanStack Query.
 3. Локальная форма не считается durable state. Preview выводит text/Markdown source без raw
    HTML execution и отдельно маркирует teacher-only notes.
-4. Save/publish/archive отправляют CSRF и ожидаемую revision. Backend отдельно требует
-   `components.edit`, `components.publish` или `components.archive`, затем проверяет поля,
-   lifecycle, media и unresolved duplicate candidates. Только administrator имеет publish.
+4. Save и каждый lifecycle action отправляют CSRF и ожидаемую revision. Backend отдельно
+   требует `components.edit`, `components.submit_for_review`, `components.review`,
+   `components.publish` или `components.archive`, затем проверяет permission, допустимую
+   исходную state, поля, media и unresolved duplicate candidates.
 5. При `revision_conflict` frontend не ретраит mutation, сохраняет локальную форму и предлагает
    пользователю явно загрузить новую серверную revision.
-6. Parser по-прежнему может создать только draft; UI не содержит автоматического merge.
+6. Editor редактирует `draft`/`changes_requested`, отправляет карточку в `in_review`;
+   administrator возвращает изменения или переводит её в `approved`, затем явно публикует.
+   `hidden` выключает публичную выдачу без потери snapshot. `archived` сохраняет исходный статус
+   для обратимого restore; физического удаления через HTTP нет.
+7. Редактирование published head переводит её в `draft`, но student API продолжает читать
+   предыдущий immutable published snapshot до следующего review/publish.
+8. Parser по-прежнему может создать только draft; UI не содержит автоматического merge.
 
 ### Импорт URL
 

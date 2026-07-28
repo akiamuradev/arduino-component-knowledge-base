@@ -42,7 +42,8 @@ class Component(Base):
     __tablename__ = "components"
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
     slug: Mapped[str] = mapped_column(String(160), unique=True)
-    status: Mapped[str] = mapped_column(String(16), default="draft")
+    status: Mapped[str] = mapped_column(String(24), default="draft")
+    archived_from_status: Mapped[str | None] = mapped_column(String(24))
     title: Mapped[str] = mapped_column(String(160))
     manufacturer: Mapped[str | None] = mapped_column(String(120))
     model: Mapped[str | None] = mapped_column(String(120))
@@ -74,7 +75,7 @@ class ComponentRevision(Base):
         PG_UUID(as_uuid=True), ForeignKey("components.id", ondelete="CASCADE")
     )
     revision: Mapped[int] = mapped_column(Integer)
-    status: Mapped[str] = mapped_column(String(16))
+    status: Mapped[str] = mapped_column(String(24))
     content_json: Mapped[dict[str, object]] = mapped_column(JSONB)
     actor_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
