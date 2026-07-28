@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
@@ -14,15 +15,17 @@ from arduino_component_kb.api.dependencies import (
     auth_service,
     csrf_principal,
     database_session,
-    require_roles,
+    require_permissions,
 )
 from arduino_component_kb.auth.domain import (
     AuthenticationRequiredError,
     InvalidCredentialsError,
     LastAdministratorError,
     PasswordPolicyError,
+    Permission,
     Principal,
     Role,
+    RoleGrantPolicyError,
     UserAlreadyExistsError,
     UserIdentity,
     normalize_login,
@@ -31,7 +34,7 @@ from arduino_component_kb.auth.service import AuthService
 from arduino_component_kb.logging import current_request_id
 
 router = APIRouter(prefix="/api/v1/admin/users", tags=["administration"])
-administrator = require_roles(Role.ADMINISTRATOR)
+administrator = require_permissions(Permission.USERS_MANAGE, Permission.ROLES_ASSIGN)
 
 
 class CreateUserRequest(BaseModel):
@@ -40,7 +43,8 @@ class CreateUserRequest(BaseModel):
     login: str = Field(min_length=3, max_length=100)
     display_name: str = Field(min_length=1, max_length=160)
     password: str = Field(min_length=12, max_length=128)
-    roles: set[Role] = Field(default_factory=lambda: {Role.STUDENT}, max_length=3)
+    roles: set[Role] = Field(default_factory=lambda: {Role.STUDENT}, max_length=4)
+    editor_expires_at: datetime | None = None
 
     @field_validator("login")
     @classmethod
@@ -61,7 +65,8 @@ class CreateUserRequest(BaseModel):
 class SetRolesRequest(BaseModel):
     """Complete replacement for a user's role grants."""
 
-    roles: set[Role] = Field(min_length=1, max_length=3)
+    roles: set[Role] = Field(min_length=1, max_length=4)
+    editor_expires_at: datetime | None = None
 
 
 class MutationResponse(BaseModel):
@@ -98,8 +103,9 @@ async def create_user(
             password=payload.password,
             roles=frozenset(payload.roles),
             request_id=current_request_id(),
+            editor_expires_at=payload.editor_expires_at,
         )
-    except (UserAlreadyExistsError, PasswordPolicyError) as caught:
+    except (UserAlreadyExistsError, PasswordPolicyError, RoleGrantPolicyError) as caught:
         error = caught
     await session.commit()
     if error is not None or user is None:
@@ -124,8 +130,13 @@ async def set_roles(
             user_id=user_id,
             roles=frozenset(payload.roles),
             request_id=current_request_id(),
+            editor_expires_at=payload.editor_expires_at,
         )
-    except (LastAdministratorError, AuthenticationRequiredError) as caught:
+    except (
+        LastAdministratorError,
+        AuthenticationRequiredError,
+        RoleGrantPolicyError,
+    ) as caught:
         error = caught
     await session.commit()
     if error is not None:

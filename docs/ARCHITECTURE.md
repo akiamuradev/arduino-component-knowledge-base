@@ -96,15 +96,20 @@ fallback scraper нет.
 2. Argon2id verification использует одинаковый timing path и для неизвестного login.
 3. При успехе browser получает opaque `HttpOnly` session cookie и отдельный CSRF cookie;
    PostgreSQL хранит только их SHA-256 hashes, срок действия и признак отзыва.
-4. Каждый защищённый запрос заново разрешает active user, session и роли из PostgreSQL.
-5. State-changing cookie request проходит double-submit CSRF, затем backend role dependency.
-6. Изменение ролей или отключение пользователя отзывает все его сессии и создаёт audit event.
-7. Первый administrator создаётся одноразовой интерактивной bootstrap-командой после Alembic.
+4. Каждый защищённый запрос заново разрешает active user, session и непросроченные,
+   неотозванные role grants из PostgreSQL.
+5. Централизованная таблица соответствия ролей и permissions формирует capabilities
+   principal; route dependency проверяет permissions, а не данные клиента.
+6. State-changing cookie request проходит double-submit CSRF, затем backend permission
+   dependency.
+7. Изменение ролей или отключение пользователя отзывает все его сессии и создаёт audit event.
+   Истёкший `editor` автоматически теряет редакторские permissions без удаления grant history.
+8. Первый administrator создаётся одноразовой интерактивной bootstrap-командой после Alembic.
 
 ### Чтение каталога
 
 1. Browser проходит authentication.
-2. Backend проверяет `student|teacher|administrator` и status карточки.
+2. Backend требует `components.view`; это разрешение есть у всех четырёх человеческих ролей.
 3. PostgreSQL возвращает только разрешённую revision; teacher-only fields фильтруются на
    уровне response schema.
    Реализация выбирает последний immutable snapshot со status `published`, исключает archived
@@ -114,20 +119,23 @@ fallback scraper нет.
 
 ### Редактирование карточки
 
-1. Teacher или administrator открывает workspace; student route guard получает deny UX.
+1. Editor или administrator открывает workspace; student/teacher получают backend deny,
+   независимо от frontend route guard.
 2. Frontend загружает категории и текущую draft/revision через TanStack Query.
 3. Локальная форма не считается durable state. Preview выводит text/Markdown source без raw
    HTML execution и отдельно маркирует teacher-only notes.
-4. Save/publish/archive отправляют CSRF и ожидаемую revision. Backend повторно проверяет роль,
-   поля, lifecycle, media и unresolved duplicate candidates.
+4. Save/publish/archive отправляют CSRF и ожидаемую revision. Backend отдельно требует
+   `components.edit`, `components.publish` или `components.archive`, затем проверяет поля,
+   lifecycle, media и unresolved duplicate candidates. Только administrator имеет publish.
 5. При `revision_conflict` frontend не ретраит mutation, сохраняет локальную форму и предлагает
    пользователю явно загрузить новую серверную revision.
 6. Parser по-прежнему может создать только draft; UI не содержит автоматического merge.
 
 ### Импорт URL
 
-1. Teacher вызывает `POST /api/v1/import-jobs` с одним URL и idempotency key.
-2. Backend проверяет RBAC, HTTPS, allowlisted exact host, source policy, port и canonical URL.
+1. Editor или administrator вызывает `POST /api/v1/import-jobs` с одним URL и idempotency key.
+2. Backend проверяет `imports.create`, HTTPS, allowlisted exact host, source policy, port и
+   canonical URL.
 3. В одной PostgreSQL transaction создаётся `import_job=queued`; после commit задача
    публикуется в Dramatiq. Transactional outbox добавляется, если прямую публикацию нельзя
    сделать надёжной на этапе реализации.
@@ -139,7 +147,7 @@ fallback scraper нет.
 7. Application service сохраняет source record, draft и dedup candidates. Разрешённые
    binary media идут в private quarantine prefix MinIO и отдельные media jobs.
 8. Job становится `succeeded`, только когда durable result записан; ошибка сохраняется как
-   typed failure и доступна teacher/administrator.
+   typed failure и доступна owner-editor/administrator.
 
 Parser flow реализует URL policy, safe fetch и все три pilot adapters. `DEFAULT_ADAPTERS`
 содержит уникальную пару host/parser name и semver parser version; detail URL выбирает ровно
@@ -196,9 +204,9 @@ published snapshot. На publication backend копирует source/license dat
 
 ### Публикация и merge
 
-1. Teacher исправляет draft и запрашивает validation.
+1. Editor исправляет draft и отправляет его на проверку.
 2. Backend проверяет обязательные поля, готовность media и unresolved high duplicates.
-3. Draft без merge-конфликта может быть опубликован teacher или administrator.
+3. Draft без merge-конфликта может быть опубликован только administrator.
 4. Если нужен merge, только administrator выбирает survivor и field-level resolution.
 5. PostgreSQL transaction блокирует обе карточки, повторно проверяет revisions, создаёт
    merge decision и audit snapshot, переводит loser в `archived`, затем commit.

@@ -10,8 +10,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from arduino_component_kb.api.dependencies import csrf_principal, database_session, require_roles
-from arduino_component_kb.auth.domain import Principal, Role
+from arduino_component_kb.api.dependencies import (
+    csrf_principal,
+    database_session,
+    require_permissions,
+)
+from arduino_component_kb.auth.domain import Permission, Principal
 from arduino_component_kb.auth.repository import AuthRepository
 from arduino_component_kb.config import Settings
 from arduino_component_kb.imports.models import ImportJob
@@ -24,7 +28,8 @@ from arduino_component_kb.media.repository import MediaRepository
 from arduino_component_kb.media.service import MediaQueue
 
 router = APIRouter(prefix="/api/v1/admin/jobs", tags=["background-jobs"])
-administrator = require_roles(Role.ADMINISTRATOR)
+administrator = require_permissions(Permission.SYSTEM_DIAGNOSTICS)
+import_retry = require_permissions(Permission.IMPORTS_RETRY)
 
 
 class JobResponse(BaseModel):
@@ -202,7 +207,7 @@ async def list_import_jobs(
 async def retry_import_job(
     job_id: UUID,
     request: Request,
-    actor: Annotated[Principal, Depends(administrator)],
+    actor: Annotated[Principal, Depends(import_retry)],
     _: Annotated[Principal, Depends(csrf_principal)],
     session: Annotated[AsyncSession, Depends(database_session)],
     queue: Annotated[ImportQueue, Depends(import_queue_from_request)],

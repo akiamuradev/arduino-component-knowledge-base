@@ -4,8 +4,9 @@
 
 ## Назначение и границы
 
-Система предоставляет студентам каталог Arduino-совместимых компонентов, а преподавателям
-и администраторам — управляемый процесс создания, импорта, проверки и публикации карточек.
+Система предоставляет студентам и преподавателям каталог Arduino-совместимых компонентов,
+временным редакторам — наполнение базы, а администраторам — управляемый процесс проверки
+и публикации карточек.
 Основной режим эксплуатации — корпоративная сеть колледжа.
 
 В MVP не входят публичная регистрация, публичный SaaS, YouTube, автоматическая публикация,
@@ -71,18 +72,26 @@ warning и failure содержат безопасный code без raw documen
 Роли являются backend enum и назначаются администратором. Frontend скрывает недоступные
 действия только для удобства; окончательное решение всегда принимает backend.
 
-| Действие | `student` | `teacher` | `administrator` |
-|---|:---:|:---:|:---:|
-| Читать опубликованный каталог и разрешённые медиа | Да | Да | Да |
-| Читать draft и историю импорта | Нет | Да | Да |
-| Создавать и редактировать draft вручную | Нет | Да | Да |
-| Запускать parser для allowlisted URL | Нет | Да | Да |
-| Загружать медиа в quarantine | Нет | Да | Да |
-| Публиковать проверенный draft без merge-конфликта | Нет | Да | Да |
-| Предлагать решение по дубликату | Нет | Да | Да |
-| Подтверждать или отклонять duplicate merge | Нет | Нет | Да |
-| Управлять пользователями, ролями, источниками и категориями | Нет | Нет | Да |
-| Читать security audit | Нет | Нет | Да |
+| Действие | `student` | `teacher` | `editor` | `administrator` |
+|---|:---:|:---:|:---:|:---:|
+| Читать опубликованный каталог и разрешённые медиа | Да | Да | Да | Да |
+| Читать draft и историю своего импорта | Нет | Нет | Да | Да |
+| Создавать и редактировать draft вручную | Нет | Нет | Да | Да |
+| Запускать parser для allowlisted источника | Нет | Нет | Да | Да |
+| Загружать медиа в quarantine | Нет | Нет | Да | Да |
+| Отправлять draft на проверку | Нет | Нет | Да | Да |
+| Архивировать карточку без физического удаления | Нет | Нет | Да | Да |
+| Проверять и публиковать карточки | Нет | Нет | Нет | Да |
+| Подтверждать или отклонять duplicate merge | Нет | Нет | Нет | Да |
+| Управлять пользователями, ролями, источниками и категориями | Нет | Нет | Нет | Да |
+| Читать security audit и диагностику | Нет | Нет | Нет | Да |
+
+Permissions задаются единым backend enum: `components.view`, `components.create`,
+`components.edit`, `components.archive`, `components.delete`,
+`components.submit_for_review`, `components.review`, `components.publish`,
+`imports.view`, `imports.create`, `imports.retry`, `imports.cancel`, `users.view`,
+`users.manage`, `roles.assign`, `audit.view`, `system.settings`,
+`system.diagnostics`. Роль формирует только серверный набор permissions.
 
 REQ-AUTH-001. Неаутентифицированный запрос не получает данные каталога; deployment может
 использовать колледжный SSO либо локальные учётные записи, но публичная регистрация запрещена.
@@ -104,6 +113,10 @@ REQ-AUTH-005. Login failures имеют persistent account/client throttling и 
 REQ-AUTH-006. Только administrator создаёт пользователей, меняет роли и отключает аккаунты.
 Role change и disable отзывают активные сессии. Система не допускает удаления роли или
 отключения последнего active administrator.
+
+REQ-AUTH-007. Роль `editor` всегда имеет обязательный будущий `expires_at`. Просроченный
+или явно отозванный grant немедленно перестаёт давать permissions, но остаётся в
+`user_roles` вместе с `granted_by`, `granted_at` и `revoked_at` для истории.
 
 ## Карточка компонента
 
@@ -224,8 +237,8 @@ REQ-MEDIA-004. Download производится через короткожив
 4. Результат сохраняется как draft, source relation, provenance и license snapshot. Remote
    images, code, archives и attachments не загружаются.
 5. Exact и fuzzy dedup формируют объяснимые candidates с evidence.
-6. Teacher редактирует draft. Administrator отдельно выбирает merge/attach/create/reject.
-7. После разрешения конфликтов teacher или administrator публикует revision.
+6. Editor редактирует draft. Administrator отдельно выбирает merge/attach/create/reject.
+7. После разрешения конфликтов administrator публикует revision.
 
 REQ-DEDUP-001. Exact keys: `(source_id, source_item_id)`, canonical source URL, media SHA-256
 и нормализованная пара manufacturer/model. Проверка выполняется под Redis lock и повторяется

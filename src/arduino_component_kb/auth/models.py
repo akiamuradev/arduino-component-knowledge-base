@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Integer, String, Text, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -30,23 +30,54 @@ class User(Base):
 
 
 class UserRole(Base):
-    """Explicit backend role grant."""
+    """Historical backend role grant; expiration and revocation preserve the row."""
 
     __tablename__ = "user_roles"
     __table_args__ = (
         CheckConstraint(
-            "role IN ('student', 'teacher', 'administrator')", name="ck_user_roles_role"
+            "role IN ('student', 'teacher', 'editor', 'administrator')",
+            name="ck_user_roles_role",
+        ),
+        CheckConstraint(
+            "(role = 'editor' AND expires_at IS NOT NULL) OR "
+            "(role != 'editor' AND expires_at IS NULL)",
+            name="ck_user_roles_editor_expiry",
+        ),
+        CheckConstraint(
+            "expires_at IS NULL OR expires_at > granted_at",
+            name="ck_user_roles_expiry_after_grant",
+        ),
+        CheckConstraint(
+            "revoked_at IS NULL OR revoked_at >= granted_at",
+            name="ck_user_roles_revocation_after_grant",
+        ),
+        Index(
+            "ix_user_roles_active_lookup",
+            "user_id",
+            "role",
+            "revoked_at",
+            "expires_at",
+        ),
+        Index(
+            "uq_user_roles_current_grant",
+            "user_id",
+            "role",
+            unique=True,
+            postgresql_where=text("revoked_at IS NULL"),
         ),
     )
 
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
     user_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
-    role: Mapped[str] = mapped_column(String(32), primary_key=True)
+    role: Mapped[str] = mapped_column(String(32), nullable=False)
     granted_by: Mapped[UUID | None] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
     )
     granted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class AuthSession(Base):

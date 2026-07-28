@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from arduino_component_kb.api.dependencies import csrf_principal
 from arduino_component_kb.api.imports import get_import
 from arduino_component_kb.api.imports import router as imports_router
-from arduino_component_kb.auth.domain import Principal, Role
+from arduino_component_kb.auth.domain import Permission, Principal, Role
 from arduino_component_kb.config import Settings
 from arduino_component_kb.imports.models import ImportJob
 from arduino_component_kb.main import create_app
@@ -80,29 +80,34 @@ def test_every_authenticated_mutation_requires_csrf() -> None:
     assert missing == []
 
 
-def test_sensitive_route_groups_keep_backend_role_dependencies() -> None:
+def test_sensitive_route_groups_keep_backend_permission_dependencies() -> None:
     app = create_app(settings(), FakeDatabase())
     missing: list[str] = []
     for route in app.routes:
         if not isinstance(route, APIRoute):
             continue
-        if route.path.startswith(("/api/v1/admin", "/api/v1/duplicate-candidates")):
-            required = frozenset({Role.ADMINISTRATOR})
-        elif route.path.startswith(("/api/v1/workspace", "/api/v1/media", "/api/v1/import-jobs")):
-            required = frozenset({Role.TEACHER, Role.ADMINISTRATOR})
-        else:
+        if not route.path.startswith(
+            (
+                "/api/v1/admin",
+                "/api/v1/catalog",
+                "/api/v1/workspace",
+                "/api/v1/media",
+                "/api/v1/import-jobs",
+            )
+        ):
             continue
-        role_sets = {
-            frozenset(roles)
+        permission_sets = {
+            frozenset(permissions)
             for call in _dependency_calls(route.dependant)
-            if (roles := inspect.getclosurevars(call).nonlocals.get("allowed")) is not None
+            if (permissions := inspect.getclosurevars(call).nonlocals.get("required_set"))
+            is not None
         }
-        if required not in role_sets:
+        if not permission_sets:
             missing.append(route.path)
     assert missing == []
 
 
-def test_repository_import_workflow_requires_administrator_role() -> None:
+def test_repository_import_workflow_requires_import_create_permission() -> None:
     protected_paths = {
         "/api/v1/import-jobs/repository/discovery",
         "/api/v1/import-jobs/repository/entries",
@@ -113,12 +118,13 @@ def test_repository_import_workflow_requires_administrator_role() -> None:
     for route in imports_router.routes:
         if not isinstance(route, APIRoute) or route.path not in protected_paths:
             continue
-        role_sets = {
-            frozenset(roles)
+        permission_sets = {
+            frozenset(permissions)
             for call in _dependency_calls(route.dependant)
-            if (roles := inspect.getclosurevars(call).nonlocals.get("allowed")) is not None
+            if (permissions := inspect.getclosurevars(call).nonlocals.get("required_set"))
+            is not None
         }
-        assert frozenset({Role.ADMINISTRATOR}) in role_sets
+        assert frozenset({Permission.IMPORTS_CREATE}) in permission_sets
         checked.add(route.path)
     assert checked == protected_paths
 
@@ -202,7 +208,7 @@ async def test_import_job_id_does_not_bypass_owner_check() -> None:
         await get_import(
             job.id,
             Response(),
-            principal(Role.TEACHER),
+            principal(Role.EDITOR),
             cast(AsyncSession, session),
         )
     assert captured.value.status_code == 404

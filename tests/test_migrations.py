@@ -19,7 +19,7 @@ def alembic_config() -> Config:
 
 def test_alembic_has_one_backend_head() -> None:
     scripts = ScriptDirectory.from_config(alembic_config())
-    assert scripts.get_heads() == ["20260723_19"]
+    assert scripts.get_heads() == ["20260728_20"]
 
 
 def test_alembic_upgrade_renders_offline_postgresql_sql(
@@ -115,6 +115,14 @@ def test_alembic_upgrade_renders_offline_postgresql_sql(
     assert "ck_media_assets_primary_image" in sql
     assert "uq_media_assets_component_primary_image" in sql
     assert "20260723_19" in sql
+    assert "ADD COLUMN id UUID" in sql
+    assert "ADD COLUMN expires_at" in sql
+    assert "ADD COLUMN revoked_at" in sql
+    assert "role IN ('student', 'teacher', 'editor', 'administrator')" in sql
+    assert "ck_user_roles_editor_expiry" in sql
+    assert "ix_user_roles_active_lookup" in sql
+    assert "uq_user_roles_current_grant" in sql
+    assert "20260728_20" in sql
 
 
 def test_multiple_images_migration_renders_reversible_downgrade(
@@ -139,6 +147,29 @@ def test_multiple_images_migration_renders_reversible_downgrade(
     assert "DROP COLUMN display_order" in sql
     assert "DROP COLUMN caption" in sql
     assert "version_num='20260723_18'" in sql
+
+
+def test_permission_role_grants_migration_renders_reversible_downgrade(
+    monkeypatch: MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setenv(
+        "ACKB_DATABASE_URL",
+        "postgresql+asyncpg://ackb:placeholder@localhost:5432/ackb",
+    )
+    command.downgrade(
+        alembic_config(),
+        "20260728_20:20260723_19",
+        sql=True,
+    )
+    sql = capsys.readouterr().out
+    assert "DROP INDEX uq_user_roles_current_grant" in sql
+    assert "DROP INDEX ix_user_roles_active_lookup" in sql
+    assert "DELETE FROM user_roles WHERE role = 'editor' OR revoked_at IS NOT NULL" in sql
+    assert "DROP COLUMN revoked_at" in sql
+    assert "DROP COLUMN expires_at" in sql
+    assert "DROP COLUMN id" in sql
+    assert "version_num='20260723_19'" in sql
 
 
 def test_runtime_has_no_create_all_escape_hatch() -> None:

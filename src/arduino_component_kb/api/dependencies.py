@@ -9,7 +9,12 @@ from typing import Annotated, cast
 from fastapi import Cookie, Depends, Header, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from arduino_component_kb.auth.domain import AuthenticationRequiredError, Principal, Role
+from arduino_component_kb.auth.domain import (
+    AuthenticationRequiredError,
+    Permission,
+    Principal,
+    Role,
+)
 from arduino_component_kb.auth.passwords import PasswordManager
 from arduino_component_kb.auth.repository import AuthRepository
 from arduino_component_kb.auth.service import AuthService, token_hash
@@ -76,12 +81,33 @@ async def csrf_principal(
 
 
 def require_roles(*allowed: Role) -> Callable[[Principal], Awaitable[Principal]]:
-    """Create a default-deny backend role dependency."""
+    """Create a legacy role dependency for compatibility-only boundaries."""
 
     async def dependency(
         principal: Annotated[Principal, Depends(current_principal)],
     ) -> Principal:
         if principal.roles.isdisjoint(allowed):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={"code": "permission_denied"},
+            )
+        return principal
+
+    return dependency
+
+
+def require_permissions(
+    *required: Permission,
+) -> Callable[[Principal], Awaitable[Principal]]:
+    """Create a default-deny dependency requiring every server-resolved capability."""
+    required_set = frozenset(required)
+    if not required_set:
+        raise ValueError("at least one permission is required")
+
+    async def dependency(
+        principal: Annotated[Principal, Depends(current_principal)],
+    ) -> Principal:
+        if not required_set.issubset(principal.permissions):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={"code": "permission_denied"},

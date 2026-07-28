@@ -20,7 +20,7 @@ from arduino_component_kb.api.import_reviews import (
 from arduino_component_kb.api.import_reviews import (
     router as import_review_router,
 )
-from arduino_component_kb.auth.domain import Role
+from arduino_component_kb.auth.domain import Permission
 from arduino_component_kb.config import Settings
 from arduino_component_kb.imports.persistence_models import (
     ComponentEnrichmentRecord,
@@ -239,17 +239,18 @@ def test_stage_12_openapi_has_all_review_actions_and_response_contract() -> None
     }.issubset(required)
 
 
-def test_stage_12_routes_preserve_administrator_rbac_and_csrf() -> None:
+def test_stage_12_routes_require_review_permission_and_csrf() -> None:
     checked_mutations = 0
     for route in import_review_router.routes:
         assert isinstance(route, APIRoute)
         calls = set(_dependency_calls(route.dependant))
-        role_sets = {
-            frozenset(roles)
+        permission_sets = {
+            frozenset(permissions)
             for call in calls
-            if (roles := inspect.getclosurevars(call).nonlocals.get("allowed")) is not None
+            if (permissions := inspect.getclosurevars(call).nonlocals.get("required_set"))
+            is not None
         }
-        assert frozenset({Role.ADMINISTRATOR}) in role_sets
+        assert frozenset({Permission.COMPONENTS_REVIEW}) in permission_sets
         if (route.methods or set()).intersection({"POST", "PUT", "PATCH", "DELETE"}):
             assert csrf_principal in calls
             checked_mutations += 1

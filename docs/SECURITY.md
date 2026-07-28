@@ -19,13 +19,16 @@ PostgreSQL, Redis и MinIO доступны только внутри deployment
   карточку без published snapshot либо после archive; frontend route guard не заменяет эту проверку.
 - технические поля student API восстанавливаются из published snapshot, а не из редактируемого
   draft head; текст значений выводится React text nodes без raw HTML execution.
-- Teacher управляет draft и публикацией без merge-конфликта. Только administrator управляет
-  ролями/source policy и подтверждает duplicate merge.
+- Student и teacher имеют только `components.view`. Временный editor может создавать,
+  изменять и архивировать draft, запускать imports и отправлять карточку на проверку,
+  но не публиковать её. Только administrator управляет ролями/source policy, проверяет
+  и публикует карточки и подтверждает duplicate merge.
 - MVP использует локальные Argon2id credentials и opaque server-side sessions. PostgreSQL
   хранит только SHA-256 hashes session/CSRF tokens; session cookie имеет `HttpOnly`, `Secure`
   в production и `SameSite=Lax`.
 - Disabled user и role change централизованно отзывают его сессии. На каждом запросе backend
-  повторно проверяет status, session expiry/revocation и текущие роли.
+  повторно проверяет status, session expiry/revocation и текущие непросроченные role grants.
+  Editor grant всегда имеет `expires_at`; истечение убирает permissions, не удаляя историю.
 - State-changing cookie request требует double-submit CSRF cookie/header, причём hash token
   привязан к server-side session; tokens не хранятся в `localStorage`.
 - Login ограничен persistent PostgreSQL counters одновременно по HMAC-псевдонимам account и
@@ -45,9 +48,9 @@ PostgreSQL, Redis и MinIO доступны только внутри deployment
 - Save/publish/archive передают optimistic revision. `409 revision_conflict` запрещает
   автоматический retry и blind overwrite; локальная форма сохраняется до решения пользователя.
   Операции выполняются под PostgreSQL row lock и создают immutable revision snapshot.
-- Security route-matrix test проверяет, что `/admin` и duplicate review остаются
-  administrator-only, workspace/media/import — teacher/administrator, а каждая authenticated
-  mutation содержит CSRF dependency. Foreign media/import identifiers дают одинаковый `404`.
+- Security route-matrix test проверяет централизованные permission dependencies для catalog,
+  workspace, media, import и admin routes, а каждая authenticated mutation содержит CSRF.
+  Foreign media/import identifiers дают одинаковый `404`.
 
 ## Browser boundary: CSRF, CORS и CSP
 

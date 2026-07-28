@@ -13,9 +13,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from arduino_component_kb.api.dependencies import (
     csrf_principal,
     database_session,
-    require_roles,
+    require_permissions,
 )
-from arduino_component_kb.auth.domain import Principal, Role
+from arduino_component_kb.auth.domain import Permission, Principal
 from arduino_component_kb.auth.repository import AuthRepository
 from arduino_component_kb.config import Settings
 from arduino_component_kb.logging import current_request_id
@@ -34,7 +34,7 @@ from arduino_component_kb.media.service import MediaQueue, MediaService
 from arduino_component_kb.media.storage import MediaStorage
 
 router = APIRouter(prefix="/api/v1/media", tags=["media"])
-media_editor = require_roles(Role.TEACHER, Role.ADMINISTRATOR)
+media_editor = require_permissions(Permission.COMPONENTS_EDIT)
 
 
 class UploadReservationRequest(BaseModel):
