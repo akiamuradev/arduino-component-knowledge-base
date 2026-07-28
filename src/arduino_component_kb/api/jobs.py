@@ -217,7 +217,9 @@ async def retry_import_job(
     now = datetime.now(UTC)
     settings = cast(Settings, request.app.state.settings)
     job = await repository.get_job(job_id, lock=True)
-    if job is None:
+    if job is None or (
+        not actor.can(Permission.SYSTEM_DIAGNOSTICS) and job.requested_by != actor.user_id
+    ):
         raise HTTPException(404, detail={"code": "job_not_found"})
     try:
         reset = repository.prepare_manual_retry(job, now, settings.import_lock_ttl_seconds)
