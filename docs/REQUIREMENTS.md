@@ -291,8 +291,8 @@ breakdown, совпадения и конфликты. Merge объединяе�
 
 ## Фоновые задачи
 
-REQ-JOB-001. PostgreSQL хранит durable состояние `queued`, `running`, `retrying`, `succeeded`
-или `failed`, номер попытки, лимит попыток, phase/progress, heartbeat и время следующего retry.
+REQ-JOB-001. PostgreSQL хранит durable состояние `queued`, `running`, `retrying`, `succeeded`,
+`failed` или `cancelled`, номер попытки, лимит попыток, phase/progress, heartbeat и время следующего retry.
 Redis является транспортом Dramatiq и не считается источником статуса.
 
 REQ-JOB-002. Actor идемпотентен по стабильному job UUID/idempotency key: повторная доставка не
@@ -301,6 +301,15 @@ REQ-JOB-002. Actor идемпотентен по стабильному job UUID
 
 REQ-JOB-003. Только administrator видит общий monitor и вручную возвращает `failed` job в
 очередь. Mutation требует CSRF и создаёт audit event; teacher и student получают `403`.
+
+REQ-JOB-004. Обычная страница «Загрузка компонентов» показывает editor только собственные
+операции, administrator — все. Публичный контракт использует состояния `pending`, `processing`,
+`needs_review`, `ready`, `published`, `error`, `cancelled` и не возвращает коды ошибок,
+попытки, heartbeat, queue/worker/parser metadata или внутренние метрики.
+
+REQ-JOB-005. Retry требует `imports.retry`, cancel — `imports.cancel`; обе операции повторно
+проверяют владельца на backend. Cancel разрешён только для `queued`, `running`, `retrying`,
+сохраняется как терминальный `cancelled` и не может быть перезаписан worker.
 
 ## Комплексная безопасность
 

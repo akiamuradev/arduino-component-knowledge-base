@@ -29,10 +29,10 @@ export function AdminLayout() {
           <NavLink to="/admin/components"><span aria-hidden="true">▤</span>Карточки</NavLink>
           {canCreate ? <NavLink to="/admin/components/new"><span aria-hidden="true">＋</span>Новая карточка</NavLink> : null}
           {canReview ? <NavLink to="/admin/duplicates"><span aria-hidden="true">◇</span>Дубликаты</NavLink> : null}
-          {canImport ? <NavLink to="/admin/import"><span aria-hidden="true">⇣</span>Импорт</NavLink> : null}
+          {canImport ? <NavLink to="/admin/import"><span aria-hidden="true">⇣</span>Загрузка компонентов</NavLink> : null}
           {canReview ? <NavLink to="/admin/import-reviews"><span aria-hidden="true">⌕</span>Проверка импорта</NavLink> : null}
           {canViewUsers ? <NavLink to="/admin/users"><span aria-hidden="true">♙</span>Пользователи</NavLink> : null}
-          {canDiagnose ? <NavLink to="/admin/jobs"><span aria-hidden="true">↻</span>Фоновые задачи</NavLink> : null}
+          {canDiagnose ? <NavLink to="/admin/jobs"><span aria-hidden="true">↻</span>Диагностика</NavLink> : null}
         </nav>
         <div className="admin-nav__footer">
           <span className="system-dot" aria-hidden="true" />

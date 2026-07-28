@@ -170,14 +170,20 @@ commit имеет 40 lowercase hex symbols. License snapshot не вычисля
 
 `id`, `source_id`, `submitted_url`, `canonical_url?`, `repository_url?`,
 `requested_revision?`, `source_revision?`, `source_file_path?`, `source_entry_name?`,
-`status(queued|running|retrying|succeeded|failed)`, `requested_by`, `idempotency_key`, `attempts`,
+`status(queued|running|retrying|succeeded|failed|cancelled)`, `requested_by`, `idempotency_key`, `attempts`,
 `max_attempts`, `parser_name?`, `parser_version?`, `parse_status?`, `warnings_json`,
 `draft_component_id?`, `error_code?`, `created_at`,
 `started_at?`, `next_retry_at?`, `finished_at?`, `updated_at`.
 
 Unique: `(requested_by, idempotency_key)`. `succeeded` требует `draft_component_id`;
-`failed` требует typed `error_code`. Job result никогда не указывает на автоматически
+`failed` требует typed `error_code`; `cancelled` сохраняет пользовательскую отмену без
+физического удаления записи. Job result никогда не указывает на автоматически
 published component.
+
+API отображает внутренние статусы через безопасную read model:
+`queued|retrying -> pending`, `running -> processing`, `failed -> error`,
+`cancelled -> cancelled`; успешный результат становится `ready`, `needs_review` или `published`.
+Миграция `20260728_24` добавляет `cancelled` в constraint `ck_import_jobs_status`.
 
 Revision `20260716_08` создаёт baseline URL tables. Revision `20260716_13` расширяет их для
 repository/license snapshots и seed policy без удаления истории. `ParsedComponent` фиксирует

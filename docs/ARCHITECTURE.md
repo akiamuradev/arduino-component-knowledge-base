@@ -167,6 +167,17 @@ fallback scraper нет.
 8. Job становится `succeeded`, только когда durable result записан; ошибка сохраняется как
    typed failure и доступна owner-editor/administrator.
 
+### Пользовательская страница загрузок
+
+`GET /api/v1/import-jobs` формирует отдельную безопасную read model: название, зарегистрированный
+источник, автор, дата, понятное состояние, результат и доступные действия. Editor получает только
+свои операции, administrator — все. Технические поля durable job не входят в этот response и
+остаются в `GET /api/v1/admin/jobs/imports` под `system.diagnostics`.
+
+`POST /api/v1/import-jobs/{id}/retry` и `/cancel` проверяют capability и ownership на сервере.
+Отмена фиксируется в PostgreSQL как terminal `cancelled`; worker проверяет это состояние перед
+началом и перед сохранением результата.
+
 Parser flow реализует URL policy, safe fetch и все три pilot adapters. `DEFAULT_ADAPTERS`
 содержит уникальную пару host/parser name и semver parser version; detail URL выбирает ровно
 один adapter. Revision `20260716_08` сохраняет durable job, provenance и draft. Exact recheck

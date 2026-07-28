@@ -50,7 +50,8 @@ explicit publication.
   renditions with posters;
 - Redis + Dramatiq background jobs with durable PostgreSQL status, progress, retries and
   idempotency;
-- administrator import workspace with bounded discovery, preview and draft job monitoring;
+- editor import workspace with bounded discovery, safe upload states, ownership-scoped retry
+  and cancellation; technical processing diagnostics remain administrator-only;
 - versioned, SSRF-resistant Seeed Studio Wiki and KiCad Symbols adapters;
 - exact and fuzzy duplicate detection; only an administrator can confirm merge decisions;
 - Docker Compose deployment with PostgreSQL, Redis and MinIO isolated from host ports.
@@ -92,7 +93,8 @@ separate administrator decision.
 | Publish a reviewed card | No | No | No | Yes |
 | Manage users and roles | No | No | No | Yes |
 | Confirm duplicate merge | No | No | No | Yes |
-| Monitor all background jobs | No | No | No | Yes |
+| View own component uploads | No | No | Yes | Yes |
+| Monitor technical background jobs | No | No | No | Yes |
 
 Permissions are resolved by the backend from active database grants. An editor grant always
 expires and does not provide user-management, publication, audit or system permissions.
@@ -226,8 +228,8 @@ PostgreSQL/MinIO integration tests and container contract/build jobs on every pu
 | `/api/v1/catalog/*` | Published student catalogue and source registry |
 | `/api/v1/workspace/*` | Teacher/administrator card and category workspace |
 | `/api/v1/media/*` | Private upload reservation, completion and processing status |
-| `/api/v1/import-jobs/repository/*` | Administrator discovery, preview and durable draft jobs |
-| `/api/v1/admin/*` | Users, job monitor and duplicate decisions |
+| `/api/v1/import-jobs*` | Ownership-scoped component uploads, preview, retry and cancellation |
+| `/api/v1/admin/*` | Users, technical diagnostics and duplicate decisions |
 | `/api/v1/openapi.json` | Versioned OpenAPI contract |
 
 Interactive API documentation is disabled by default. Local `.env` enables it at `/docs`; never
@@ -291,7 +293,9 @@ Arduino Component Knowledge Base — самостоятельная образо
 - private MinIO для изображений и видео, presigned upload и metadata в PostgreSQL;
 - MIME/magic bytes, Pillow variants, SHA-256/pHash, FFmpeg H.264/AAC rendition и poster;
 - Redis + Dramatiq с durable status/progress, retry/backoff и idempotency;
-- рабочее место administrator для bounded discovery, preview и мониторинга draft job;
+- страница «Загрузка компонентов» для editor/administrator с понятными состояниями,
+  собственными загрузками, повтором, отменой и результатом; техническая диагностика доступна
+  только administrator;
 - версионированные SSRF-safe adapters Seeed Studio Wiki и KiCad Symbols;
 - exact/fuzzy дедупликация; merge всегда отдельно подтверждает administrator;
 - Docker Compose, в котором PostgreSQL, Redis и MinIO не публикуются на host.
@@ -464,8 +468,8 @@ lint/type/tests/build, Playwright E2E, PostgreSQL/MinIO integration и container
 | `/api/v1/catalog/*` | Опубликованный студенческий каталог и реестр источников |
 | `/api/v1/workspace/*` | Карточки и категории editor/administrator |
 | `/api/v1/media/*` | Private upload, completion и processing status |
-| `/api/v1/import-jobs/repository/*` | Editor/administrator discovery, preview и durable draft jobs |
-| `/api/v1/admin/*` | Пользователи, job monitor и duplicate decisions |
+| `/api/v1/import-jobs*` | Загрузки компонентов, preview, повтор и отмена с проверкой владельца |
+| `/api/v1/admin/*` | Пользователи, техническая диагностика и duplicate decisions |
 | `/api/v1/openapi.json` | Версионированный OpenAPI contract |
 
 Interactive API documentation по умолчанию выключена. Локальный `.env` включает `/docs`; её нельзя

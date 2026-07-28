@@ -131,10 +131,13 @@ ROUTE_PERMISSIONS: dict[tuple[str, str], frozenset[Permission]] = {
     ("POST", "/api/v1/media/videos/{asset_id}/complete"): frozenset({Permission.COMPONENTS_EDIT}),
     ("GET", "/api/v1/media/videos/{asset_id}"): frozenset({Permission.COMPONENTS_EDIT}),
     ("POST", "/api/v1/import-jobs"): frozenset({Permission.IMPORTS_CREATE}),
+    ("GET", "/api/v1/import-jobs"): frozenset({Permission.IMPORTS_VIEW}),
     ("GET", "/api/v1/import-jobs/repository/discovery"): frozenset({Permission.IMPORTS_CREATE}),
     ("GET", "/api/v1/import-jobs/repository/entries"): frozenset({Permission.IMPORTS_CREATE}),
     ("POST", "/api/v1/import-jobs/repository/preview"): frozenset({Permission.IMPORTS_CREATE}),
     ("POST", "/api/v1/import-jobs/repository"): frozenset({Permission.IMPORTS_CREATE}),
+    ("POST", "/api/v1/import-jobs/{job_id}/retry"): frozenset({Permission.IMPORTS_RETRY}),
+    ("POST", "/api/v1/import-jobs/{job_id}/cancel"): frozenset({Permission.IMPORTS_CANCEL}),
     ("GET", "/api/v1/import-jobs/{job_id}"): frozenset({Permission.IMPORTS_VIEW}),
     ("GET", "/api/v1/admin/import-reviews"): frozenset({Permission.COMPONENTS_REVIEW}),
     ("GET", "/api/v1/admin/import-reviews/{review_draft_id}"): frozenset(
@@ -278,7 +281,6 @@ def test_unimplemented_destructive_actions_are_not_exposed_by_partial_routes() -
         for permission in (_permission_set(dependant) or ())
     }
     assert Permission.COMPONENTS_DELETE not in used_permissions
-    assert Permission.IMPORTS_CANCEL not in used_permissions
     assert ("DELETE", "/api/v1/admin/users/{user_id}") not in routes
 
 

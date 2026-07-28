@@ -83,7 +83,13 @@ export interface MutationResponse {
   status: string;
 }
 
-export type JobStatus = "queued" | "running" | "retrying" | "succeeded" | "failed";
+export type JobStatus =
+  | "queued"
+  | "running"
+  | "retrying"
+  | "succeeded"
+  | "failed"
+  | "cancelled";
 export type MediaKind = "image" | "video";
 export type MediaStatus = "pending" | "processing" | "ready" | "rejected";
 
@@ -535,6 +541,40 @@ export interface ImportJob {
   warnings_json: string[];
   heartbeat_at: string | null;
   metrics_json: Record<string, unknown>;
+}
+
+export type ImportDisplayStatus =
+  | "pending"
+  | "processing"
+  | "needs_review"
+  | "ready"
+  | "published"
+  | "error"
+  | "cancelled";
+
+export interface ImportListItem {
+  id: string;
+  title: string;
+  source: string;
+  requested_by: string;
+  created_at: string;
+  status: ImportDisplayStatus;
+  result: string;
+  component_id: string | null;
+  can_retry: boolean;
+  can_cancel: boolean;
+}
+
+export interface ImportListResponse {
+  items: ImportListItem[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface ImportActionResponse {
+  id: string;
+  status: "queued" | "cancelled";
 }
 
 export type ImportReviewStatus = "pending" | "confirmed";

@@ -149,7 +149,7 @@ class ImportJob(Base):
     __tablename__ = "import_jobs"
     __table_args__ = (
         CheckConstraint(
-            "status IN ('queued','running','retrying','succeeded','failed')",
+            "status IN ('queued','running','retrying','succeeded','failed','cancelled')",
             name="ck_import_jobs_status",
         ),
         CheckConstraint("attempts >= 0", name="ck_import_jobs_attempts"),

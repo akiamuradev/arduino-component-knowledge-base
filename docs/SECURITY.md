@@ -80,20 +80,25 @@ PostgreSQL, Redis и MinIO доступны только внутри deployment
 | Создание repository/URL import | `imports.create` | Allowlist и source policy |
 | Просмотр import job | `imports.view` | Только собственный job либо administrator |
 | Retry import job | `imports.retry` | Editor — только собственный job; administrator — любой |
+| Cancel import job | `imports.cancel` | Только собственная активная загрузка либо administrator |
 | Import review и duplicate decision | `components.review` | Только administrator |
 | Просмотр пользователей | `users.view` | Только safe account fields |
 | User/editor/role mutations | `users.manage` + `roles.assign` | CSRF, policy invariants, session revoke и audit |
 | Общий job monitor и media retry | `system.diagnostics` | Только administrator |
 | Управление категориями | `system.settings` | Только administrator |
 
-Физическое удаление карточки и cancel import не имеют HTTP routes. Поэтому частичный или
-незащищённый endpoint для них не публикуется: прямой вызов получает `404`. Lifecycle карточки
+Физическое удаление карточки не имеет HTTP route. Cancel import реализован как недеструктивный
+терминальный переход: запись и audit сохраняются, foreign UUID возвращает тот же `404`. Lifecycle карточки
 реализован отдельными узкими routes; каждый переход повторно проверяет исходный статус,
 permission, CSRF и ожидаемую revision на сервере и создаёт audit event.
 
 History endpoint не является общим audit viewer. Backend после permission dependency проверяет
 владение карточкой и отвечает одинаковым `404` для отсутствующей и чужой карточки. В response
 нет `content_json`, teacher notes, login, actor UUID, request ID и внутренних audit details.
+
+Пользовательский список загрузок не возвращает `error_code`, parser/queue/worker metadata,
+attempt counters, heartbeat, metrics или request identifiers. Эти сведения доступны только через
+administrator diagnostics с `system.diagnostics`.
 Administrator получает полный card scope только через серверное `audit.view`. Disable account
 не меняет revision rows; физический DELETE пользователя не опубликован, а FK history запрещает
 каскадное удаление автора.
