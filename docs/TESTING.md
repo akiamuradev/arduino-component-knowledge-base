@@ -39,6 +39,10 @@ Playwright запускает собранный frontend через Vite previe
 безопасную source attribution, подсказку и скрытое решение. Реальная backend-авторизация отдельно
 проверяется integration-контуром. Тестовые ответы отсутствуют в production bundle.
 
+Vitest проверяет menu-button оформления, сохранение трёх режимов, реакцию системного режима,
+активную отметку и клавиши Arrow/Home/End/Enter/Escape/Tab. Playwright подтверждает область
+нажатия 44×44 px и отсутствие переполнения открытого меню на ширине 320 px.
+
 Vitest дополнительно проверяет editor/administrator repository import: bounded discovery,
 entry selection, preview с license/provenance, создание draft job и переход к готовому черновику.
 Страница «Загрузка компонентов» проверяет русские состояния, безопасный результат,
