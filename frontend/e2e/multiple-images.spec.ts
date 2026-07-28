@@ -5,6 +5,13 @@ const administrator = {
   login: "administrator",
   display_name: "Integration Administrator",
   roles: ["administrator"],
+  permissions: [
+    "components.view",
+    "components.create",
+    "components.edit",
+    "components.archive",
+    "components.publish",
+  ],
 };
 const category = {
   id: "20000000-0000-4000-8000-000000000001",

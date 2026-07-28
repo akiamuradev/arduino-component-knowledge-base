@@ -5,12 +5,10 @@ import { type OledState, OledLoginDisplay } from "./OledLoginDisplay";
 
 describe("OLED login display", () => {
   it.each<[OledState, string]>([
-    ["idle", "SYSTEM READY"],
-    ["student_selected", "STUDENT"],
-    ["admin_selected", "ADMIN"],
-    ["submitting", "CHECKING"],
-    ["success", "ACCESS GRANTED"],
-    ["error", "ACCESS DENIED"],
+    ["idle", "СИСТЕМА ГОТОВА"],
+    ["submitting", "ПРОВЕРЯЕМ"],
+    ["success", "ДОСТУП РАЗРЕШЁН"],
+    ["error", "ДОСТУП ЗАПРЕЩЁН"],
   ])("renders %s auth state", (state, text) => {
     const view = render(<OledLoginDisplay state={state} />);
     expect(view.container).toHaveTextContent(text);

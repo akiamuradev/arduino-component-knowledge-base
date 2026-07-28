@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import delete, select, text
 from sqlalchemy.exc import IntegrityError
 
-from arduino_component_kb.auth.domain import Role
+from arduino_component_kb.auth.domain import Permission, Role, permissions_for_roles
 from arduino_component_kb.auth.models import AuditEvent, User, UserRole
 from arduino_component_kb.auth.passwords import PasswordManager
 from arduino_component_kb.auth.repository import AuthRepository
@@ -112,6 +112,11 @@ def test_real_postgresql_login_rbac_csrf_and_logout(integration_settings: Settin
                 json={"login": admin_login, "password": ADMIN_CREDENTIAL},
             )
             assert login.status_code == 200
+            assert login.json()["user"]["roles"] == ["administrator"]
+            assert login.json()["user"]["permissions"] == sorted(
+                permission.value
+                for permission in permissions_for_roles(frozenset({Role.ADMINISTRATOR}))
+            )
             csrf = administrator.cookies.get("ackb_csrf")
             assert csrf is not None
 
@@ -146,13 +151,26 @@ def test_real_postgresql_login_rbac_csrf_and_logout(integration_settings: Settin
             assert administrator.get("/api/v1/auth/me").status_code == 401
 
         with TestClient(app, base_url="http://testserver") as student:
-            assert (
-                student.post(
-                    "/api/v1/auth/login",
-                    json={"login": student_login, "password": STUDENT_CREDENTIAL},
-                ).status_code
-                == 200
+            spoofed_login = student.post(
+                "/api/v1/auth/login",
+                json={
+                    "login": student_login,
+                    "password": STUDENT_CREDENTIAL,
+                    "role": "administrator",
+                },
             )
+            assert spoofed_login.status_code == 422
+            assert student.cookies.get("ackb_session") is None
+
+            student_login_response = student.post(
+                "/api/v1/auth/login",
+                json={"login": student_login, "password": STUDENT_CREDENTIAL},
+            )
+            assert student_login_response.status_code == 200
+            assert student_login_response.json()["user"]["roles"] == ["student"]
+            assert student_login_response.json()["user"]["permissions"] == [
+                Permission.COMPONENTS_VIEW.value
+            ]
             student_csrf = student.cookies.get("ackb_csrf")
             assert student_csrf is not None
             forbidden = student.post(
@@ -238,6 +256,7 @@ async def test_expired_editor_grant_is_ignored_but_history_is_preserved(
             ).all()
             assert identity is not None
             assert identity.roles == frozenset({Role.STUDENT})
+            assert permissions_for_roles(identity.roles) == frozenset({Permission.COMPONENTS_VIEW})
             assert {grant.role for grant in grants} == {"student", "editor"}
             editor_grant = next(grant for grant in grants if grant.role == "editor")
             assert editor_grant.expires_at is not None

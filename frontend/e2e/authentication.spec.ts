@@ -5,11 +5,17 @@ const administrator = {
   login: "administrator",
   display_name: "Integration Administrator",
   roles: ["administrator"],
+  permissions: [
+    "components.view",
+    "components.create",
+    "components.edit",
+    "system.diagnostics",
+  ],
 };
 
 test("an administrator signs in and reaches the protected dashboard", async ({ page }) => {
   let authenticated = false;
-  let submittedLogin: string | undefined;
+  let submittedPayload: Record<string, unknown> | undefined;
 
   await page.route("**/api/v1/**", async (route) => {
     const request = route.request();
@@ -27,8 +33,7 @@ test("an administrator signs in and reaches the protected dashboard", async ({ p
       return;
     }
     if (path === "/api/v1/auth/login" && request.method() === "POST") {
-      const payload = request.postDataJSON() as { login: string; password: string };
-      submittedLogin = payload.login;
+      submittedPayload = request.postDataJSON() as Record<string, unknown>;
       authenticated = true;
       await route.fulfill({
         status: 200,
@@ -62,5 +67,8 @@ test("an administrator signs in and reaches the protected dashboard", async ({ p
   await expect(page.getByRole("heading", { name: "Обзор материалов" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Карточек пока нет" })).toBeVisible();
   await expect(page.getByText("Права проверяются сервером")).toBeVisible();
-  expect(submittedLogin).toBe("administrator");
+  expect(submittedPayload).toEqual({
+    login: "administrator",
+    password: "local-test-passphrase",
+  });
 });

@@ -270,6 +270,8 @@ class AuthService:
         has_editor = Role.EDITOR in roles
         if has_editor != (editor_expires_at is not None):
             raise RoleGrantPolicyError
+        if has_editor and roles.isdisjoint({Role.STUDENT, Role.TEACHER, Role.ADMINISTRATOR}):
+            raise RoleGrantPolicyError
         if editor_expires_at is not None and (
             editor_expires_at.tzinfo is None or editor_expires_at <= now
         ):

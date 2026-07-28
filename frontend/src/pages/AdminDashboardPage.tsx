@@ -1,5 +1,7 @@
 import { Link } from "react-router-dom";
 
+import { hasPermission } from "../auth/permissions";
+import { useCurrentUser } from "../auth/queries";
 import { ErrorState, LoadingState } from "../components/AsyncStates";
 import { BrandSplat } from "../components/BrandSplat";
 import { SplatEmptyState } from "../components/SplatEmptyState";
@@ -7,6 +9,10 @@ import { useWorkspaceComponents } from "../workspace/queries";
 
 export function AdminDashboardPage() {
   const components = useWorkspaceComponents();
+  const currentUser = useCurrentUser();
+  const canCreate = currentUser.data === undefined
+    ? false
+    : hasPermission(currentUser.data, "components.create");
 
   if (components.isPending) {
     return <LoadingState label="Загружаем редакционный dashboard…" />;
@@ -31,7 +37,7 @@ export function AdminDashboardPage() {
           <p className="eyebrow">Сегодня в редакции</p>
           <h2>Обзор материалов</h2>
         </div>
-        <Link className="button button--primary" to="/admin/components/new">Новая карточка</Link>
+        {canCreate ? <Link className="button button--primary" to="/admin/components/new">Новая карточка</Link> : null}
         <BrandSplat className="admin-dashboard-splat" opacity={0.62} rotation={-8} size="7rem" variant="muted" />
       </div>
       <p className="lede">

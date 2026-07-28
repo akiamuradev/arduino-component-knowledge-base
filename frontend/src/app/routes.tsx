@@ -15,7 +15,10 @@ import { LoginPage } from "../pages/LoginPage";
 import { ImportReviewPage } from "../pages/ImportReviewPage";
 import { SourcesPage } from "../pages/SourcesPage";
 import { ForbiddenPage, NotFoundPage, RouteErrorPage } from "../pages/StatusPages";
-import { RequireAnyRole, RequireAuthenticated } from "../routing/guards";
+import {
+  RequireAuthenticated,
+  RequirePermission,
+} from "../routing/guards";
 
 export const routes: RouteObject[] = [
   {
@@ -37,7 +40,7 @@ export const routes: RouteObject[] = [
         ],
       },
       {
-        element: <RequireAnyRole roles={["teacher", "administrator"]} />,
+        element: <RequirePermission permission="components.edit" />,
         children: [
           {
             path: "/admin",
@@ -45,13 +48,28 @@ export const routes: RouteObject[] = [
             children: [
               { index: true, element: <AdminDashboardPage /> },
               { path: "components", element: <ComponentListPage /> },
-              { path: "components/new", element: <ComponentEditorPage mode="new" /> },
+              {
+                element: <RequirePermission permission="components.create" />,
+                children: [
+                  { path: "components/new", element: <ComponentEditorPage mode="new" /> },
+                ],
+              },
               { path: "components/:componentId/edit", element: <ComponentEditorPage mode="edit" /> },
               {
-                element: <RequireAnyRole roles={["administrator"]} />,
+                element: <RequirePermission permission="system.diagnostics" />,
                 children: [
                   { path: "jobs", element: <AdminJobsPage /> },
+                ],
+              },
+              {
+                element: <RequirePermission permission="imports.create" />,
+                children: [
                   { path: "import", element: <AdminImportPage /> },
+                ],
+              },
+              {
+                element: <RequirePermission permission="components.review" />,
+                children: [
                   { path: "import-reviews", element: <ImportReviewPage /> },
                   { path: "import-reviews/:reviewDraftId", element: <ImportReviewPage /> },
                   { path: "duplicates", element: <DuplicateReviewPage /> },

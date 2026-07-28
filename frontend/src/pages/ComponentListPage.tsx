@@ -1,6 +1,8 @@
 import { Link } from "react-router-dom";
 
 import type { ComponentStatus } from "../api/contracts";
+import { hasPermission } from "../auth/permissions";
+import { useCurrentUser } from "../auth/queries";
 import { ErrorState, LoadingState } from "../components/AsyncStates";
 import { SplatEmptyState } from "../components/SplatEmptyState";
 import { useWorkspaceComponents } from "../workspace/queries";
@@ -13,6 +15,10 @@ const statusLabels: Record<ComponentStatus, string> = {
 
 export function ComponentListPage() {
   const components = useWorkspaceComponents();
+  const currentUser = useCurrentUser();
+  const canCreate = currentUser.data === undefined
+    ? false
+    : hasPermission(currentUser.data, "components.create");
   if (components.isPending) {
     return <LoadingState label="Загружаем карточки…" />;
   }
@@ -29,10 +35,10 @@ export function ComponentListPage() {
     <section>
       <div className="section-heading">
         <div><p className="eyebrow">Материалы редакции</p><h2>Карточки компонентов</h2><p className="section-description">Черновики, опубликованные материалы и архив в одном списке.</p></div>
-        <Link className="button button--primary" to="/admin/components/new">Новая карточка</Link>
+        {canCreate ? <Link className="button button--primary" to="/admin/components/new">Новая карточка</Link> : null}
       </div>
       {components.data.items.length === 0 ? (
-        <SplatEmptyState icon="▤" title="Карточек пока нет" description="Создайте первый ручной draft." action={<Link className="button button--primary" to="/admin/components/new">Новая карточка</Link>} />
+        <SplatEmptyState icon="▤" title="Карточек пока нет" description="Создайте первый ручной draft." action={canCreate ? <Link className="button button--primary" to="/admin/components/new">Новая карточка</Link> : undefined} />
       ) : (
         <div className="component-table" role="list">
           <div className="component-table__head" aria-hidden="true"><span>Название</span><span>Категория</span><span>Статус</span><span>Версия</span></div>

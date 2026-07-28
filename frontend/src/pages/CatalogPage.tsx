@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
 import type { Difficulty } from "../api/contracts";
+import { hasPermission } from "../auth/permissions";
 import { useCurrentUser } from "../auth/queries";
 import { useCatalog, catalogCategoriesQuery } from "../catalog/queries";
 import { ErrorState, LoadingState } from "../components/AsyncStates";
@@ -18,10 +19,12 @@ export function CatalogPage() {
   const [difficulty, setDifficulty] = useState<Difficulty | "">("");
   const categories = useQuery(catalogCategoriesQuery);
   const components = useCatalog({ query, categoryId, difficulty });
-  const canEdit = currentUser.data?.roles.some((role) => role === "teacher" || role === "administrator") === true;
+  const canCreate = currentUser.data === undefined
+    ? false
+    : hasPermission(currentUser.data, "components.create");
 
   return <section className="catalog-page">
-    <div className="hero"><div className="hero__copy"><p className="eyebrow">Учебный каталог компонентов</p><h1>Исследуйте мир Arduino-компонентов</h1><p>Характеристики, совместимость, схемы подключения и проверенные источники в одном образовательном каталоге.</p><div className="hero__notes"><span>Только опубликованные материалы</span><span>Для Arduino-проектов</span></div>{canEdit ? <Link className="button button--accent" to="/admin/components/new">＋ Добавить компонент</Link> : null}</div><div className="hero__visual" aria-hidden="true"><BrandSplat animated className="hero__splat" loading="eager" rotation={-7} size="clamp(17rem, 31vw, 31rem)" variant="glow" /><div className="hero__board"><span className="hero__chip">UNO</span><i /><i /><i /><i /></div><span className="hero__line hero__line--one" /><span className="hero__line hero__line--two" /><span className="hero__node hero__node--one" /><span className="hero__node hero__node--two" /></div></div>
+    <div className="hero"><div className="hero__copy"><p className="eyebrow">Учебный каталог компонентов</p><h1>Исследуйте мир Arduino-компонентов</h1><p>Характеристики, совместимость, схемы подключения и проверенные источники в одном образовательном каталоге.</p><div className="hero__notes"><span>Только опубликованные материалы</span><span>Для Arduino-проектов</span></div>{canCreate ? <Link className="button button--accent" to="/admin/components/new">＋ Добавить компонент</Link> : null}</div><div className="hero__visual" aria-hidden="true"><BrandSplat animated className="hero__splat" loading="eager" rotation={-7} size="clamp(17rem, 31vw, 31rem)" variant="glow" /><div className="hero__board"><span className="hero__chip">UNO</span><i /><i /><i /><i /></div><span className="hero__line hero__line--one" /><span className="hero__line hero__line--two" /><span className="hero__node hero__node--one" /><span className="hero__node hero__node--two" /></div></div>
     <form className="catalog-filters" role="search" onSubmit={(event) => { event.preventDefault(); }}>
       <label>Поиск<input type="search" value={query} maxLength={100} placeholder="Например, датчик температуры" onChange={(event) => { const next = new URLSearchParams(searchParams); const value = event.target.value; if (value === "") next.delete("q"); else next.set("q", value); setSearchParams(next, { replace: true }); }} /></label>
       <label>Категория<select value={categoryId} disabled={categories.isPending} onChange={(event) => { setCategoryId(event.target.value); }}><option value="">Все категории</option>{categories.data?.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>

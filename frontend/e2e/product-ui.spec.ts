@@ -5,6 +5,7 @@ const student = {
   login: "student",
   display_name: "Мария Студентова",
   roles: ["student"],
+  permissions: ["components.view"],
 };
 
 const category = { id: "20000000-0000-4000-8000-000000000001", slug: "sensors", name: "Датчики" };
@@ -175,14 +176,12 @@ test("captures approved responsive theme views", async ({ page }) => {
   await mockLoggedOut(page);
   await page.setViewportSize({ width: 360, height: 800 });
   await page.goto("/login");
-  await page.getByRole("radio", { name: /Студент/ }).click();
   await page.getByRole("button", { name: "Светлая тема" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await page.screenshot({ fullPage: true, path: "../docs/screenshots/frontend-light-mobile.png" });
   await page.getByRole("button", { name: "Тёмная тема" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.reload();
-  await page.getByRole("radio", { name: /Студент/ }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.screenshot({ fullPage: true, path: "../docs/screenshots/frontend-dark-mobile.png" });
 });

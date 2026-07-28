@@ -16,11 +16,31 @@ import { routes } from "../app/routes";
 import { workspaceKeys } from "../workspace/queries";
 import { ThemeProvider } from "../theme/ThemeProvider";
 
-const teacher: User = {
+const administrator: User = {
   id: "00000000-0000-0000-0000-000000000010",
-  login: "teacher",
-  display_name: "Преподаватель",
-  roles: ["teacher"],
+  login: "administrator",
+  display_name: "Администратор",
+  roles: ["administrator"],
+  permissions: [
+    "components.view",
+    "components.create",
+    "components.edit",
+    "components.archive",
+    "components.publish",
+  ],
+};
+
+const editor: User = {
+  ...administrator,
+  login: "editor",
+  display_name: "Редактор",
+  roles: ["student", "editor"],
+  permissions: [
+    "components.view",
+    "components.create",
+    "components.edit",
+    "components.archive",
+  ],
 };
 
 const category: Category = {
@@ -96,10 +116,10 @@ const editorImages: ComponentMedia[] = [
   },
 ];
 
-function renderEditor(component: ComponentCard = card) {
+function renderEditor(component: ComponentCard = card, user: User = administrator) {
   const queryClient = createQueryClient();
   queryClient.setDefaultOptions({ queries: { retry: false, staleTime: Infinity } });
-  queryClient.setQueryData(currentUserQueryKey, teacher);
+  queryClient.setQueryData(currentUserQueryKey, user);
   queryClient.setQueryData(workspaceKeys.categories, [category]);
   queryClient.setQueryData(workspaceKeys.component(component.id), component);
   const router = createMemoryRouter(routes, {
@@ -115,7 +135,7 @@ function renderEditor(component: ComponentCard = card) {
 function renderNewEditor() {
   const queryClient = createQueryClient();
   queryClient.setDefaultOptions({ queries: { retry: false, staleTime: Infinity } });
-  queryClient.setQueryData(currentUserQueryKey, teacher);
+  queryClient.setQueryData(currentUserQueryKey, administrator);
   queryClient.setQueryData(workspaceKeys.categories, [category]);
   const router = createMemoryRouter(routes, {
     initialEntries: ["/admin/components/new"],
@@ -267,5 +287,12 @@ describe("component editor", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[0]?.[1]?.body).toBe('{"revision":7}');
     expect(fetchMock.mock.calls[1]?.[1]?.body).toBe('{"revision":8}');
+  });
+
+  it("does not render publication controls without the server permission", () => {
+    renderEditor(card, editor);
+
+    expect(screen.queryByRole("button", { name: "Опубликовать" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Сохранить draft" })).toBeEnabled();
   });
 });

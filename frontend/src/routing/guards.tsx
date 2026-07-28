@@ -1,8 +1,9 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 
-import type { Role } from "../api/contracts";
+import type { Permission } from "../api/contracts";
 import { ApiError } from "../api/client";
 import { useCurrentUser } from "../auth/queries";
+import { hasAnyPermission } from "../auth/permissions";
 import { ErrorState, LoadingState } from "../components/AsyncStates";
 
 export function RequireAuthenticated() {
@@ -26,11 +27,15 @@ export function RequireAuthenticated() {
   return <Outlet />;
 }
 
-export function RequireRole({ role }: { role: Role }) {
-  return <RequireAnyRole roles={[role]} />;
+export function RequirePermission({ permission }: { permission: Permission }) {
+  return <RequireAnyPermission permissions={[permission]} />;
 }
 
-export function RequireAnyRole({ roles }: { roles: Role[] }) {
+export function RequireAnyPermission({
+  permissions,
+}: {
+  permissions: readonly Permission[];
+}) {
   const currentUser = useCurrentUser();
   if (currentUser.isPending) {
     return <LoadingState label="Проверяем права…" />;
@@ -38,7 +43,7 @@ export function RequireAnyRole({ roles }: { roles: Role[] }) {
   if (currentUser.isError) {
     return <Navigate to="/login" replace />;
   }
-  if (!roles.some((role) => currentUser.data.roles.includes(role))) {
+  if (!hasAnyPermission(currentUser.data, permissions)) {
     return <Navigate to="/forbidden" replace />;
   }
   return <Outlet />;

@@ -9,7 +9,7 @@ import { ThemeProvider } from "../theme/ThemeProvider";
 import { LoginPage } from "./LoginPage";
 
 describe("login page", () => {
-  it("reflects auth flow without allowing the OLED access choice to define permissions", async () => {
+  it("submits only credentials and has no client-side role selector", async () => {
     const fetchMock = vi.fn<typeof fetch>().mockImplementation((_input, options) => {
       if (options?.method === "POST") {
         return Promise.resolve(new Response(JSON.stringify({ detail: { code: "invalid_credentials" } }), { status: 401, headers: { "Content-Type": "application/json" } }));
@@ -21,16 +21,16 @@ describe("login page", () => {
     const user = userEvent.setup();
     const view = render(<ThemeProvider><QueryClientProvider client={client}><MemoryRouter><LoginPage /></MemoryRouter></QueryClientProvider></ThemeProvider>);
     await screen.findByRole("heading", { name: "Вход в систему" });
-    await user.click(screen.getByRole("radio", { name: /Редакция/ }));
-    expect(view.container).toHaveTextContent("ADMIN");
+    expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+    expect(view.container).toHaveTextContent("СИСТЕМА ГОТОВА");
     await user.type(screen.getByLabelText("Логин"), "admin");
     await user.type(screen.getByLabelText("Пароль"), "invalid-password");
     await user.click(screen.getByRole("button", { name: "Войти" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Не удалось войти");
-    expect(view.container).toHaveTextContent("ACCESS DENIED");
+    expect(view.container).toHaveTextContent("ДОСТУП ЗАПРЕЩЁН");
     await user.type(screen.getByLabelText("Логин"), "2");
     await waitFor(() => { expect(screen.queryByRole("alert")).not.toBeInTheDocument(); });
-    expect(view.container).toHaveTextContent("ADMIN");
+    expect(view.container).toHaveTextContent("СИСТЕМА ГОТОВА");
     const body = fetchMock.mock.calls.find(([, options]) => options?.method === "POST")?.[1]?.body;
     if (typeof body !== "string") throw new Error("login request body must be a string");
     const submitted = JSON.parse(body) as Record<string, unknown>;

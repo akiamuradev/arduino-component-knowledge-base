@@ -80,6 +80,12 @@ def test_every_authenticated_mutation_requires_csrf() -> None:
     assert missing == []
 
 
+def test_authentication_has_no_public_registration_route() -> None:
+    app = create_app(settings(), FakeDatabase())
+    paths = {route.path for route in app.routes if isinstance(route, APIRoute)}
+    assert "/api/v1/auth/register" not in paths
+
+
 def test_sensitive_route_groups_keep_backend_permission_dependencies() -> None:
     app = create_app(settings(), FakeDatabase())
     missing: list[str] = []

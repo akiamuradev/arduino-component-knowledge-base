@@ -16,6 +16,7 @@ const admin: User = {
   login: "admin",
   display_name: "Administrator",
   roles: ["administrator"],
+  permissions: ["components.view", "components.edit", "components.review"],
 };
 
 const review: ImportReviewWorkspace = {

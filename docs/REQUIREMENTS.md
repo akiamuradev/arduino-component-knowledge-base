@@ -288,6 +288,10 @@ REQ-JOB-003. Только administrator видит общий monitor и вру�
 - REQ-SEC-005: media processing отделён от parser egress. `edge` и `data` — internal networks;
   только reverse proxy дополнительно подключён к host-facing `ingress`,
   наружу опубликован только reverse proxy, отдельный parser worker обслуживает `imports`.
+- REQ-SEC-006: login принимает только login/password. Текущие роли и permissions вычисляются
+  backend из активных grants и возвращаются authenticated API; клиентские query, form, cookie
+  и localStorage не могут расширить principal. Editor создаётся только с непросроченным grant
+  и безопасной базовой ролью.
 
 ## Нефункциональные требования
 
