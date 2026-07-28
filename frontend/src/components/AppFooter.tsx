@@ -8,7 +8,7 @@ export function AppFooter() {
     <footer className="app-footer">
       <div className="app-footer__brand">
         <strong>{PRODUCT_BRAND.productName}</strong>
-        <span>by <a href={PRODUCT_BRAND.authorUrl} target="_blank" rel="noopener noreferrer">{PRODUCT_BRAND.authorName}</a></span>
+        <span>Автор: <a href={PRODUCT_BRAND.authorUrl} target="_blank" rel="noopener noreferrer">{PRODUCT_BRAND.authorName}</a></span>
       </div>
       <nav aria-label="Служебная навигация">
         <Link to="/about">О системе</Link>

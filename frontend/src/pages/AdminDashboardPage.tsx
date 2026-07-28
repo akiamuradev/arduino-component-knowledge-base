@@ -6,6 +6,7 @@ import { useCurrentUser } from "../auth/queries";
 import { ErrorState, LoadingState } from "../components/AsyncStates";
 import { BrandSplat } from "../components/BrandSplat";
 import { SplatEmptyState } from "../components/SplatEmptyState";
+import { COMPONENT_STATUS_LABELS } from "../config/uiLabels";
 import { useWorkspaceComponents } from "../workspace/queries";
 
 export function AdminDashboardPage() {
@@ -16,13 +17,13 @@ export function AdminDashboardPage() {
     : hasPermission(currentUser.data, "components.create");
 
   if (components.isPending) {
-    return <LoadingState label="Загружаем редакционный dashboard…" />;
+    return <LoadingState label="Загружаем редакционный обзор…" />;
   }
   if (components.isError) {
     return (
       <ErrorState
-        title="Dashboard недоступен"
-        message="Backend workspace API не вернул карточки. Ошибка не заменена тестовыми данными."
+        title="Обзор недоступен"
+        message="Сервер не вернул список карточек."
         onRetry={() => void components.refetch()}
       />
     );
@@ -57,12 +58,12 @@ export function AdminDashboardPage() {
           <Link className="text-link" to="/admin/components">Все карточки →</Link>
         </div>
         {components.data.items.length === 0 ? (
-          <SplatEmptyState icon="▤" title="Карточек пока нет" description="Создайте первый draft и подготовьте его к публикации." />
+          <SplatEmptyState icon="▤" title="Карточек пока нет" description="Создайте первый черновик и подготовьте его к публикации." />
         ) : components.data.items.slice(0, 5).map((component) => (
           <Link className="component-row" key={component.id} to={`/admin/components/${component.id}/edit`}>
             <span><strong>{component.title}</strong><small>{component.primary_category.name}</small></span>
-            <span className={`status-badge status-badge--${component.status}`}>{component.status}</span>
-            <span>rev. {component.revision}</span>
+            <span className={`status-badge status-badge--${component.status}`}>{COMPONENT_STATUS_LABELS[component.status]}</span>
+            <span>Версия {component.revision}</span>
           </Link>
         ))}
       </div>

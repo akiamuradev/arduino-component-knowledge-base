@@ -7,7 +7,7 @@ export function ForbiddenPage() {
     <main className="centered-page">
       <ErrorState
         title="Недостаточно прав"
-        message="Backend не предоставил роль для этого раздела."
+        message="Сервер не предоставил доступ к этому разделу."
       />
       <Link to="/">Вернуться в каталог</Link>
     </main>

@@ -222,8 +222,8 @@ describe("component images editor", () => {
     renderEditor(saved);
 
     await screen.findAllByText("Готово");
-    await userEvent.clear(screen.getByLabelText("Alt изображения 2"));
-    await userEvent.type(screen.getByLabelText("Alt изображения 2"), "Новый alt разъёмов");
+    await userEvent.clear(screen.getByLabelText("Альтернативный текст изображения 2"));
+    await userEvent.type(screen.getByLabelText("Альтернативный текст изображения 2"), "Новый текст разъёмов");
     await userEvent.type(screen.getByLabelText("Подпись изображения 2"), "Крупный план");
     await userEvent.click(screen.getByLabelText("Основное изображение 2"));
     await userEvent.click(screen.getByRole("button", {
@@ -246,7 +246,7 @@ describe("component images editor", () => {
       firstImage.asset_id,
     ]);
     expect(body.images[0]).toEqual(expect.objectContaining({
-      alt_text: "Новый alt разъёмов",
+      alt_text: "Новый текст разъёмов",
       caption: "Крупный план",
     }));
     expect(body.primary_asset_id).toBe(secondImage.asset_id);
@@ -390,7 +390,7 @@ describe("component images editor", () => {
     expect(await screen.findByText("Ожидает обработки")).toBeVisible();
     expect(await screen.findByText("Отклонено")).toBeVisible();
     expect(await screen.findByText("image_magic_invalid")).toBeVisible();
-    expect(await screen.findByText("Статус недоступен")).toBeVisible();
+    expect(await screen.findByText("Состояние недоступно")).toBeVisible();
   });
 
   it("recovers a failed thumbnail when the backend renews its signed URL", async () => {
@@ -521,10 +521,10 @@ describe("component images editor", () => {
     }));
     await userEvent.click(screen.getByRole("button", { name: "Сохранить изображения" }));
 
-    expect(await screen.findByText(/Локальный порядок и metadata сохранены/)).toBeVisible();
-    const altFields = screen.getAllByLabelText(/^Alt изображения/);
+    expect(await screen.findByText(/Локальный порядок и описания сохранены/)).toBeVisible();
+    const altFields = screen.getAllByLabelText(/^Альтернативный текст изображения/);
     expect(altFields[0]).toHaveValue(secondImage.alt_text);
-    expect(screen.getByRole("button", { name: "Загрузить серверную revision" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Загрузить версию с сервера" })).toBeVisible();
     expect(saved).not.toHaveBeenCalled();
   });
 });

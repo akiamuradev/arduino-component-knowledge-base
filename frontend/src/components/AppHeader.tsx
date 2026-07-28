@@ -49,7 +49,7 @@ export function AppHeader() {
       <header className="topbar">
         <NavLink className="brand" to="/" aria-label={`${PRODUCT_BRAND.shortName}: каталог`}>
           <BrandMark />
-          <span className="brand__copy"><strong>{PRODUCT_BRAND.shortName}</strong><small>Component Knowledge Base</small></span>
+          <span className="brand__copy"><strong>{PRODUCT_BRAND.shortName}</strong><small>Справочник электронных компонентов</small></span>
         </NavLink>
         <form className="global-search" role="search" onSubmit={submitSearch}>
           <span aria-hidden="true">⌕</span>

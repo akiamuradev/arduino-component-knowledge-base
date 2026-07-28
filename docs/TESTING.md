@@ -48,9 +48,14 @@ entry selection, preview с license/provenance, создание draft job и п
 connection/internal components/KiCad symbol, confidence/evidence, optimistic review actions и
 administrator-only маршрут `/admin/import-reviews`.
 
+Контракт `ui-copy.contract.test.ts` проверяет утверждённые русские названия продукта и запрещает
+возвращение ключевых демонстрационных или англоязычных строк в пользовательские страницы,
+компоненты, макеты и route guards. Внутренние API-поля и enum в этот контракт не входят.
+
 Четыре утверждённых visual artifacts для light/dark и desktop/mobile воспроизводятся только при
 `ACKB_UPDATE_SCREENSHOTS=1`. Обычный CI не перезаписывает файлы и отображает visual-update test
-как явный skip.
+как явный skip. После перезагрузки visual test ждёт целевой заголовок страницы, чтобы снимок
+не зафиксировал промежуточный экран проверки сессии.
 
 ## PostgreSQL и MinIO integration
 
