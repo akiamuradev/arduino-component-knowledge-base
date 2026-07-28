@@ -6,11 +6,18 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
 
+import pytest
 from fastapi import Request, Response
+from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from arduino_component_kb.api.auth import LoginRequest, login
-from arduino_component_kb.auth.domain import LoginResult, Principal, Role
+from arduino_component_kb.auth.domain import (
+    LoginResult,
+    Principal,
+    Role,
+    permissions_for_roles,
+)
 from arduino_component_kb.auth.service import AuthService
 from arduino_component_kb.config import Settings
 
@@ -24,13 +31,16 @@ def settings() -> Settings:
     )
 
 
-async def test_login_commits_request_transaction_and_sets_opaque_cookies() -> None:
+@pytest.mark.parametrize("role", list(Role))
+async def test_login_returns_server_roles_and_permissions_for_every_role(
+    role: Role,
+) -> None:
     credential_input = "valid password input"
     principal = Principal(
         user_id=uuid4(),
-        login="administrator",
-        display_name="Administrator",
-        roles=frozenset({Role.ADMINISTRATOR}),
+        login=role.value,
+        display_name=role.value,
+        roles=frozenset({role}),
         session_id=uuid4(),
         csrf_hash="stored-csrf-hash",
         expires_at=datetime.now(UTC) + timedelta(hours=1),
@@ -44,14 +54,18 @@ async def test_login_commits_request_transaction_and_sets_opaque_cookies() -> No
     response = Response()
 
     result = await login(
-        LoginRequest(login="administrator", password=credential_input),
+        LoginRequest(login=role.value, password=credential_input),
         request,
         response,
         service,
         session,
     )
 
-    assert result.user.roles == [Role.ADMINISTRATOR]
+    assert result.user.roles == [role]
+    assert result.user.permissions == sorted(
+        permissions_for_roles(frozenset({role})),
+        key=lambda permission: permission.value,
+    )
     session.commit.assert_awaited_once()
     assert response.headers["cache-control"] == "no-store"
     cookies = response.headers.getlist("set-cookie")
@@ -61,3 +75,15 @@ async def test_login_commits_request_transaction_and_sets_opaque_cookies() -> No
     assert any(
         "ackb_csrf=opaque-csrf" in cookie and "SameSite=strict" in cookie for cookie in cookies
     )
+
+
+def test_login_request_rejects_client_supplied_role_or_permissions() -> None:
+    with pytest.raises(ValidationError):
+        LoginRequest.model_validate(
+            {
+                "login": "student",
+                "password": "credential",
+                "role": "administrator",
+                "permissions": ["system.settings"],
+            }
+        )

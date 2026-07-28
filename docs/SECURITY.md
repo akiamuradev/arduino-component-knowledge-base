@@ -14,6 +14,9 @@ PostgreSQL, Redis и MinIO доступны только внутри deployment
 
 - Backend является источником истины: route dependency проверяет authentication, application
   service — action permission, repository query — object visibility.
+- Login принимает только login/password: лишние role/permissions отклоняются валидацией.
+  `/auth/login` и `/auth/me` сериализуют вычисленные backend permissions; значения из формы,
+  query, cookie или `localStorage` не участвуют в создании principal.
 - Default deny. Student видит только published revision и student-visible examples.
 - `/api/v1/catalog/*` требует active session, не сериализует `teacher_notes` и не возвращает
   карточку без published snapshot либо после archive; frontend route guard не заменяет эту проверку.
@@ -28,7 +31,8 @@ PostgreSQL, Redis и MinIO доступны только внутри deployment
   в production и `SameSite=Lax`.
 - Disabled user и role change централизованно отзывают его сессии. На каждом запросе backend
   повторно проверяет status, session expiry/revocation и текущие непросроченные role grants.
-  Editor grant всегда имеет `expires_at`; истечение убирает permissions, не удаляя историю.
+  Editor grant всегда имеет `expires_at` и безопасную базовую роль; истечение убирает
+  редакторские permissions, не удаляя историю.
 - State-changing cookie request требует double-submit CSRF cookie/header, причём hash token
   привязан к server-side session; tokens не хранятся в `localStorage`.
 - Login ограничен persistent PostgreSQL counters одновременно по HMAC-псевдонимам account и

@@ -46,7 +46,7 @@ Frontend организован по маршрутам и server-state boundary
 
 - `api`: типизированные request/response contracts, same-origin client, CSRF и typed errors;
 - `auth`: единственный TanStack Query principal, получаемый из backend `/auth/me`;
-- `routing`: React Router tree и UX guards для anonymous/student/administrator;
+- `routing`: React Router tree и UX guards по серверным permissions;
 - `theme` и `config`: light/dark/system preference, неизменяемая product identity и безопасные
   build metadata без auth/session данных;
 - `components`: общий header/footer, OLED login feedback, catalog cards и optional
@@ -55,9 +55,10 @@ Frontend организован по маршрутам и server-state boundary
 - `pages/components`: route screens и общие loading/error/forbidden states.
 - `workspace`: dashboard/list/detail queries и mutations редактора с optimistic revision.
 
-Frontend не принимает authorization decisions: роль из `/auth/me` управляет только
-навигацией. Каждый API action и object visibility повторно проверяет backend. Query cache не
-является durable state и очищается после logout.
+Frontend не принимает authorization decisions: permissions из `/auth/me` управляют только
+навигацией и доступностью действий. Роли используются для отображаемого названия профиля.
+Каждый API action и object visibility повторно проверяет backend. Query cache не является
+durable state и очищается после logout.
 
 Backend разделяется на API, application services, domain policies и infrastructure adapters.
 Направление зависимостей идёт к domain; FastAPI routes не содержат SQL или S3 calls.
@@ -96,15 +97,18 @@ fallback scraper нет.
 2. Argon2id verification использует одинаковый timing path и для неизвестного login.
 3. При успехе browser получает opaque `HttpOnly` session cookie и отдельный CSRF cookie;
    PostgreSQL хранит только их SHA-256 hashes, срок действия и признак отзыва.
-4. Каждый защищённый запрос заново разрешает active user, session и непросроченные,
+4. Login schema принимает только login/password и отклоняет клиентские role/permissions.
+   `/auth/login` и `/auth/me` возвращают минимальную identity вместе с вычисленными сервером
+   roles и permissions.
+5. Каждый защищённый запрос заново разрешает active user, session и непросроченные,
    неотозванные role grants из PostgreSQL.
-5. Централизованная таблица соответствия ролей и permissions формирует capabilities
+6. Централизованная таблица соответствия ролей и permissions формирует capabilities
    principal; route dependency проверяет permissions, а не данные клиента.
-6. State-changing cookie request проходит double-submit CSRF, затем backend permission
+7. State-changing cookie request проходит double-submit CSRF, затем backend permission
    dependency.
-7. Изменение ролей или отключение пользователя отзывает все его сессии и создаёт audit event.
+8. Изменение ролей или отключение пользователя отзывает все его сессии и создаёт audit event.
    Истёкший `editor` автоматически теряет редакторские permissions без удаления grant history.
-8. Первый administrator создаётся одноразовой интерактивной bootstrap-командой после Alembic.
+9. Первый administrator создаётся одноразовой интерактивной bootstrap-командой после Alembic.
 
 ### Чтение каталога
 

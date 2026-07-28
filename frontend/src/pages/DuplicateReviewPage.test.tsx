@@ -15,6 +15,7 @@ const admin: User = {
   login: "admin",
   display_name: "Администратор",
   roles: ["administrator"],
+  permissions: ["components.view", "components.edit", "components.review"],
 };
 
 function card(id: string, title: string, model: string): ComponentCard {

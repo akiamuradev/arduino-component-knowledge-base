@@ -19,6 +19,49 @@ const student: User = {
   login: "student",
   display_name: "Студент",
   roles: ["student"],
+  permissions: ["components.view"],
+};
+
+const teacher: User = {
+  ...student,
+  login: "teacher",
+  display_name: "Преподаватель",
+  roles: ["teacher"],
+};
+
+const editor: User = {
+  ...student,
+  login: "editor",
+  display_name: "Редактор",
+  roles: ["student", "editor"],
+  permissions: [
+    "components.view",
+    "components.create",
+    "components.edit",
+    "components.archive",
+    "components.submit_for_review",
+    "imports.view",
+    "imports.create",
+    "imports.retry",
+    "imports.cancel",
+  ],
+};
+
+const administrator: User = {
+  ...student,
+  login: "administrator",
+  display_name: "Администратор",
+  roles: ["administrator"],
+  permissions: [
+    "components.view",
+    "components.create",
+    "components.edit",
+    "components.archive",
+    "components.review",
+    "components.publish",
+    "imports.create",
+    "system.diagnostics",
+  ],
 };
 
 function renderRoute(path: string, user: User) {
@@ -111,21 +154,29 @@ describe("application routes", () => {
     expect(screen.queryByRole("heading", { name: "Обзор системы" })).not.toBeInTheDocument();
   });
 
-  it("renders the workspace for a backend-provided administrator role", async () => {
-    renderRoute("/admin", { ...student, roles: ["administrator"] });
+  it("renders the workspace from backend-provided permissions", async () => {
+    renderRoute("/admin", administrator);
     expect(await screen.findByRole("heading", { name: "Редакция" })).toBeVisible();
     expect(screen.getByRole("heading", { name: "Обзор материалов" })).toBeVisible();
     expect(screen.getByText("Права проверяются сервером")).toBeVisible();
     expect(screen.getAllByRole("link", { name: "Новая карточка" })[0]).toHaveAttribute("href", "/admin/components/new");
   });
 
-  it("allows a teacher into the editorial workspace", async () => {
-    renderRoute("/admin", { ...student, roles: ["teacher"] });
+  it("allows an editor into the editorial workspace", async () => {
+    renderRoute("/admin", editor);
     expect(await screen.findByRole("heading", { name: "Редакция" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "Импорт" })).toBeVisible();
+    expect(screen.queryByRole("link", { name: "Фоновые задачи" })).not.toBeInTheDocument();
+  });
+
+  it("does not authorize a forged administrator role without server permissions", async () => {
+    window.localStorage.setItem("ackb-role", "administrator");
+    renderRoute("/admin", { ...student, roles: ["administrator"] });
+    expect(await screen.findByRole("heading", { name: "Недостаточно прав" })).toBeVisible();
   });
 
   it("renders durable jobs only for an administrator", async () => {
-    renderRoute("/admin/jobs", { ...student, roles: ["administrator"] });
+    renderRoute("/admin/jobs", administrator);
     expect(await screen.findByRole("heading", { name: "Фоновые задачи" })).toBeVisible();
     expect(screen.getByText("process_media_video")).toBeVisible();
     expect(screen.getByText("media_storage_failed")).toBeVisible();
@@ -135,19 +186,19 @@ describe("application routes", () => {
   });
 
   it("does not expose the job monitor to a teacher", async () => {
-    renderRoute("/admin/jobs", { ...student, roles: ["teacher"] });
+    renderRoute("/admin/jobs", teacher);
     expect(await screen.findByRole("heading", { name: "Недостаточно прав" })).toBeVisible();
     expect(screen.queryByText("process_media_video")).not.toBeInTheDocument();
   });
 
   it("renders duplicate review only for an administrator", async () => {
-    renderRoute("/admin/duplicates", { ...student, roles: ["administrator"] });
+    renderRoute("/admin/duplicates", administrator);
     expect(await screen.findByRole("heading", { name: "Проверка дубликатов" })).toBeVisible();
     expect(screen.getByRole("heading", { name: "Дубликатов не найдено" })).toBeVisible();
   });
 
   it("does not expose duplicate decisions to a teacher", async () => {
-    renderRoute("/admin/duplicates", { ...student, roles: ["teacher"] });
+    renderRoute("/admin/duplicates", teacher);
     expect(await screen.findByRole("heading", { name: "Недостаточно прав" })).toBeVisible();
     expect(screen.queryByRole("heading", { name: "Проверка дубликатов" })).not.toBeInTheDocument();
   });
@@ -157,22 +208,21 @@ describe("application routes", () => {
     expect(await screen.findByRole("heading", { name: "Источники и лицензии" })).toBeVisible();
   });
 
-  it("exposes repository import only to an administrator", async () => {
-    const view = renderRoute("/admin/import", { ...student, roles: ["administrator"] });
+  it("exposes repository import to an editor with the server permission", async () => {
+    const view = renderRoute("/admin/import", editor);
     expect(await screen.findByRole("heading", { name: "Импорт из Git-источника" })).toBeVisible();
     view.unmount();
-    renderRoute("/admin/import", { ...student, roles: ["teacher"] });
+    renderRoute("/admin/import", teacher);
     expect(await screen.findByRole("heading", { name: "Недостаточно прав" })).toBeVisible();
   });
 
   it("exposes evidence-first import review only to an administrator", async () => {
     const view = renderRoute("/admin/import-reviews", {
-      ...student,
-      roles: ["administrator"],
+      ...administrator,
     });
     expect(await screen.findByRole("heading", { name: "Evidence-first import review" })).toBeVisible();
     view.unmount();
-    renderRoute("/admin/import-reviews", { ...student, roles: ["teacher"] });
+    renderRoute("/admin/import-reviews", teacher);
     expect(await screen.findByRole("heading", { name: "Недостаточно прав" })).toBeVisible();
   });
 });

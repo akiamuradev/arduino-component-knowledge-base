@@ -1,10 +1,30 @@
 export type Role = "student" | "teacher" | "editor" | "administrator";
+export type Permission =
+  | "components.view"
+  | "components.create"
+  | "components.edit"
+  | "components.archive"
+  | "components.delete"
+  | "components.submit_for_review"
+  | "components.review"
+  | "components.publish"
+  | "imports.view"
+  | "imports.create"
+  | "imports.retry"
+  | "imports.cancel"
+  | "users.view"
+  | "users.manage"
+  | "roles.assign"
+  | "audit.view"
+  | "system.settings"
+  | "system.diagnostics";
 
 export interface User {
   id: string;
   login: string;
   display_name: string;
   roles: Role[];
+  permissions: Permission[];
 }
 
 export interface LoginInput {

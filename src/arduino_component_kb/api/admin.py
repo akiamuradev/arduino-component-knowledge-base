@@ -29,6 +29,7 @@ from arduino_component_kb.auth.domain import (
     UserAlreadyExistsError,
     UserIdentity,
     normalize_login,
+    permissions_for_roles,
 )
 from arduino_component_kb.auth.service import AuthService
 from arduino_component_kb.logging import current_request_id
@@ -81,6 +82,10 @@ def identity_response(user: UserIdentity) -> UserResponse:
         login=user.login,
         display_name=user.display_name,
         roles=sorted(user.roles, key=lambda role: role.value),
+        permissions=sorted(
+            permissions_for_roles(user.roles),
+            key=lambda permission: permission.value,
+        ),
     )
 
 

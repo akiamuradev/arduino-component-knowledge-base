@@ -20,6 +20,8 @@ import type {
   TechnicalSpecificationInput,
 } from "../api/contracts";
 import { api, ApiError } from "../api/client";
+import { hasPermission } from "../auth/permissions";
+import { useCurrentUser } from "../auth/queries";
 import { ErrorState, LoadingState } from "../components/AsyncStates";
 import { ComponentImagesEditor } from "../components/ComponentImagesEditor";
 import { LearningExample } from "../components/LearningExample";
@@ -237,6 +239,13 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
   const [archiveConfirmation, setArchiveConfirmation] = useState(false);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const currentUser = useCurrentUser();
+  const canPublish = currentUser.data === undefined
+    ? false
+    : hasPermission(currentUser.data, "components.publish");
+  const canArchive = currentUser.data === undefined
+    ? false
+    : hasPermission(currentUser.data, "components.archive");
 
   const acceptSaved = (saved: ComponentCard, syncImages = false) => {
     setWorkingCard(saved);
@@ -445,12 +454,12 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
           </fieldset>
           <div className="editor-actions">
             <button className="button button--primary" disabled={save.isPending || lifecycle.isPending} type="submit">{save.isPending ? "Сохраняем…" : "Сохранить draft"}</button>
-            {workingCard?.status === "draft" ? <button className="button button--success" disabled={problems.length > 0 || imagesDirty || save.isPending || lifecycle.isPending} type="button" onClick={() => { lifecycle.mutate("publish"); }}>Опубликовать</button> : null}
-            {workingCard?.status === "published" && !archiveConfirmation ? <button className="button button--danger" type="button" onClick={() => { setArchiveConfirmation(true); }}>В архив</button> : null}
+            {workingCard?.status === "draft" && canPublish ? <button className="button button--success" disabled={problems.length > 0 || imagesDirty || save.isPending || lifecycle.isPending} type="button" onClick={() => { lifecycle.mutate("publish"); }}>Опубликовать</button> : null}
+            {workingCard?.status === "published" && canArchive && !archiveConfirmation ? <button className="button button--danger" type="button" onClick={() => { setArchiveConfirmation(true); }}>В архив</button> : null}
             {archiveConfirmation ? <><span>Архивировать опубликованную карточку?</span><button className="button button--danger" type="button" onClick={() => { lifecycle.mutate("archive"); }}>Подтвердить</button><button className="button button--quiet" type="button" onClick={() => { setArchiveConfirmation(false); }}>Отмена</button></> : null}
           </div>
-          {workingCard?.status === "draft" && problems.length > 0 ? <p className="validation-note">Для публикации заполните: {problems.join(", ")}.</p> : null}
-          {workingCard?.status === "draft" && imagesDirty ? <p className="validation-note">Перед публикацией сохраните изменения изображений.</p> : null}
+          {workingCard?.status === "draft" && canPublish && problems.length > 0 ? <p className="validation-note">Для публикации заполните: {problems.join(", ")}.</p> : null}
+          {workingCard?.status === "draft" && canPublish && imagesDirty ? <p className="validation-note">Перед публикацией сохраните изменения изображений.</p> : null}
         </form>
       )}
     </section>

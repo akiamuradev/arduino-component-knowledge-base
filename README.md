@@ -93,8 +93,8 @@ separate administrator decision.
 
 Permissions are resolved by the backend from active database grants. An editor grant always
 expires and does not provide user-management, publication, audit or system permissions.
-This stage establishes the server contract; role-aware frontend navigation is intentionally
-scheduled for the later authentication and interface stages of the 1.0.0 plan.
+Login accepts credentials only. The authenticated response supplies server-resolved roles and
+permissions; frontend navigation and actions use those permissions only as UX guards.
 
 ### Data sources and licensing
 
@@ -322,8 +322,8 @@ Parser не может публиковать карточку, а duplicate mer
 
 Permissions вычисляются backend из активных grants в базе. Роль editor всегда ограничена
 сроком и не даёт доступа к пользователям, публикации, журналу и системным настройкам.
-На этом этапе зафиксирован серверный контракт; role-aware навигация frontend намеренно
-перенесена в следующие этапы входа и интерфейса плана 1.0.0.
+Вход принимает только учётные данные. Ответ authenticated API содержит вычисленные сервером
+roles и permissions; frontend использует permissions только как UX guards навигации и действий.
 
 ### Источники данных и лицензирование
 

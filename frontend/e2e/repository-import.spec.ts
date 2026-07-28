@@ -5,6 +5,7 @@ const administrator = {
   login: "administrator",
   display_name: "Integration Administrator",
   roles: ["administrator"],
+  permissions: ["components.view", "components.edit", "imports.create"],
 };
 
 test("administrator previews a bounded repository entry before creating a draft", async ({ context, page }) => {

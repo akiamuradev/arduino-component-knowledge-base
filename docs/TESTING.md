@@ -76,7 +76,8 @@ pytest -m integration --strict-markers
 Проверяемые критические сценарии:
 
 - фактическое наличие Alembic revision и ключевых PostgreSQL tables;
-- Argon2id login, opaque cookies, CSRF, administrator mutation, backend RBAC и logout;
+- Argon2id login всех четырёх ролей, серверные permissions, запрет role spoofing, opaque cookies,
+  CSRF, administrator mutation, backend RBAC и logout;
 - PostgreSQL unique constraint для login;
 - создание private MinIO buckets без public policy, upload/stat/download/presign/delete;
 - исторический parser contract и новые Seeed/KiCad repository fixtures без внешней сети;

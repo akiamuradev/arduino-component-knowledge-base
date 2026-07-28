@@ -4,8 +4,6 @@ import { BrandSplat } from "./BrandSplat";
 
 export type OledState =
   | "idle"
-  | "student_selected"
-  | "admin_selected"
   | "submitting"
   | "success"
   | "error";
@@ -18,12 +16,10 @@ interface MotionValue {
 }
 
 const oledText: Record<OledState, readonly string[]> = {
-  idle: ["ARDUINO BASE", "SYSTEM READY", "", "SELECT ACCESS", "> STUDENT", "  ADMIN"],
-  student_selected: ["ACCESS MODE", "STUDENT", "", "READY TO LEARN"],
-  admin_selected: ["ACCESS MODE", "ADMIN", "", "AUTH REQUIRED"],
-  submitting: ["CHECKING...", "PLEASE WAIT"],
-  success: ["ACCESS GRANTED", "WELCOME!"],
-  error: ["ACCESS DENIED", "CHECK LOGIN"],
+  idle: ["БАЗА ARDUINO", "СИСТЕМА ГОТОВА", "", "ВВЕДИТЕ ЛОГИН"],
+  submitting: ["ПРОВЕРЯЕМ...", "ПОДОЖДИТЕ"],
+  success: ["ДОСТУП РАЗРЕШЁН", "ДОБРО ПОЖАЛОВАТЬ"],
+  error: ["ДОСТУП ЗАПРЕЩЁН", "ПРОВЕРЬТЕ ДАННЫЕ"],
 };
 
 const INITIAL: MotionValue = { x: 0, y: 0, lift: 0, scale: 1 };

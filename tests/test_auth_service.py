@@ -10,6 +10,7 @@ from uuid import uuid4
 import pytest
 
 from arduino_component_kb.auth.domain import (
+    AuthenticationRequiredError,
     InvalidCredentialsError,
     LastAdministratorError,
     Principal,
@@ -99,16 +100,17 @@ async def test_malformed_login_uses_a_non_user_sentinel() -> None:
     repository.find_user_by_login.assert_awaited_once_with("\x00invalid-login")
 
 
-async def test_valid_login_creates_hashed_opaque_session_and_audit() -> None:
+@pytest.mark.parametrize("role", list(Role))
+async def test_valid_login_uses_only_repository_roles_for_every_role(role: Role) -> None:
     credential_input = "correct horse battery staple"
     passwords = PasswordManager()
     user = UserIdentity(
         id=uuid4(),
-        login="teacher",
-        display_name="Teacher",
+        login=role.value,
+        display_name=role.value,
         password_hash=passwords.hash(credential_input),
         status=UserStatus.ACTIVE,
-        roles=frozenset({Role.TEACHER}),
+        roles=frozenset({role}),
     )
     repository = repository_mock()
     repository.is_blocked = AsyncMock(return_value=False)
@@ -143,8 +145,22 @@ async def test_valid_login_creates_hashed_opaque_session_and_audit() -> None:
     assert call is not None
     assert result.session_token not in str(call)
     assert result.csrf_token not in str(call)
+    assert result.principal.roles == frozenset({role})
     assert len(call.kwargs["token_hash"]) == 64
     repository.audit.assert_awaited_once()
+
+
+async def test_forged_session_cookie_cannot_supply_roles() -> None:
+    repository = repository_mock()
+    repository.resolve_session = AsyncMock(return_value=None)
+    service = AuthService(repository, settings(), PasswordManager())
+
+    with pytest.raises(AuthenticationRequiredError):
+        await service.authenticate("administrator:forged-session")
+
+    call = repository.resolve_session.await_args
+    assert call is not None
+    assert call.args[0] != "administrator:forged-session"
 
 
 def test_repository_mock_is_not_a_real_database() -> None:
@@ -270,6 +286,34 @@ async def test_editor_role_requires_a_future_expiration(
             roles=frozenset({Role.EDITOR}),
             request_id="request-editor-grant",
             editor_expires_at=editor_expires_at,
+        )
+
+    repository.set_roles.assert_not_awaited()
+
+
+async def test_editor_role_requires_a_non_temporary_baseline_role() -> None:
+    administrator = administrator_identity()
+    target = UserIdentity(
+        id=uuid4(),
+        login="target",
+        display_name="Target",
+        password_hash=uuid4().hex,
+        status=UserStatus.ACTIVE,
+        roles=frozenset({Role.STUDENT}),
+    )
+    repository = repository_mock()
+    repository.lock_administrator_membership = AsyncMock()
+    repository.find_user = AsyncMock(return_value=target)
+    repository.set_roles = AsyncMock()
+    service = AuthService(repository, settings(), PasswordManager())
+
+    with pytest.raises(RoleGrantPolicyError):
+        await service.set_roles(
+            actor=administrator_principal(administrator),
+            user_id=target.id,
+            roles=frozenset({Role.EDITOR}),
+            request_id="request-editor-without-baseline",
+            editor_expires_at=datetime.now(UTC) + timedelta(days=7),
         )
 
     repository.set_roles.assert_not_awaited()

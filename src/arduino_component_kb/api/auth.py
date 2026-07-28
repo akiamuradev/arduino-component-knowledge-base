@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from arduino_component_kb.api.dependencies import (
@@ -19,6 +19,7 @@ from arduino_component_kb.api.dependencies import (
 from arduino_component_kb.auth.domain import (
     InvalidCredentialsError,
     LoginResult,
+    Permission,
     Principal,
     Role,
     TooManyAttemptsError,
@@ -33,6 +34,8 @@ router = APIRouter(prefix="/api/v1/auth", tags=["authentication"])
 class LoginRequest(BaseModel):
     """Bounded local login input."""
 
+    model_config = ConfigDict(extra="forbid")
+
     login: str = Field(min_length=1, max_length=100)
     password: str = Field(min_length=1, max_length=128)
 
@@ -44,6 +47,7 @@ class UserResponse(BaseModel):
     login: str
     display_name: str
     roles: list[Role]
+    permissions: list[Permission]
 
 
 class LoginResponse(BaseModel):
@@ -65,6 +69,7 @@ def user_response(principal: Principal) -> UserResponse:
         login=principal.login,
         display_name=principal.display_name,
         roles=sorted(principal.roles, key=lambda role: role.value),
+        permissions=sorted(principal.permissions, key=lambda permission: permission.value),
     )
 
 

@@ -13,8 +13,6 @@ interface LoginLocationState {
   from?: string;
 }
 
-type AccessMode = "student" | "admin";
-
 export function LoginPage() {
   const currentUser = useCurrentUser();
   const queryClient = useQueryClient();
@@ -22,7 +20,6 @@ export function LoginPage() {
   const location = useLocation();
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
-  const [accessMode, setAccessMode] = useState<AccessMode | null>(null);
   const state = location.state as LoginLocationState | null;
   const target =
     state?.from?.startsWith("/") === true && !state.from.startsWith("//")
@@ -51,11 +48,7 @@ export function LoginPage() {
       ? "success"
       : mutation.isError
         ? "error"
-        : accessMode === "student"
-          ? "student_selected"
-          : accessMode === "admin"
-            ? "admin_selected"
-            : "idle";
+        : "idle";
   const updateCredential = (field: "login" | "password") => (event: ChangeEvent<HTMLInputElement>) => {
     if (mutation.isError) mutation.reset();
     if (field === "login") setLogin(event.target.value);
@@ -82,11 +75,6 @@ export function LoginPage() {
           <p>Используйте данные, выданные администратором.</p>
         </div>
         <form onSubmit={submit}>
-          <fieldset className="access-mode">
-            <legend>Режим доступа</legend>
-            <label><input checked={accessMode === "student"} name="access-mode" onChange={() => { if (mutation.isError) mutation.reset(); setAccessMode("student"); }} type="radio" /><span><strong>Студент</strong><small>Каталог и учебные материалы</small></span></label>
-            <label><input checked={accessMode === "admin"} name="access-mode" onChange={() => { if (mutation.isError) mutation.reset(); setAccessMode("admin"); }} type="radio" /><span><strong>Редакция</strong><small>Вход для преподавателя</small></span></label>
-          </fieldset>
           <label htmlFor="login">Логин</label>
           <input
             autoComplete="username"
@@ -122,7 +110,7 @@ export function LoginPage() {
             {mutation.isPending ? "Проверяем…" : "Войти"}
           </button>
         </form>
-          <p className="login-security"><span aria-hidden="true">●</span> Права определяет backend после входа.</p>
+          <p className="login-security"><span aria-hidden="true">●</span> Роль и права загружаются с сервера после входа.</p>
         </div>
         <footer className="login-footer">
           <span>Developed by <a aria-label="GitHub автора akiamuradev (откроется в новой вкладке)" href={PRODUCT_BRAND.authorUrl} target="_blank" rel="noopener noreferrer">{PRODUCT_BRAND.authorName}</a></span>

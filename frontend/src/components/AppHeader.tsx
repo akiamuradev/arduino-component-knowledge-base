@@ -3,6 +3,7 @@ import { type SyntheticEvent } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 
 import { api } from "../api/client";
+import { hasAnyPermission } from "../auth/permissions";
 import { currentUserQueryKey, useCurrentUser } from "../auth/queries";
 import { PRODUCT_BRAND } from "../config/brand";
 import { BrandMark } from "./BrandMark";
@@ -24,14 +25,17 @@ export function AppHeader() {
 
   if (currentUser.data === undefined) return null;
 
-  const canEdit = currentUser.data.roles.some(
-    (role) => role === "teacher" || role === "administrator",
+  const canEdit = hasAnyPermission(
+    currentUser.data,
+    ["components.create", "components.edit"],
   );
   const primaryRole = currentUser.data.roles.includes("administrator")
     ? "Администратор"
-    : currentUser.data.roles.includes("teacher")
-      ? "Преподаватель"
-      : "Студент";
+    : currentUser.data.roles.includes("editor")
+      ? "Редактор базы"
+      : currentUser.data.roles.includes("teacher")
+        ? "Преподаватель"
+        : "Ученик";
   const avatarLetter = currentUser.data.display_name.trim().charAt(0).toUpperCase() || "A";
   const submitSearch = (event: SyntheticEvent<HTMLFormElement, SubmitEvent>) => {
     event.preventDefault();

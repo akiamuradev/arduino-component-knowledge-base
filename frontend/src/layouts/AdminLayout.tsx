@@ -1,12 +1,18 @@
 import { NavLink, Outlet } from "react-router-dom";
 
+import { hasPermission } from "../auth/permissions";
 import { useCurrentUser } from "../auth/queries";
 import { AppFooter } from "../components/AppFooter";
 import { AppHeader } from "../components/AppHeader";
 
 export function AdminLayout() {
   const currentUser = useCurrentUser();
-  const isAdministrator = currentUser.data?.roles.includes("administrator") === true;
+  const user = currentUser.data;
+  if (user === undefined) return null;
+  const canCreate = hasPermission(user, "components.create");
+  const canImport = hasPermission(user, "imports.create");
+  const canReview = hasPermission(user, "components.review");
+  const canDiagnose = hasPermission(user, "system.diagnostics");
   return (
     <div className="app-shell">
       <AppHeader />
@@ -17,18 +23,18 @@ export function AdminLayout() {
           <h1>Редакция</h1>
           <p>Управление учебными материалами и публикациями.</p>
         </div>
-        <nav aria-label="Рабочее место преподавателя">
+        <nav aria-label="Рабочее место редактора">
           <NavLink end to="/admin"><span aria-hidden="true">⌂</span>Обзор</NavLink>
           <NavLink to="/admin/components"><span aria-hidden="true">▤</span>Карточки</NavLink>
-          <NavLink to="/admin/components/new"><span aria-hidden="true">＋</span>Новая карточка</NavLink>
-          {isAdministrator ? <NavLink to="/admin/duplicates"><span aria-hidden="true">◇</span>Дубликаты</NavLink> : null}
-          {isAdministrator ? <NavLink to="/admin/import"><span aria-hidden="true">⇣</span>Импорт</NavLink> : null}
-          {isAdministrator ? <NavLink to="/admin/import-reviews"><span aria-hidden="true">⌕</span>Review импорта</NavLink> : null}
-          {isAdministrator ? <NavLink to="/admin/jobs"><span aria-hidden="true">↻</span>Фоновые задачи</NavLink> : null}
+          {canCreate ? <NavLink to="/admin/components/new"><span aria-hidden="true">＋</span>Новая карточка</NavLink> : null}
+          {canReview ? <NavLink to="/admin/duplicates"><span aria-hidden="true">◇</span>Дубликаты</NavLink> : null}
+          {canImport ? <NavLink to="/admin/import"><span aria-hidden="true">⇣</span>Импорт</NavLink> : null}
+          {canReview ? <NavLink to="/admin/import-reviews"><span aria-hidden="true">⌕</span>Проверка импорта</NavLink> : null}
+          {canDiagnose ? <NavLink to="/admin/jobs"><span aria-hidden="true">↻</span>Фоновые задачи</NavLink> : null}
         </nav>
         <div className="admin-nav__footer">
           <span className="system-dot" aria-hidden="true" />
-          <span><strong>Backend authorizes</strong><small>Права проверяются сервером</small></span>
+          <span><strong>Серверная авторизация</strong><small>Права проверяются сервером</small></span>
         </div>
         <NavLink className="back-link" to="/">← Вернуться в каталог</NavLink>
         </aside>
