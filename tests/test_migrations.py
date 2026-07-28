@@ -19,7 +19,7 @@ def alembic_config() -> Config:
 
 def test_alembic_has_one_backend_head() -> None:
     scripts = ScriptDirectory.from_config(alembic_config())
-    assert scripts.get_heads() == ["20260728_20"]
+    assert scripts.get_heads() == ["20260728_21"]
 
 
 def test_alembic_upgrade_renders_offline_postgresql_sql(
@@ -123,6 +123,10 @@ def test_alembic_upgrade_renders_offline_postgresql_sql(
     assert "ix_user_roles_active_lookup" in sql
     assert "uq_user_roles_current_grant" in sql
     assert "20260728_20" in sql
+    assert "LOCK TABLE users IN SHARE ROW EXCLUSIVE MODE" in sql
+    assert "ackb-1.0.0-safe-student:" in sql
+    assert "ACKB role backfill left a user without an active baseline role" in sql
+    assert "20260728_21" in sql
 
 
 def test_multiple_images_migration_renders_reversible_downgrade(
@@ -170,6 +174,27 @@ def test_permission_role_grants_migration_renders_reversible_downgrade(
     assert "DROP COLUMN expires_at" in sql
     assert "DROP COLUMN id" in sql
     assert "version_num='20260723_19'" in sql
+
+
+def test_existing_user_role_backfill_renders_reversible_downgrade(
+    monkeypatch: MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setenv(
+        "ACKB_DATABASE_URL",
+        "postgresql+asyncpg://ackb:placeholder@localhost:5432/ackb",
+    )
+    command.downgrade(
+        alembic_config(),
+        "20260728_21:20260728_20",
+        sql=True,
+    )
+    sql = capsys.readouterr().out
+    assert "DELETE FROM user_roles" in sql
+    assert "ackb-1.0.0-safe-student:" in sql
+    assert "role = 'student'" in sql
+    assert "granted_by IS NULL" in sql
+    assert "version_num='20260728_20'" in sql
 
 
 def test_runtime_has_no_create_all_escape_hatch() -> None:
