@@ -7,7 +7,8 @@ React + strict TypeScript приложение на Vite. Оно обращае�
 ## Структура
 
 - `src/api` — типизированные HTTP contracts, общий client, CSRF и typed errors;
-- `src/auth` — TanStack Query для backend-resolved principal;
+- `src/auth` — TanStack Query для backend-resolved principal и проверки permissions;
+- `src/app/navigation.ts` — единый permission-based контракт основной и редакционной навигации;
 - `src/routing` — authentication/role UX guards; они не являются security boundary;
 - `src/layouts` — student и administrator shells;
 - `src/pages` — route-level страницы;
@@ -27,6 +28,9 @@ React + strict TypeScript приложение на Vite. Оно обращае�
 - login OLED собран из HTML/CSS/SVG, использует один `requestAnimationFrame`, CSS variables,
   reduced-motion и не участвует в проверке credentials или roles;
 - global search передаёт `q` в реальный catalog endpoint через URL.
+- шапка показывает серверное имя и русское название роли, а ссылки фильтруются только по
+  permissions из `/auth/me`; на мобильном экране основная навигация остаётся доступной;
+- редакционная навигация разделяет работу с материалами и административные инструменты.
 
 Public catalog API пока не отдаёт связанные media/download URL и provenance. Frontend содержит
 optional typed contracts `CatalogMedia`, `SourceAttribution` и `ContentProvenance`, но не создаёт

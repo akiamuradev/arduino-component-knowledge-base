@@ -3,9 +3,10 @@ import { type SyntheticEvent } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 
 import { api } from "../api/client";
-import { hasAnyPermission } from "../auth/permissions";
+import { navigationFor } from "../app/navigation";
 import { currentUserQueryKey, useCurrentUser } from "../auth/queries";
 import { PRODUCT_BRAND } from "../config/brand";
+import { primaryRoleLabel } from "../config/uiLabels";
 import { BrandMark } from "./BrandMark";
 import { ThemeToggle } from "./ThemeToggle";
 
@@ -25,17 +26,8 @@ export function AppHeader() {
 
   if (currentUser.data === undefined) return null;
 
-  const canEdit = hasAnyPermission(
-    currentUser.data,
-    ["components.create", "components.edit"],
-  );
-  const primaryRole = currentUser.data.roles.includes("administrator")
-    ? "Администратор"
-    : currentUser.data.roles.includes("editor")
-      ? "Редактор базы"
-      : currentUser.data.roles.includes("teacher")
-        ? "Преподаватель"
-        : "Ученик";
+  const primaryNavigation = navigationFor(currentUser.data, "primary");
+  const primaryRole = primaryRoleLabel(currentUser.data.roles);
   const avatarLetter = currentUser.data.display_name.trim().charAt(0).toUpperCase() || "A";
   const submitSearch = (event: SyntheticEvent<HTMLFormElement, SubmitEvent>) => {
     event.preventDefault();
@@ -57,8 +49,9 @@ export function AppHeader() {
           <input defaultValue={search} id="global-search" key={search} maxLength={100} name="q" placeholder="Найти компонент…" type="search" />
         </form>
         <nav className="topbar__nav" aria-label="Основная навигация">
-          <NavLink to="/">Каталог</NavLink>
-          {canEdit ? <NavLink to="/admin">Редакция</NavLink> : null}
+          {primaryNavigation.map((item) => (
+            <NavLink end={item.end} key={item.path} to={item.path}>{item.label}</NavLink>
+          ))}
         </nav>
         <ThemeToggle />
         <details className="user-menu">
@@ -68,7 +61,11 @@ export function AppHeader() {
             <span aria-hidden="true">⌄</span>
           </summary>
           <div className="user-menu__panel">
-            <span><strong>{currentUser.data.display_name}</strong><small>{currentUser.data.login}</small></span>
+            <span className="user-menu__identity">
+              <strong>{currentUser.data.display_name}</strong>
+              <small>{primaryRole}</small>
+              <small>@{currentUser.data.login}</small>
+            </span>
             <button className="button button--quiet" disabled={logout.isPending} onClick={() => { logout.mutate(); }} type="button">
               {logout.isPending ? "Выходим…" : "Выйти"}
             </button>

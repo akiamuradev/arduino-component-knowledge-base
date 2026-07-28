@@ -8,6 +8,24 @@ const student = {
   permissions: ["components.view"],
 };
 
+const editor = {
+  ...student,
+  login: "editor",
+  display_name: "Ирина Редакторова",
+  roles: ["student", "editor"],
+  permissions: [
+    "components.view",
+    "components.create",
+    "components.edit",
+    "components.archive",
+    "components.submit_for_review",
+    "imports.view",
+    "imports.create",
+    "imports.retry",
+    "imports.cancel",
+  ],
+};
+
 const category = { id: "20000000-0000-4000-8000-000000000001", slug: "sensors", name: "Датчики" };
 const component = {
   id: "30000000-0000-4000-8000-000000000001",
@@ -77,7 +95,7 @@ const component = {
   }],
 };
 
-async function mockCatalog(page: Page) {
+async function mockCatalog(page: Page, currentUser = student) {
   await page.route("**/media-storage/**", async (route) => {
     await route.fulfill({
       status: 200,
@@ -88,7 +106,7 @@ async function mockCatalog(page: Page) {
   await page.route("**/api/v1/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
     if (path === "/api/v1/auth/me") {
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(student) });
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(currentUser) });
       return;
     }
     if (path === "/api/v1/catalog/categories") {
@@ -101,6 +119,10 @@ async function mockCatalog(page: Page) {
     }
     if (path === "/api/v1/catalog/components/dht22") {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(component) });
+      return;
+    }
+    if (path === "/api/v1/workspace/components") {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: [], total: 0 }) });
       return;
     }
     await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ detail: { code: "unexpected_e2e_request", path } }) });
@@ -121,6 +143,12 @@ test("student browses the catalog, switches theme and opens sourced learning con
   await mockCatalog(page);
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Исследуйте мир Arduino-компонентов" })).toBeVisible();
+  await expect(page.locator(".brand__copy strong")).toHaveText("База компонентов Arduino");
+  await expect(page.locator(".brand__copy small")).toHaveText("Справочник электронных компонентов");
+  await expect(page.locator(".account__copy strong")).toHaveText("Мария Студентова");
+  await expect(page.locator(".account__copy small")).toHaveText("Ученик");
+  await expect(page.getByRole("navigation", { name: "Основная навигация" }).getByRole("link"))
+    .toHaveText(["Каталог"]);
   await expect(page.locator(".hero__splat")).toHaveAttribute("aria-hidden", "true");
   await expect(page.getByText("Проверенный источник · GPL-3.0-only")).toBeVisible();
   await expect(page.getByRole("link", { name: /Добавить компонент/ })).toHaveCount(0);
@@ -145,8 +173,13 @@ test("student browses the catalog, switches theme and opens sourced learning con
   await expect(page.getByText("Подключите библиотеку DHT.")).toBeVisible();
   await page.getByRole("button", { name: "Показать решение" }).click();
   await expect(page.locator(".learning-code")).toContainText("Serial.begin");
-  for (const width of [360, 768, 1024, 1440]) {
+  for (const width of [320, 360, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 900 });
+    await expect(
+      page.getByRole("navigation", { name: "Основная навигация" }).getByRole("link", {
+        name: "Каталог",
+      }),
+    ).toBeVisible();
     const overflows = await page.evaluate(
       () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
     );
@@ -156,6 +189,26 @@ test("student browses the catalog, switches theme and opens sourced learning con
   await page.emulateMedia({ reducedMotion: "reduce" });
   await expect(page.locator(".brand-splat--animated").first()).toHaveCSS("animation-name", "none");
   expect(consoleErrors).toEqual([]);
+});
+
+test("editor navigation remains usable at 320px and hides administrator tools", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 900 });
+  await mockCatalog(page, editor);
+  await page.goto("/admin");
+
+  await expect(page.getByRole("heading", { name: "Обзор материалов" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Основная навигация" }).getByRole("link"))
+    .toHaveText(["Каталог", "Редакция"]);
+  await expect(page.getByRole("navigation", { name: "Рабочее место редактора" })).toContainText(
+    "Загрузка компонентов",
+  );
+  await expect(page.getByRole("heading", { name: "Администрирование" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Пользователи" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Диагностика" })).toHaveCount(0);
+  const overflows = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+  );
+  expect(overflows).toBe(false);
 });
 
 test("captures approved responsive theme views", async ({ page }) => {
