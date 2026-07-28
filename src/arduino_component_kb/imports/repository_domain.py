@@ -65,7 +65,18 @@ def normalize_repository_url(value: str) -> str:
 
 
 def normalize_repository_path(value: str) -> str:
-    if not value or "\\" in value or value.startswith("/"):
+    if (
+        not value
+        or len(value) > 1000
+        or "\\" in value
+        or value.startswith("/")
+        or any(ord(character) < 32 or ord(character) == 127 for character in value)
+    ):
+        raise ValueError("repository_path_invalid")
+    parts = value.split("/")
+    if any(part == ".." for part in parts):
+        raise ValueError("repository_path_outside_snapshot")
+    if any(part in {"", "."} for part in parts):
         raise ValueError("repository_path_invalid")
     normalized = posixpath.normpath(value)
     if normalized in {"", ".", ".."} or normalized.startswith("../"):

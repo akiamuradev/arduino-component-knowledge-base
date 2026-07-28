@@ -95,6 +95,11 @@ pytest -m integration --strict-markers
   import job, без изменения job и без постановки в очередь;
 - terminal cancellation import job: worker не начинает отменённую операцию и не заменяет
   `cancelled` на `failed`;
+- early rejection traversal/control-character paths и неподдерживаемых repository extensions;
+- PostgreSQL-serialized active/rate quotas для import и media reservation, включая
+  идемпотентный replay без повторного расходования лимита;
+- safe audit для accepted/rejected upload/import без raw path, содержимого, presigned URL или
+  внутреннего exception;
 - полный PostgreSQL lifecycle временного editor: создание с безопасной базовой ролью, срок,
   досрочный отзыв, повторное назначение, session revocation, disable, история grants и audit;
 - PostgreSQL unique constraint для login;

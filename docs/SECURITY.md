@@ -189,7 +189,9 @@ worker. Durable imports still execute only in the parser worker; media workers h
 - Adapter принимает только полный commit SHA; branch/tag должен быть заранее разрешён backend.
   Revision входит в job, idempotency identity, provenance и immutable license snapshot.
 - `RepositorySnapshot` принимает только relative POSIX paths, запрещает traversal/backslash,
-  ограничивает file count и individual file size. Dry-run запрещает symlink root/file.
+  пустые/`.`/`..`/control-character segments, ограничивает path length, file count и individual
+  file size. До network fetch API разрешает только `.md`/`.mdx` для Seeed и `.kicad_sym` для
+  KiCad. Dry-run запрещает symlink root/file.
 - Git hooks, submodules, package scripts, documentation build, KiCad CLI и remote code никогда
   не запускаются. На этапе 1 adapter работает с уже полученными bytes; безопасное bounded archive
   acquisition проверяется отдельно на Linux VM.
@@ -227,6 +229,24 @@ worker. Durable imports still execute only in the parser worker; media workers h
   и fail-closed отклоняет уже настроенную bucket policy; публичность не исправляется молча.
 - Presigned upload TTL ограничен 15 минутами, URL не сохраняется в PostgreSQL/audit и ответы
   reservation/status помечены `Cache-Control: no-store`.
+- Reservation сериализуется PostgreSQL advisory lock и проверяет per-user/global pending quota
+  и fixed-window rate limit до выдачи URL. Import submission использует отдельный transaction
+  lock, active quotas и rate limit; идемпотентный replay не создаёт второй job и не расходует
+  лимит.
+- Image processing не создаёт временных host-файлов. Video processing использует отдельный
+  `TemporaryDirectory`, который очищается при success, rejection, timeout и исключении.
+- Import cancellation терминальна: worker может завершить уже начатый bounded fetch/parse, но
+  повторно блокирует job и не сохраняет результат после `cancelled`.
+
+### Остаточные риски загрузки 1.0.0
+
+- В инфраструктуре нет антивирусного движка. Allowlist, magic/container validation,
+  data-only parsing, re-encoding и sandboxing уменьшают риск, но не исключают неизвестную
+  уязвимость Pillow/FFmpeg/parser; dependency и container обновления остаются обязательными.
+- Отмена не прерывает уже выполняющийся HTTP request или FFmpeg subprocess мгновенно. Их
+  ограничивают timeout/resource limits, а terminal state проверяется до persistence.
+- Application rate limits защищают авторизованные операции и согласованы между экземплярами
+  через PostgreSQL. Внешний per-IP/WAF limit остаётся задачей production edge.
 
 ## Duplicate merge
 
@@ -273,6 +293,10 @@ Structured logs содержат request/job ID, typed error code и bounded lab
 teacher notes или URL query values. Ошибка не скрывается: клиент получает безопасный code,
 оператор — correlation ID, audit — outcome.
 
+Editor polling для failed import заменяет внутренний `error_code` на
+`import_processing_failed` и очищает metrics/heartbeat. Исходный typed code и bounded metrics
+доступны только administrator diagnostics с `system.diagnostics`.
+
 Audit обязателен для login failures, role/source policy changes, import, upload rejection,
 publication, archive, duplicate decision, merge и administrative export. Audit append-only,
 имеет retention/backup и контролируемый доступ administrator.
@@ -285,6 +309,8 @@ Bootstrap первого administrator интерактивен, не прини
 
 - Per-user и global quotas для concurrent imports/uploads; Dramatiq queues разделены для
   parser, images и video, чтобы тяжёлое video не блокировало каталог.
+- Новые import/media submissions дополнительно имеют настраиваемое fixed-window ограничение
+  частоты. Отклонение возвращает только typed `429` code и записывает safe audit event.
 - Bounded exponential backoff только для transient errors; dead-letter/failed jobs видимы admin.
 - PostgreSQL остаётся durable job truth, поэтому очистка Redis не превращает failed job в
   success и не отменяет audit.

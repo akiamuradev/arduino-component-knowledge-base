@@ -77,6 +77,15 @@ class MediaService:
         if not 0 < declared_size_bytes <= max_bytes:
             raise MediaValidationError(f"{kind.value}_size_not_allowed")
         await self.repository.lock_upload_reservations()
+        now = datetime.now(UTC)
+        if (
+            await self.repository.count_recent_uploads(
+                actor.user_id,
+                since=now - timedelta(seconds=self.settings.media_upload_rate_window_seconds),
+            )
+            >= self.settings.media_upload_rate_limit
+        ):
+            raise MediaQuotaError("media_upload_rate_limited")
         if (
             await self.repository.count_pending(actor.user_id)
             >= self.settings.media_pending_upload_limit
@@ -111,7 +120,6 @@ class MediaService:
         else:
             display_order = 0
             is_primary = False
-        now = datetime.now(UTC)
         expires_at = now + timedelta(seconds=self.settings.media_presign_ttl_seconds)
         asset_id = uuid4()
         object_key = f"{kind.value}s/{actor.user_id}/{asset_id}/original"

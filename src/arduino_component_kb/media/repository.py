@@ -63,6 +63,17 @@ class MediaRepository:
         )
         return int(count or 0)
 
+    async def count_recent_uploads(self, owner_id: UUID, *, since: datetime) -> int:
+        count = await self.session.scalar(
+            select(func.count())
+            .select_from(MediaAsset)
+            .where(
+                MediaAsset.owner_user_id == owner_id,
+                MediaAsset.created_at >= since,
+            )
+        )
+        return int(count or 0)
+
     async def count_all_pending(self) -> int:
         count = await self.session.scalar(
             select(func.count()).select_from(MediaAsset).where(_active_upload_filter())

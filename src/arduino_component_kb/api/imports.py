@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+import logging
+from datetime import UTC, datetime, timedelta
 from pathlib import PurePosixPath
 from typing import Annotated, Literal, cast
 from uuid import UUID
@@ -44,6 +45,7 @@ from arduino_component_kb.imports.urls import approve_source_url
 from arduino_component_kb.logging import current_request_id
 
 router = APIRouter(prefix="/api/v1/import-jobs", tags=["imports"])
+logger = logging.getLogger("arduino_component_kb.imports.api")
 editor = require_permissions(Permission.IMPORTS_CREATE)
 import_viewer = require_permissions(Permission.IMPORTS_VIEW)
 import_retry = require_permissions(Permission.IMPORTS_RETRY)
@@ -180,8 +182,15 @@ class RepositoryPreviewResponse(BaseModel):
     draft_status: Literal["draft"]
 
 
-def _response(job: ImportJob) -> ImportJobResponse:
-    return ImportJobResponse.model_validate(job, from_attributes=True)
+def _response(job: ImportJob, *, include_diagnostics: bool = False) -> ImportJobResponse:
+    result = ImportJobResponse.model_validate(job, from_attributes=True)
+    if include_diagnostics:
+        return result
+    result.metrics_json = {}
+    result.heartbeat_at = None
+    if result.status == "failed":
+        result.error_code = "import_processing_failed"
+    return result
 
 
 def _display_status(job: ImportJob, component_status: str | None) -> ImportDisplayStatus:
@@ -278,6 +287,11 @@ def _require_legacy_kicad_card_import(settings: Settings, source_key: str) -> No
 def _validated_entry(payload: RepositoryImportRequest) -> RepositoryEntry:
     try:
         file_path = normalize_repository_path(payload.file_path)
+        suffix = PurePosixPath(file_path).suffix.casefold()
+        if payload.source_key == "seeed_wiki" and suffix not in {".md", ".mdx"}:
+            raise ValueError("repository_file_type_not_allowed")
+        if payload.source_key == "kicad_symbols" and not file_path.endswith(".kicad_sym"):
+            raise ValueError("repository_file_type_not_allowed")
         if payload.source_key == "seeed_wiki" and payload.entry_name is not None:
             raise ValueError("repository_entry_name_not_allowed")
         if payload.source_key == "kicad_symbols" and payload.entry_name is None:
@@ -298,6 +312,100 @@ def _safe_value_code(error: ValueError) -> str:
 
 def _acquisition_error(error: RepositoryAcquisitionError) -> HTTPException:
     return HTTPException(503 if error.retryable else 422, detail={"code": error.code})
+
+
+async def _admit_submission(
+    repository: ImportRepository,
+    session: AsyncSession,
+    actor: Principal,
+    settings: Settings,
+    idempotency_key: str,
+) -> ImportJob | None:
+    """Return an idempotent job or hold a transaction lock for a new submission."""
+    await repository.lock_submissions()
+    existing = await repository.get_idempotent_job(actor.user_id, idempotency_key)
+    if existing is not None:
+        return existing
+    now = datetime.now(UTC)
+    code: str | None = None
+    if (
+        await repository.count_recent_submissions(
+            actor.user_id,
+            since=now - timedelta(seconds=settings.import_submission_rate_window_seconds),
+        )
+        >= settings.import_submission_rate_limit
+    ):
+        code = "import_rate_limited"
+    elif await repository.count_active(actor.user_id) >= settings.import_pending_job_limit:
+        code = "import_pending_quota_exceeded"
+    elif await repository.count_active() >= settings.import_global_pending_job_limit:
+        code = "import_global_pending_quota_exceeded"
+    if code is None:
+        return None
+    await AuthRepository(session).audit(
+        now=now,
+        actor_user_id=actor.user_id,
+        action="import.submission_rejected",
+        object_type="import_job",
+        object_id=None,
+        request_id=current_request_id(),
+        outcome="rejected",
+        details={"code": code},
+    )
+    await session.commit()
+    raise HTTPException(
+        429,
+        detail={"code": code},
+        headers={"Retry-After": str(settings.import_submission_rate_window_seconds)},
+    )
+
+
+async def _audit_import_created(
+    session: AsyncSession,
+    actor: Principal,
+    job: ImportJob,
+    *,
+    kind: str,
+) -> None:
+    await AuthRepository(session).audit(
+        now=datetime.now(UTC),
+        actor_user_id=actor.user_id,
+        action="import.job_submitted",
+        object_type="import_job",
+        object_id=job.id,
+        request_id=current_request_id(),
+        outcome="success",
+        details={"kind": kind},
+    )
+
+
+async def _enqueue_import(
+    queue: ImportQueue,
+    session: AsyncSession,
+    actor: Principal,
+    job: ImportJob,
+) -> None:
+    if job.status not in {"queued", "retrying"}:
+        return
+    try:
+        queue.enqueue(job.id)
+    except Exception as error:
+        logger.exception(
+            "import_enqueue_failed",
+            extra={"import_job_id": str(job.id), "error_type": type(error).__name__},
+        )
+        await AuthRepository(session).audit(
+            now=datetime.now(UTC),
+            actor_user_id=actor.user_id,
+            action="import.job_enqueue_failed",
+            object_type="import_job",
+            object_id=job.id,
+            request_id=current_request_id(),
+            outcome="error",
+            details={"code": "import_enqueue_failed"},
+        )
+        await session.commit()
+        raise HTTPException(503, detail={"code": "import_enqueue_failed"}) from error
 
 
 def _preview_response(
@@ -350,9 +458,10 @@ async def create_import(
     source = await repository.source_for_host(approved.host)
     if source is None:
         raise HTTPException(422, detail={"code": "source_disabled"})
-    job = await repository.get_idempotent_job(actor.user_id, idempotency_key)
+    settings = cast(Settings, request.app.state.settings)
+    job = await _admit_submission(repository, session, actor, settings, idempotency_key)
+    created = job is None
     if job is None:
-        settings = cast(Settings, request.app.state.settings)
         job = repository.add_job(
             source,
             approved.url,
@@ -370,14 +479,15 @@ async def create_import(
     if job.submitted_url != approved.url:
         await session.rollback()
         raise HTTPException(409, detail={"code": "idempotency_key_conflict"})
+    if created:
+        await _audit_import_created(session, actor, job, kind="url")
     await session.commit()
-    if job.status in {"queued", "retrying"}:
-        try:
-            queue.enqueue(job.id)
-        except Exception as error:
-            raise HTTPException(503, detail={"code": "import_enqueue_failed"}) from error
+    await _enqueue_import(queue, session, actor, job)
     response.headers["Cache-Control"] = "no-store"
-    return _response(job)
+    return _response(
+        job,
+        include_diagnostics=actor.can(Permission.SYSTEM_DIAGNOSTICS),
+    )
 
 
 @router.get("/repository/discovery", response_model=RepositoryDiscoveryResponse)
@@ -528,7 +638,8 @@ async def create_repository_import(
     source = await repository.source_for_key(payload.source_key)
     if source is None:
         raise HTTPException(422, detail={"code": "source_disabled"})
-    job = await repository.get_idempotent_job(actor.user_id, idempotency_key)
+    job = await _admit_submission(repository, session, actor, settings, idempotency_key)
+    created = job is None
     if job is None:
         job = repository.add_repository_job(
             source,
@@ -561,14 +672,15 @@ async def create_repository_import(
     if stored_identity != identity:
         await session.rollback()
         raise HTTPException(409, detail={"code": "idempotency_key_conflict"})
+    if created:
+        await _audit_import_created(session, actor, job, kind="repository")
     await session.commit()
-    if job.status in {"queued", "retrying"}:
-        try:
-            queue.enqueue(job.id)
-        except Exception as error:
-            raise HTTPException(503, detail={"code": "import_enqueue_failed"}) from error
+    await _enqueue_import(queue, session, actor, job)
     response.headers["Cache-Control"] = "no-store"
-    return _response(job)
+    return _response(
+        job,
+        include_diagnostics=actor.can(Permission.SYSTEM_DIAGNOSTICS),
+    )
 
 
 @router.get("", response_model=ImportListResponse)
@@ -719,4 +831,7 @@ async def get_import(
     ):
         raise HTTPException(404, detail={"code": "import_job_not_found"})
     response.headers["Cache-Control"] = "no-store"
-    return _response(job)
+    return _response(
+        job,
+        include_diagnostics=actor.can(Permission.SYSTEM_DIAGNOSTICS),
+    )
