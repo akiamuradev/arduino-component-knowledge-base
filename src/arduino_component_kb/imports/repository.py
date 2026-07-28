@@ -120,6 +120,17 @@ class ImportRepository:
         job.updated_at = now
         return True
 
+    @staticmethod
+    def cancel(job: ImportJob, now: datetime) -> None:
+        if job.status not in {"queued", "running", "retrying"}:
+            raise ValueError("import_not_cancellable")
+        job.status = "cancelled"
+        job.error_code = None
+        job.next_retry_at = None
+        job.finished_at = now
+        job.updated_at = now
+        job.heartbeat_at = now
+
     async def active_source(self, source_id: UUID) -> Source | None:
         return cast(
             Source | None,

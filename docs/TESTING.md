@@ -39,8 +39,10 @@ Playwright запускает собранный frontend через Vite previe
 безопасную source attribution, подсказку и скрытое решение. Реальная backend-авторизация отдельно
 проверяется integration-контуром. Тестовые ответы отсутствуют в production bundle.
 
-Vitest дополнительно проверяет administrator-only repository import: bounded discovery,
+Vitest дополнительно проверяет editor/administrator repository import: bounded discovery,
 entry selection, preview с license/provenance, создание draft job и переход к готовому черновику.
+Страница «Загрузка компонентов» проверяет русские состояния, безопасный результат,
+отсутствие технических подробностей, ownership actions editor и administrator-only диагностику.
 Тест подтверждает отсутствие вызова publish. Страница `/sources` проверяется на разделение active
 и disabled источников и безопасные внешние ссылки. Stage 12 проверяет отдельные панели module
 connection/internal components/KiCad symbol, confidence/evidence, optimistic review actions и
@@ -82,6 +84,8 @@ pytest -m integration --strict-markers
   прямые отрицательные запросы student/teacher/editor и обязательный CSRF для administrator;
 - одинаковый `404` для отсутствующего и чужого media/import UUID, в том числе retry чужого
   import job, без изменения job и без постановки в очередь;
+- terminal cancellation import job: worker не начинает отменённую операцию и не заменяет
+  `cancelled` на `failed`;
 - полный PostgreSQL lifecycle временного editor: создание с безопасной базовой ролью, срок,
   досрочный отзыв, повторное назначение, session revocation, disable, история grants и audit;
 - PostgreSQL unique constraint для login;

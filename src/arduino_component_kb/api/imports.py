@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from pathlib import PurePosixPath
 from typing import Annotated, Literal, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel, Field
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,6 +19,9 @@ from arduino_component_kb.api.dependencies import (
     require_permissions,
 )
 from arduino_component_kb.auth.domain import Permission, Principal
+from arduino_component_kb.auth.models import User
+from arduino_component_kb.auth.repository import AuthRepository
+from arduino_component_kb.catalog.models import Component
 from arduino_component_kb.config import Settings
 from arduino_component_kb.imports.acquisition import (
     AcquisitionPolicy,
@@ -27,7 +32,7 @@ from arduino_component_kb.imports.adapters.kicad_symbols import KicadSymbolsAdap
 from arduino_component_kb.imports.adapters.repository import RepositorySourceAdapter
 from arduino_component_kb.imports.adapters.seeed_wiki import SeeedWikiAdapter
 from arduino_component_kb.imports.domain import SourcePolicyError
-from arduino_component_kb.imports.models import ImportJob
+from arduino_component_kb.imports.models import ImportJob, Source
 from arduino_component_kb.imports.queue import ImportQueue
 from arduino_component_kb.imports.repository import ImportRepository
 from arduino_component_kb.imports.repository_domain import (
@@ -36,10 +41,13 @@ from arduino_component_kb.imports.repository_domain import (
     normalize_repository_path,
 )
 from arduino_component_kb.imports.urls import approve_source_url
+from arduino_component_kb.logging import current_request_id
 
 router = APIRouter(prefix="/api/v1/import-jobs", tags=["imports"])
 editor = require_permissions(Permission.IMPORTS_CREATE)
 import_viewer = require_permissions(Permission.IMPORTS_VIEW)
+import_retry = require_permissions(Permission.IMPORTS_RETRY)
+import_cancel = require_permissions(Permission.IMPORTS_CANCEL)
 
 
 class ImportRequest(BaseModel):
@@ -66,6 +74,42 @@ class ImportJobResponse(BaseModel):
     warnings_json: list[str]
     heartbeat_at: datetime | None
     metrics_json: dict[str, object]
+
+
+ImportDisplayStatus = Literal[
+    "pending",
+    "processing",
+    "needs_review",
+    "ready",
+    "published",
+    "error",
+    "cancelled",
+]
+
+
+class ImportListItemResponse(BaseModel):
+    id: UUID
+    title: str
+    source: str
+    requested_by: str
+    created_at: datetime
+    status: ImportDisplayStatus
+    result: str
+    component_id: UUID | None
+    can_retry: bool
+    can_cancel: bool
+
+
+class ImportListResponse(BaseModel):
+    items: list[ImportListItemResponse]
+    total: int
+    limit: int
+    offset: int
+
+
+class ImportActionResponse(BaseModel):
+    id: UUID
+    status: Literal["queued", "cancelled"]
 
 
 class RepositoryImportRequest(BaseModel):
@@ -138,6 +182,69 @@ class RepositoryPreviewResponse(BaseModel):
 
 def _response(job: ImportJob) -> ImportJobResponse:
     return ImportJobResponse.model_validate(job, from_attributes=True)
+
+
+def _display_status(job: ImportJob, component_status: str | None) -> ImportDisplayStatus:
+    if job.status in {"queued", "retrying"}:
+        return "pending"
+    if job.status == "running":
+        return "processing"
+    if job.status == "failed":
+        return "error"
+    if job.status == "cancelled":
+        return "cancelled"
+    if component_status == "published":
+        return "published"
+    if component_status in {"in_review", "changes_requested"} or (
+        job.parse_status == "parsed_with_warnings"
+    ):
+        return "needs_review"
+    return "ready"
+
+
+def _display_result(display_status: ImportDisplayStatus) -> str:
+    return {
+        "pending": "Ожидает начала обработки",
+        "processing": "Идёт обработка материалов",
+        "needs_review": "Нужна ручная проверка",
+        "ready": "Черновик карточки готов",
+        "published": "Карточка опубликована",
+        "error": "Компонент не удалось обработать",
+        "cancelled": "Загрузка отменена",
+    }[display_status]
+
+
+def _display_title(job: ImportJob, source_name: str) -> str:
+    if job.source_entry_name:
+        return job.source_entry_name
+    if job.source_file_path:
+        source_path = PurePosixPath(job.source_file_path)
+        return source_path.stem or source_path.name
+    return f"Компонент из источника «{source_name}»"
+
+
+def _list_item(
+    job: ImportJob,
+    source_name: str,
+    requested_by: str,
+    component_status: str | None,
+    *,
+    can_retry: bool,
+    can_cancel: bool,
+) -> ImportListItemResponse:
+    display_status = _display_status(job, component_status)
+    return ImportListItemResponse(
+        id=job.id,
+        title=_display_title(job, source_name),
+        source=source_name,
+        requested_by=requested_by,
+        created_at=job.created_at,
+        status=display_status,
+        result=_display_result(display_status),
+        component_id=job.draft_component_id,
+        can_retry=can_retry,
+        can_cancel=can_cancel,
+    )
 
 
 def queue_from_request(request: Request) -> ImportQueue:
@@ -462,6 +569,141 @@ async def create_repository_import(
             raise HTTPException(503, detail={"code": "import_enqueue_failed"}) from error
     response.headers["Cache-Control"] = "no-store"
     return _response(job)
+
+
+@router.get("", response_model=ImportListResponse)
+async def list_imports(
+    request: Request,
+    response: Response,
+    actor: Annotated[Principal, Depends(import_viewer)],
+    session: Annotated[AsyncSession, Depends(database_session)],
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> ImportListResponse:
+    filters = (
+        ()
+        if actor.can(Permission.SYSTEM_DIAGNOSTICS)
+        else (ImportJob.requested_by == actor.user_id,)
+    )
+    total = int(
+        await session.scalar(select(func.count()).select_from(ImportJob).where(*filters)) or 0
+    )
+    records = await session.execute(
+        select(ImportJob, Source.display_name, User.display_name, Component.status)
+        .join(Source, Source.id == ImportJob.source_id)
+        .join(User, User.id == ImportJob.requested_by)
+        .outerjoin(Component, Component.id == ImportJob.draft_component_id)
+        .where(*filters)
+        .order_by(ImportJob.created_at.desc(), ImportJob.id.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    now = datetime.now(UTC)
+    settings = cast(Settings, request.app.state.settings)
+    items = [
+        _list_item(
+            job,
+            source_name,
+            requested_by,
+            component_status,
+            can_retry=actor.can(Permission.IMPORTS_RETRY)
+            and ImportRepository.is_manually_retryable(
+                job,
+                now,
+                settings.import_lock_ttl_seconds,
+            ),
+            can_cancel=actor.can(Permission.IMPORTS_CANCEL)
+            and job.status in {"queued", "running", "retrying"},
+        )
+        for job, source_name, requested_by, component_status in records.all()
+    ]
+    response.headers["Cache-Control"] = "no-store"
+    return ImportListResponse(items=items, total=total, limit=limit, offset=offset)
+
+
+async def _owned_job(
+    job_id: UUID,
+    actor: Principal,
+    repository: ImportRepository,
+) -> ImportJob:
+    job = await repository.get_job(job_id, lock=True)
+    if job is None or (
+        not actor.can(Permission.SYSTEM_DIAGNOSTICS) and job.requested_by != actor.user_id
+    ):
+        raise HTTPException(404, detail={"code": "import_job_not_found"})
+    return job
+
+
+@router.post("/{job_id}/retry", response_model=ImportActionResponse)
+async def retry_import(
+    job_id: UUID,
+    request: Request,
+    actor: Annotated[Principal, Depends(import_retry)],
+    _: Annotated[Principal, Depends(csrf_principal)],
+    session: Annotated[AsyncSession, Depends(database_session)],
+    queue: Annotated[ImportQueue, Depends(queue_from_request)],
+) -> ImportActionResponse:
+    repository = ImportRepository(session)
+    job = await _owned_job(job_id, actor, repository)
+    now = datetime.now(UTC)
+    settings = cast(Settings, request.app.state.settings)
+    try:
+        reset = repository.prepare_manual_retry(job, now, settings.import_lock_ttl_seconds)
+    except ValueError as error:
+        raise HTTPException(409, detail={"code": "import_not_retryable"}) from error
+    await AuthRepository(session).audit(
+        now=now,
+        actor_user_id=actor.user_id,
+        action="import.job_retry_requested",
+        object_type="import_job",
+        object_id=job.id,
+        request_id=current_request_id(),
+        outcome="success",
+        details={"reset": reset},
+    )
+    await session.commit()
+    try:
+        queue.enqueue(job.id)
+    except Exception as error:
+        failure_time = datetime.now(UTC)
+        failed = await repository.get_job(job.id, lock=True)
+        if failed is not None:
+            failed.status = "failed"
+            failed.error_code = "import_enqueue_failed"
+            failed.finished_at = failure_time
+            failed.updated_at = failure_time
+            failed.heartbeat_at = failure_time
+        await session.commit()
+        raise HTTPException(503, detail={"code": "import_enqueue_failed"}) from error
+    return ImportActionResponse(id=job.id, status="queued")
+
+
+@router.post("/{job_id}/cancel", response_model=ImportActionResponse)
+async def cancel_import(
+    job_id: UUID,
+    actor: Annotated[Principal, Depends(import_cancel)],
+    _: Annotated[Principal, Depends(csrf_principal)],
+    session: Annotated[AsyncSession, Depends(database_session)],
+) -> ImportActionResponse:
+    repository = ImportRepository(session)
+    job = await _owned_job(job_id, actor, repository)
+    now = datetime.now(UTC)
+    try:
+        repository.cancel(job, now)
+    except ValueError as error:
+        raise HTTPException(409, detail={"code": "import_not_cancellable"}) from error
+    await AuthRepository(session).audit(
+        now=now,
+        actor_user_id=actor.user_id,
+        action="import.job_cancelled",
+        object_type="import_job",
+        object_id=job.id,
+        request_id=current_request_id(),
+        outcome="success",
+        details=None,
+    )
+    await session.commit()
+    return ImportActionResponse(id=job.id, status="cancelled")
 
 
 @router.get("/{job_id}", response_model=ImportJobResponse)

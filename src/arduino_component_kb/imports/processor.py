@@ -52,7 +52,11 @@ async def process_import_job(job_id: UUID, settings: Settings) -> None:
             repository = ImportRepository(session)
             async with session.begin():
                 job = await repository.get_job(job_id, lock=True)
-                if job is None or job.status == "succeeded" or job.attempts >= job.max_attempts:
+                if (
+                    job is None
+                    or job.status not in {"queued", "running", "retrying"}
+                    or job.attempts >= job.max_attempts
+                ):
                     return
                 source = await repository.active_source(job.source_id)
                 if source is None:
@@ -198,7 +202,7 @@ async def process_import_job(job_id: UUID, settings: Settings) -> None:
                     raise RetryableImportError(_backoff_ms(attempt))
                 async with session.begin():
                     locked = await repository.get_job(job_id, lock=True)
-                    if locked is None or locked.status == "succeeded":
+                    if locked is None or locked.status in {"succeeded", "cancelled"}:
                         return
                     if parsed_repository is not None:
                         locked.heartbeat_at = datetime.now(UTC)
@@ -279,7 +283,7 @@ async def process_import_job(job_id: UUID, settings: Settings) -> None:
 async def _record_transient(repository: ImportRepository, job_id: UUID) -> None:
     async with repository.session.begin():
         job = await repository.get_job(job_id, lock=True)
-        if job is None or job.status == "succeeded":
+        if job is None or job.status in {"succeeded", "cancelled"}:
             return
         now = datetime.now(UTC)
         if job.attempts >= job.max_attempts:
@@ -293,6 +297,8 @@ async def _record_transient(repository: ImportRepository, job_id: UUID) -> None:
 
 
 def _mark_failed(job: ImportJob, code: str) -> None:
+    if job.status == "cancelled":
+        return
     now = datetime.now(UTC)
     job.status = "failed"
     job.error_code = code[:80]

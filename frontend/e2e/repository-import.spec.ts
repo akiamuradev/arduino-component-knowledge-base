@@ -5,10 +5,10 @@ const administrator = {
   login: "administrator",
   display_name: "Integration Administrator",
   roles: ["administrator"],
-  permissions: ["components.view", "components.edit", "imports.create"],
+  permissions: ["components.view", "components.edit", "imports.view", "imports.create"],
 };
 
-test("administrator previews a bounded repository entry before creating a draft", async ({ context, page }) => {
+test("editor-facing upload flow previews a source before creating a draft", async ({ context, page }) => {
   await context.addCookies([{ name: "ackb_csrf", value: "e2e-csrf", url: "http://127.0.0.1:4173" }]);
   let publishCalled = false;
   await page.route("**/api/v1/**", async (route) => {
@@ -17,6 +17,7 @@ test("administrator previews a bounded repository entry before creating a draft"
     const path = url.pathname;
     const json = async (body: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
     if (path === "/api/v1/auth/me") return json(administrator);
+    if (path === "/api/v1/import-jobs" && request.method() === "GET") return json({ items: [], total: 0, limit: 50, offset: 0 });
     if (path.endsWith("/repository/discovery")) return json({ source_key: "seeed_wiki", repository_url: "https://github.com/Seeed-Studio/wiki-documents", revision: "a".repeat(40), files_scanned: 25, files: [{ file_path: "sites/en/docs/Sensor/Grove/Grove_Button.md", size: 2048 }] });
     if (path.endsWith("/repository/entries")) return json({ source_key: "seeed_wiki", repository_url: "https://github.com/Seeed-Studio/wiki-documents", revision: "a".repeat(40), entries: [{ file_path: "sites/en/docs/Sensor/Grove/Grove_Button.md", entry_name: null, title: "Grove Button" }] });
     if (path.endsWith("/repository/preview")) return json({ source_key: "seeed_wiki", repository_url: "https://github.com/Seeed-Studio/wiki-documents", requested_revision: "docusaurus-version", revision: "a".repeat(40), file_path: "sites/en/docs/Sensor/Grove/Grove_Button.md", entry_name: null, original_url: "https://wiki.seeedstudio.com/Grove-Button/", parser_name: "seeed-wiki-git-v1", parser_version: "1.0.0", parse_status: "parsed", warnings: [], normalized_fields: { title: "Grove Button", summary: "Кнопочный модуль", specifications: [] }, provenance: {}, license: { name: "GNU General Public License v3.0 only", spdx: "GPL-3.0-only", url: "https://www.gnu.org/licenses/gpl-3.0.html", attribution: "Seeed Studio Wiki" }, modifications_notice: "Facts extracted and normalized.", draft_status: "draft" });
@@ -27,13 +28,16 @@ test("administrator previews a bounded repository entry before creating a draft"
   });
 
   await page.goto("/admin/import");
+  await expect(page.getByRole("heading", { name: "Загрузка компонентов" })).toBeVisible();
+  await page.getByRole("button", { name: "Добавить компонент" }).click();
   await page.getByRole("button", { name: "Найти" }).click();
   await page.getByRole("button", { name: /Grove_Button.md/ }).click();
   await page.getByRole("button", { name: /Grove Button/ }).click();
-  await page.getByRole("button", { name: "Показать preview" }).click();
+  await page.getByRole("button", { name: "Предварительный просмотр" }).click();
   await expect(page.getByRole("heading", { name: "Grove Button" })).toBeVisible();
   await expect(page.getByText("GPL-3.0-only")).toBeVisible();
-  await page.getByRole("button", { name: "Создать черновик" }).click();
-  await expect(page.getByRole("link", { name: "Открыть draft" })).toHaveAttribute("href", "/admin/components/50000000-0000-4000-8000-000000000001/edit");
+  await page.getByRole("button", { name: "Начать загрузку" }).click();
+  await expect(page.getByRole("link", { name: "Открыть карточку" })).toHaveAttribute("href", "/admin/components/50000000-0000-4000-8000-000000000001/edit");
+  await expect(page.getByText(/worker|parser|queue|Backend|job/i)).toHaveCount(0);
   expect(publishCalled).toBe(false);
 });

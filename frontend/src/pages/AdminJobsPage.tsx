@@ -46,8 +46,8 @@ export function AdminJobsPage() {
     <section>
       <div className="section-heading">
         <div>
-          <p className="eyebrow">Только administrator</p>
-          <h2>Фоновые задачи</h2>
+          <p className="eyebrow">Только для администратора</p>
+          <h2>Диагностика обработки</h2>
         </div>
         <label className="job-filter">
           Статус
@@ -109,7 +109,7 @@ export function AdminJobsPage() {
       ) : jobs.data.items.length === 0 ? (
         <p className="muted">Задач обработки медиа для выбранного статуса нет.</p>
       ) : (
-        <div className="job-table" aria-label="Фоновые задачи">
+        <div className="job-table" aria-label="Диагностика фоновых задач">
           {jobs.data.items.map((job) => (
             <article className="job-row" key={job.id}>
               <div>

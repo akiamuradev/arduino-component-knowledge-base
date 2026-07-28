@@ -8,6 +8,7 @@ import { currentUserQueryKey } from "../auth/queries";
 import { catalogKeys } from "../catalog/queries";
 import { duplicateKeys } from "../duplicates/queries";
 import { jobKeys } from "../jobs/queries";
+import { importKeys } from "../imports/queries";
 import { importReviewKeys } from "../imports/review-queries";
 import { workspaceKeys } from "../workspace/queries";
 import { ThemeProvider } from "../theme/ThemeProvider";
@@ -59,7 +60,10 @@ const administrator: User = {
     "components.archive",
     "components.review",
     "components.publish",
+    "imports.view",
     "imports.create",
+    "imports.retry",
+    "imports.cancel",
     "users.view",
     "users.manage",
     "roles.assign",
@@ -133,6 +137,25 @@ function renderRoute(path: string, user: User) {
     limit: 50,
     offset: 0,
   });
+  queryClient.setQueryData(importKeys.list, {
+    items: [
+      {
+        id: "00000000-0000-0000-0000-000000000020",
+        title: "Grove-Button.md",
+        source: "База знаний Seeed Studio",
+        requested_by: "Редактор",
+        created_at: "2026-07-15T12:00:00Z",
+        status: "error",
+        result: "Компонент не удалось обработать",
+        component_id: null,
+        can_retry: true,
+        can_cancel: false,
+      },
+    ],
+    total: 1,
+    limit: 50,
+    offset: 0,
+  });
   queryClient.setQueryData(duplicateKeys.all, { items: [], total: 0 });
   queryClient.setQueryData(importReviewKeys.all, { items: [] });
   queryClient.setQueryData(["administration", "users"], { items: [], total: 0 });
@@ -169,8 +192,8 @@ describe("application routes", () => {
   it("allows an editor into the editorial workspace", async () => {
     renderRoute("/admin", editor);
     expect(await screen.findByRole("heading", { name: "Редакция" })).toBeVisible();
-    expect(screen.getByRole("link", { name: "Импорт" })).toBeVisible();
-    expect(screen.queryByRole("link", { name: "Фоновые задачи" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Загрузка компонентов" })).toBeVisible();
+    expect(screen.queryByRole("link", { name: "Диагностика" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Пользователи" })).not.toBeInTheDocument();
   });
 
@@ -193,7 +216,7 @@ describe("application routes", () => {
 
   it("renders durable jobs only for an administrator", async () => {
     renderRoute("/admin/jobs", administrator);
-    expect(await screen.findByRole("heading", { name: "Фоновые задачи" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Диагностика обработки" })).toBeVisible();
     expect(screen.getByText("process_media_video")).toBeVisible();
     expect(screen.getByText("media_storage_failed")).toBeVisible();
     expect(screen.getByText(/Grove-Button\.md/)).toBeVisible();
@@ -226,7 +249,13 @@ describe("application routes", () => {
 
   it("exposes repository import to an editor with the server permission", async () => {
     const view = renderRoute("/admin/import", editor);
-    expect(await screen.findByRole("heading", { name: "Импорт из Git-источника" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Загрузка компонентов" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Добавить компонент" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Список загрузок" })).toBeVisible();
+    expect(screen.getByText("База знаний Seeed Studio")).toBeVisible();
+    expect(screen.getByText("Ошибка обработки")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Повторить" })).toBeVisible();
+    expect(screen.queryByText(/Redis|worker|parser|queue|Backend|job/i)).not.toBeInTheDocument();
     view.unmount();
     renderRoute("/admin/import", teacher);
     expect(await screen.findByRole("heading", { name: "Недостаточно прав" })).toBeVisible();

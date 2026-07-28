@@ -25,8 +25,10 @@ import type {
   MutationResponse,
   JobMutationResponse,
   JobStatus,
+  ImportActionResponse,
   ImportJob,
   ImportBackgroundJobListResponse,
+  ImportListResponse,
   ImportReviewActionResponse,
   ImportReviewListResponse,
   ImportReviewWorkspace,
@@ -395,6 +397,18 @@ export const api = {
     }),
   getImportJob: (jobId: string): Promise<ImportJob> =>
     apiRequest<ImportJob>(`/import-jobs/${encodeURIComponent(jobId)}`),
+  listImports: (): Promise<ImportListResponse> =>
+    apiRequest<ImportListResponse>("/import-jobs"),
+  retryImport: (jobId: string): Promise<ImportActionResponse> =>
+    apiRequest<ImportActionResponse>(`/import-jobs/${encodeURIComponent(jobId)}/retry`, {
+      method: "POST",
+      csrf: true,
+    }),
+  cancelImport: (jobId: string): Promise<ImportActionResponse> =>
+    apiRequest<ImportActionResponse>(`/import-jobs/${encodeURIComponent(jobId)}/cancel`, {
+      method: "POST",
+      csrf: true,
+    }),
   listImportReviews: (): Promise<ImportReviewListResponse> =>
     apiRequest<ImportReviewListResponse>("/admin/import-reviews?status=pending"),
   getImportReview: (reviewDraftId: string): Promise<ImportReviewWorkspace> =>

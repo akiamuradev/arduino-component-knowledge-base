@@ -5,6 +5,8 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createQueryClient } from "../app/query-client";
+import { currentUserQueryKey } from "../auth/queries";
+import { importKeys } from "../imports/queries";
 import { AdminImportPage } from "./AdminImportPage";
 
 function response(value: unknown): Promise<Response> {
@@ -21,11 +23,14 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("repository import workspace", () => {
-  it("requires preview before it creates a draft-only background job", async () => {
+describe("component upload workspace", () => {
+  it("requires a safe preview before it creates a draft card", async () => {
     document.cookie = "ackb_csrf=csrf-value; Path=/";
     const fetchMock = vi.fn<typeof fetch>((input, init) => {
       const url = requestUrl(input);
+      if (url.endsWith("/import-jobs") && init?.method !== "POST") return response({
+        items: [], total: 0, limit: 50, offset: 0,
+      });
       if (url.includes("/repository/discovery?")) return response({
         source_key: "seeed_wiki", repository_url: "https://github.com/Seeed-Studio/wiki-documents",
         revision: "a".repeat(40), files_scanned: 25,
@@ -65,20 +70,31 @@ describe("repository import workspace", () => {
     vi.stubGlobal("fetch", fetchMock);
     const client = createQueryClient();
     client.setDefaultOptions({ queries: { retry: false }, mutations: { retry: false } });
+    client.setQueryData(currentUserQueryKey, {
+      id: "00000000-0000-0000-0000-000000000001",
+      login: "editor",
+      display_name: "Редактор",
+      roles: ["student", "editor"],
+      permissions: ["components.view", "components.edit", "imports.view", "imports.create"],
+    });
+    client.setQueryData(importKeys.list, { items: [], total: 0, limit: 50, offset: 0 });
     render(<QueryClientProvider client={client}><MemoryRouter><AdminImportPage /></MemoryRouter></QueryClientProvider>);
     const user = userEvent.setup();
 
-    expect(screen.getByRole("button", { name: "Создать черновик" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Добавить компонент" }));
+    expect(screen.getByRole("button", { name: "Начать загрузку" })).toBeDisabled();
     await user.click(screen.getByRole("button", { name: "Найти" }));
     await user.click(await screen.findByRole("button", { name: /Grove_Button.md/ }));
     await user.click(await screen.findByRole("button", { name: /Grove Button/ }));
-    await user.click(screen.getByRole("button", { name: "Показать preview" }));
+    await user.click(screen.getByRole("button", { name: "Предварительный просмотр" }));
     expect(await screen.findByRole("heading", { name: "Grove Button" })).toBeVisible();
     expect(screen.getByText("GPL-3.0-only")).toBeVisible();
-    expect(screen.getByText("manual_review_required")).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "Создать черновик" }));
-    expect(await screen.findByRole("link", { name: "Открыть draft" })).toHaveAttribute("href", "/admin/components/00000000-0000-0000-0000-000000000100/edit");
-    await waitFor(() => { expect(fetchMock).toHaveBeenCalledTimes(5); });
+    expect(screen.getByText("Потребуется дополнительная проверка")).toBeVisible();
+    expect(screen.queryByText("manual_review_required")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Начать загрузку" }));
+    expect(await screen.findByRole("link", { name: "Открыть карточку" })).toHaveAttribute("href", "/admin/components/00000000-0000-0000-0000-000000000100/edit");
+    await waitFor(() => { expect(fetchMock).toHaveBeenCalled(); });
     expect(fetchMock.mock.calls.some(([request]) => requestUrl(request).includes("publish"))).toBe(false);
+    expect(screen.queryByText(/worker|parser|queue|Backend|job/i)).not.toBeInTheDocument();
   });
 });
