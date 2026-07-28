@@ -391,6 +391,38 @@ async def test_dedicated_editor_grant_preserves_baseline_and_records_audit() -> 
     assert audit_call.kwargs["details"] == {"editor_expires_at": expiry.isoformat()}
 
 
+async def test_dedicated_editor_renewal_records_expiry_change() -> None:
+    administrator = administrator_identity()
+    target = UserIdentity(
+        id=uuid4(),
+        login="target",
+        display_name="Target",
+        password_hash=uuid4().hex,
+        status=UserStatus.ACTIVE,
+        roles=frozenset({Role.TEACHER, Role.EDITOR}),
+    )
+    expiry = datetime.now(UTC) + timedelta(days=21)
+    repository = repository_mock()
+    repository.lock_administrator_membership = AsyncMock()
+    repository.find_user = AsyncMock(return_value=target)
+    repository.grant_editor = AsyncMock()
+    repository.revoke_user_sessions = AsyncMock()
+    repository.audit = AsyncMock()
+    service = AuthService(repository, settings(), PasswordManager())
+
+    await service.grant_editor(
+        actor=administrator_principal(administrator),
+        user_id=target.id,
+        expires_at=expiry,
+        request_id="request-editor-renewal",
+    )
+
+    audit_call = repository.audit.await_args
+    assert audit_call is not None
+    assert audit_call.kwargs["action"] == "identity.editor_expiry_changed"
+    assert audit_call.kwargs["details"] == {"editor_expires_at": expiry.isoformat()}
+
+
 async def test_dedicated_editor_grant_cannot_change_an_administrator() -> None:
     administrator = administrator_identity()
     repository = repository_mock()

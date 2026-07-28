@@ -79,6 +79,44 @@ export interface ManagedUserListResponse {
   total: number;
 }
 
+export interface AuditActor {
+  id: string | null;
+  type: string;
+  login: string | null;
+  display_name: string | null;
+}
+
+export interface AuditObject {
+  type: string;
+  id: string | null;
+}
+
+export interface AuditEvent {
+  id: string;
+  occurred_at: string;
+  actor: AuditActor;
+  action: string;
+  object: AuditObject;
+  outcome: string;
+}
+
+export interface AuditEventListResponse {
+  items: AuditEvent[];
+  total: number;
+  limit: number;
+  offset: number;
+  available_actions: string[];
+}
+
+export interface AuditEventFilters {
+  userId?: string;
+  action?: string;
+  occurredFrom?: string;
+  occurredTo?: string;
+  limit?: number;
+  offset?: number;
+}
+
 export interface MutationResponse {
   status: string;
 }

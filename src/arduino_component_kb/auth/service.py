@@ -214,7 +214,11 @@ class AuthService:
         await self.repository.audit(
             now=now,
             actor_user_id=actor.user_id,
-            action="identity.editor_granted",
+            action=(
+                "identity.editor_expiry_changed"
+                if Role.EDITOR in user.roles
+                else "identity.editor_granted"
+            ),
             object_type="user",
             object_id=user_id,
             request_id=request_id,

@@ -11,6 +11,7 @@ from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException
 
 from arduino_component_kb.api.admin import router as admin_router
+from arduino_component_kb.api.audit import router as audit_router
 from arduino_component_kb.api.auth import router as auth_router
 from arduino_component_kb.api.catalog import admin_router as catalog_admin_router
 from arduino_component_kb.api.catalog import public_router as catalog_public_router
@@ -80,6 +81,7 @@ def create_app(
     app.include_router(health_router)
     app.include_router(auth_router)
     app.include_router(admin_router)
+    app.include_router(audit_router)
     app.include_router(jobs_router)
     app.include_router(media_router)
     app.include_router(imports_router)

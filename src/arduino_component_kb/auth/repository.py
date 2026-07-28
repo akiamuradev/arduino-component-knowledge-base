@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime, timedelta
+from typing import Final
 from uuid import UUID, uuid4
 
 from sqlalchemy import delete, func, select, update
@@ -10,6 +12,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from arduino_component_kb.auth.domain import (
+    AuditRecord,
     ManagedUserIdentity,
     Principal,
     Role,
@@ -17,6 +20,52 @@ from arduino_component_kb.auth.domain import (
     UserStatus,
 )
 from arduino_component_kb.auth.models import AuditEvent, AuthSession, AuthThrottle, User, UserRole
+
+_AUDIT_LABEL_PATTERN: Final = re.compile(r"^[a-z][a-z0-9_.]{0,79}$")
+_ALLOWED_AUDIT_DETAIL_KEYS: Final = frozenset(
+    {
+        "bucket",
+        "code",
+        "component_revision",
+        "decision_id",
+        "editor_expires_at",
+        "key",
+        "kind",
+        "objects_deleted",
+        "previous_status",
+        "reason",
+        "reset",
+        "review_revision",
+        "revision",
+        "roles",
+        "status",
+        "summary",
+        "survivor_component_id",
+    }
+)
+
+
+def safe_audit_details(details: dict[str, object] | None) -> dict[str, object]:
+    """Allow only bounded, explicitly reviewed metadata in durable audit."""
+    if details is None:
+        return {}
+    if not details.keys() <= _ALLOWED_AUDIT_DETAIL_KEYS:
+        raise ValueError("audit details contain an unsupported field")
+    safe: dict[str, object] = {}
+    for key, value in details.items():
+        if value is None or isinstance(value, bool | int):
+            safe[key] = value
+        elif isinstance(value, str) and len(value) <= 200:
+            safe[key] = value
+        elif (
+            isinstance(value, list)
+            and len(value) <= 16
+            and all(isinstance(item, str) and len(item) <= 80 for item in value)
+        ):
+            safe[key] = value
+        else:
+            raise ValueError("audit details contain an unsupported value")
+    return safe
 
 
 class AuthRepository:
@@ -332,6 +381,66 @@ class AuthRepository:
         )
         return len(list(administrators))
 
+    async def list_audit_events(
+        self,
+        *,
+        actor_user_id: UUID | None,
+        action: str | None,
+        occurred_from: datetime | None,
+        occurred_to: datetime | None,
+        limit: int,
+        offset: int,
+    ) -> tuple[tuple[AuditRecord, ...], int]:
+        """Read a bounded reverse-chronological audit page with exact filters."""
+        filters = []
+        if actor_user_id is not None:
+            filters.append(AuditEvent.actor_user_id == actor_user_id)
+        if action is not None:
+            filters.append(AuditEvent.action == action)
+        if occurred_from is not None:
+            filters.append(AuditEvent.occurred_at >= occurred_from)
+        if occurred_to is not None:
+            filters.append(AuditEvent.occurred_at < occurred_to)
+        rows = (
+            await self.session.execute(
+                select(AuditEvent, User.login, User.display_name)
+                .outerjoin(User, User.id == AuditEvent.actor_user_id)
+                .where(*filters)
+                .order_by(AuditEvent.occurred_at.desc(), AuditEvent.id.desc())
+                .limit(limit)
+                .offset(offset)
+            )
+        ).all()
+        total = int(
+            await self.session.scalar(select(func.count()).select_from(AuditEvent).where(*filters))
+            or 0
+        )
+        return (
+            tuple(
+                AuditRecord(
+                    id=event.id,
+                    occurred_at=event.occurred_at,
+                    actor_user_id=event.actor_user_id,
+                    actor_type=event.actor_type,
+                    actor_login=login,
+                    actor_display_name=display_name,
+                    action=event.action,
+                    object_type=event.object_type,
+                    object_id=event.object_id,
+                    outcome=event.outcome,
+                )
+                for event, login, display_name in rows
+            ),
+            total,
+        )
+
+    async def list_audit_actions(self) -> tuple[str, ...]:
+        """Return stable action identifiers for the authorized filter."""
+        actions = await self.session.scalars(
+            select(AuditEvent.action).distinct().order_by(AuditEvent.action)
+        )
+        return tuple(actions)
+
     async def audit(
         self,
         *,
@@ -345,18 +454,22 @@ class AuthRepository:
         details: dict[str, object] | None = None,
         actor_type: str | None = None,
     ) -> None:
+        resolved_actor_type = actor_type or ("user" if actor_user_id else "anonymous")
+        for label in (action, object_type, resolved_actor_type, outcome):
+            if not _AUDIT_LABEL_PATTERN.fullmatch(label):
+                raise ValueError("audit label is invalid")
         self.session.add(
             AuditEvent(
                 id=uuid4(),
                 occurred_at=now,
                 actor_user_id=actor_user_id,
-                actor_type=actor_type or ("user" if actor_user_id else "anonymous"),
+                actor_type=resolved_actor_type,
                 action=action,
                 object_type=object_type,
                 object_id=object_id,
                 request_id=request_id,
                 outcome=outcome,
-                details_safe_json=details or {},
+                details_safe_json=safe_audit_details(details),
             )
         )
 

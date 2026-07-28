@@ -84,6 +84,13 @@ const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     permission: "system.diagnostics",
     section: "administration",
   },
+  {
+    label: "Журнал действий",
+    path: "/admin/audit",
+    icon: "◴",
+    permission: "audit.view",
+    section: "administration",
+  },
 ] as const;
 
 export function navigationFor(

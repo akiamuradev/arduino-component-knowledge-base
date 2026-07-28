@@ -14,6 +14,7 @@ from starlette.exceptions import HTTPException
 _ERROR_CODE_PATTERN: Final = re.compile(r"^[a-z][a-z0-9_]{0,79}$")
 
 _CODE_MESSAGES: Final[dict[str, str]] = {
+    "audit_date_range_invalid": "Проверьте диапазон дат журнала.",
     "authentication_rate_limited": "Слишком много попыток. Подождите и попробуйте снова.",
     "authentication_required": "Войдите, чтобы продолжить.",
     "catalog_conflict": "Данные уже изменились. Обновите страницу и повторите действие.",

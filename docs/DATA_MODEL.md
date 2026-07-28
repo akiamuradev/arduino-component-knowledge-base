@@ -281,11 +281,17 @@ Merge decision immutable. Таблица добавлена revision `20260716_1
 ### `audit_events`
 
 `id`, `occurred_at`, `actor_user_id?`, `actor_type(user|worker|system)`, `action`,
-`object_type`, `object_id?`, `request_id?`, `job_id?`, `outcome`, `details_safe_json`,
-`previous_event_hash?`, `event_hash?`.
+`object_type`, `object_id?`, `request_id?`, `outcome`, `details_safe_json`.
 
-Append-only права database role; application не имеет UPDATE/DELETE. Детали не содержат
-паролей, tokens, presigned URLs, full session identifiers или remote response bodies.
+Обычный application HTTP-контур append-only: модель записывается через общий audit repository,
+а API имеет только защищённое чтение. Отдельная retention/backup policy остаётся
+эксплуатационной задачей. Детали проходят явный allowlist и не содержат паролей, tokens,
+presigned URLs, full session identifiers или remote response bodies. Administrator read model
+намеренно не возвращает `details_safe_json` и `request_id`.
+
+Индекс `occurred_at` обслуживает общий журнал, `(actor_user_id, occurred_at)` — фильтр по
+пользователю, `(action, occurred_at)` — фильтр по действию. Последние два индекса добавлены
+revision `20260729_25`.
 
 ## Поисковый документ опубликованной карточки
 
