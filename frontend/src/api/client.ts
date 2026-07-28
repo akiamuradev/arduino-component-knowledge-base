@@ -11,6 +11,7 @@ import type {
   ComponentListResponse,
   ComponentStatus,
   ComponentUpdateInput,
+  CreateEditorInput,
   CreateUserInput,
   DuplicateCandidate,
   DuplicateCandidateListResponse,
@@ -19,6 +20,7 @@ import type {
   LoginInput,
   LoginResponse,
   LogoutResponse,
+  ManagedUserListResponse,
   MutationResponse,
   JobMutationResponse,
   JobStatus,
@@ -34,7 +36,7 @@ import type {
   RepositoryEntryDiscoveryResponse,
   RepositoryImportInput,
   RepositoryPreview,
-  Role,
+  SetRolesInput,
   UploadConfirmation,
   UploadReservation,
   User,
@@ -166,10 +168,29 @@ export const api = {
       body: JSON.stringify(input),
       csrf: true,
     }),
-  setRoles: (userId: string, roles: Role[]): Promise<MutationResponse> =>
+  listUsers: (): Promise<ManagedUserListResponse> =>
+    apiRequest<ManagedUserListResponse>("/admin/users"),
+  createEditor: (input: CreateEditorInput): Promise<User> =>
+    apiRequest<User>("/admin/users/editors", {
+      method: "POST",
+      body: JSON.stringify(input),
+      csrf: true,
+    }),
+  grantEditor: (userId: string, editorExpiresAt: string): Promise<MutationResponse> =>
+    apiRequest<MutationResponse>(`/admin/users/${encodeURIComponent(userId)}/editor`, {
+      method: "PUT",
+      body: JSON.stringify({ editor_expires_at: editorExpiresAt }),
+      csrf: true,
+    }),
+  revokeEditor: (userId: string): Promise<MutationResponse> =>
+    apiRequest<MutationResponse>(`/admin/users/${encodeURIComponent(userId)}/editor`, {
+      method: "DELETE",
+      csrf: true,
+    }),
+  setRoles: (userId: string, input: SetRolesInput): Promise<MutationResponse> =>
     apiRequest<MutationResponse>(`/admin/users/${encodeURIComponent(userId)}/roles`, {
       method: "PUT",
-      body: JSON.stringify({ roles }),
+      body: JSON.stringify(input),
       csrf: true,
     }),
   disableUser: (userId: string): Promise<MutationResponse> =>

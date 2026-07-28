@@ -13,6 +13,7 @@ from arduino_component_kb.auth.domain import (
     InvalidCredentialsError,
     LastAdministratorError,
     LoginResult,
+    ManagedUserIdentity,
     Principal,
     Role,
     RoleGrantPolicyError,
@@ -187,6 +188,64 @@ class AuthService:
             },
         )
         return user
+
+    async def list_users(self) -> tuple[ManagedUserIdentity, ...]:
+        """Return safe administrator-facing account state."""
+        return await self.repository.list_users(datetime.now(UTC))
+
+    async def grant_editor(
+        self,
+        *,
+        actor: Principal,
+        user_id: UUID,
+        expires_at: datetime,
+        request_id: str | None,
+    ) -> None:
+        """Grant temporary editorial access without changing baseline roles."""
+        await self.repository.lock_administrator_membership()
+        user = await self._existing_user(user_id)
+        now = datetime.now(UTC)
+        if user.status is not UserStatus.ACTIVE or Role.ADMINISTRATOR in user.roles:
+            raise RoleGrantPolicyError
+        effective_roles = user.roles | frozenset({Role.EDITOR})
+        self._validate_role_lifetime(effective_roles, expires_at, now)
+        await self.repository.grant_editor(user_id, actor.user_id, now, expires_at)
+        await self.repository.revoke_user_sessions(user_id, now)
+        await self.repository.audit(
+            now=now,
+            actor_user_id=actor.user_id,
+            action="identity.editor_granted",
+            object_type="user",
+            object_id=user_id,
+            request_id=request_id,
+            outcome="success",
+            details={"editor_expires_at": expires_at.isoformat()},
+        )
+
+    async def revoke_editor(
+        self,
+        *,
+        actor: Principal,
+        user_id: UUID,
+        request_id: str | None,
+    ) -> None:
+        """Revoke temporary editorial access without deleting grant history."""
+        await self.repository.lock_administrator_membership()
+        user = await self._existing_user(user_id)
+        if Role.EDITOR not in user.roles:
+            raise RoleGrantPolicyError
+        now = datetime.now(UTC)
+        await self.repository.revoke_editor(user_id, now)
+        await self.repository.revoke_user_sessions(user_id, now)
+        await self.repository.audit(
+            now=now,
+            actor_user_id=actor.user_id,
+            action="identity.editor_revoked",
+            object_type="user",
+            object_id=user_id,
+            request_id=request_id,
+            outcome="success",
+        )
 
     async def set_roles(
         self,

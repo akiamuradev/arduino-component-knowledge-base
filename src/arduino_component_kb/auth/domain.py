@@ -92,6 +92,18 @@ class UserIdentity:
 
 
 @dataclass(frozen=True, slots=True)
+class ManagedUserIdentity:
+    """Safe account state shown in administrator user management."""
+
+    id: UUID
+    login: str
+    display_name: str
+    status: UserStatus
+    roles: frozenset[Role]
+    editor_expires_at: datetime | None
+
+
+@dataclass(frozen=True, slots=True)
 class Principal:
     """Authenticated session principal."""
 

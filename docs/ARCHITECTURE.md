@@ -108,7 +108,10 @@ fallback scraper нет.
    dependency.
 8. Изменение ролей или отключение пользователя отзывает все его сессии и создаёт audit event.
    Истёкший `editor` автоматически теряет редакторские permissions без удаления grant history.
-9. Первый administrator создаётся одноразовой интерактивной bootstrap-командой после Alembic.
+9. `/admin/users` получает безопасный список accounts без password hashes. Узкие create/grant
+   editor inputs принимают срок, но не роль: временный редактор создаётся с постоянным
+   `student`, grant/early revoke не заменяют базовые роли и сохраняют прошлые строки grants.
+10. Первый administrator создаётся одноразовой интерактивной bootstrap-командой после Alembic.
 
 ### Чтение каталога
 

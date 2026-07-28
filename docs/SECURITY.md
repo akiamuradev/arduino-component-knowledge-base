@@ -26,6 +26,10 @@ PostgreSQL, Redis и MinIO доступны только внутри deployment
   изменять и архивировать draft, запускать imports и отправлять карточку на проверку,
   но не публиковать её. Только administrator управляет ролями/source policy, проверяет
   и публикует карточки и подтверждает duplicate merge.
+- Управление временными редакторами требует одновременно `users.manage` и `roles.assign`.
+  Dedicated create/grant requests не имеют поля роли и не могут назначить administrator;
+  новый временный редактор всегда получает постоянный `student`. Досрочный отзыв меняет
+  только editor grant, сохраняет grant history, отзывает сессии и создаёт audit event.
 - MVP использует локальные Argon2id credentials и opaque server-side sessions. PostgreSQL
   хранит только SHA-256 hashes session/CSRF tokens; session cookie имеет `HttpOnly`, `Secure`
   в production и `SameSite=Lax`.

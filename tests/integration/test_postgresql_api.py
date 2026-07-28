@@ -189,6 +189,172 @@ def test_real_postgresql_login_rbac_csrf_and_logout(integration_settings: Settin
         asyncio.run(remove_test_identities(integration_settings, created_ids))
 
 
+def test_temporary_editor_lifecycle_preserves_history_and_audit(
+    integration_settings: Settings,
+) -> None:
+    """Exercise the bounded administrator workflow against real role grants."""
+    import asyncio
+
+    suffix = uuid4().hex[:12]
+    admin_login = f"editor-admin-{suffix}"
+    editor_login = f"temporary-editor-{suffix}"
+    admin_id = asyncio.run(seed_administrator(integration_settings, admin_login))
+    created_ids = {admin_id}
+    database = Database(integration_settings)
+    app = create_app(
+        integration_settings,
+        database,
+        media_storage=Mock(),
+        media_queue=Mock(),
+        import_queue=Mock(),
+    )
+    editor_id: UUID | None = None
+    try:
+        first_expiry = datetime.now(UTC) + timedelta(days=7)
+        renewed_expiry = datetime.now(UTC) + timedelta(days=14)
+        with TestClient(app, base_url="http://testserver") as administrator:
+            login = administrator.post(
+                "/api/v1/auth/login",
+                json={"login": admin_login, "password": ADMIN_CREDENTIAL},
+            )
+            assert login.status_code == 200
+            csrf = administrator.cookies.get("ackb_csrf")
+            assert csrf is not None
+            administrator_cookies = dict(administrator.cookies.items())
+
+            created = administrator.post(
+                "/api/v1/admin/users/editors",
+                headers={"X-CSRF-Token": csrf},
+                json={
+                    "login": editor_login,
+                    "display_name": "Temporary Editor",
+                    "password": STUDENT_CREDENTIAL,
+                    "editor_expires_at": first_expiry.isoformat(),
+                },
+            )
+            assert created.status_code == 201
+            assert set(created.json()["roles"]) == {"student", "editor"}
+            assert Permission.USERS_MANAGE.value not in created.json()["permissions"]
+            editor_id = UUID(created.json()["id"])
+            created_ids.add(editor_id)
+
+            listed = administrator.get("/api/v1/admin/users")
+            assert listed.status_code == 200
+            assert listed.headers["cache-control"] == "no-store"
+            listed_editor = next(
+                user for user in listed.json()["items"] if user["id"] == str(editor_id)
+            )
+            assert listed_editor["status"] == "active"
+            assert set(listed_editor["roles"]) == {"student", "editor"}
+            assert datetime.fromisoformat(listed_editor["editor_expires_at"]) == first_expiry
+
+            administrator.cookies.clear()
+            editor_login_response = administrator.post(
+                "/api/v1/auth/login",
+                json={"login": editor_login, "password": STUDENT_CREDENTIAL},
+            )
+            assert editor_login_response.status_code == 200
+            assert (
+                Permission.COMPONENTS_EDIT.value
+                in editor_login_response.json()["user"]["permissions"]
+            )
+            assert (
+                Permission.ROLES_ASSIGN.value
+                not in editor_login_response.json()["user"]["permissions"]
+            )
+            editor_cookies = dict(administrator.cookies.items())
+
+            administrator.cookies.clear()
+            administrator.cookies.update(administrator_cookies)
+            revoked = administrator.delete(
+                f"/api/v1/admin/users/{editor_id}/editor",
+                headers={"X-CSRF-Token": csrf},
+            )
+            assert revoked.status_code == 200
+
+            administrator.cookies.clear()
+            administrator.cookies.update(editor_cookies)
+            assert administrator.get("/api/v1/auth/me").status_code == 401
+            administrator.cookies.clear()
+            baseline_login = administrator.post(
+                "/api/v1/auth/login",
+                json={"login": editor_login, "password": STUDENT_CREDENTIAL},
+            )
+            assert baseline_login.status_code == 200
+            assert baseline_login.json()["user"]["roles"] == ["student"]
+            assert baseline_login.json()["user"]["permissions"] == [
+                Permission.COMPONENTS_VIEW.value
+            ]
+            baseline_cookies = dict(administrator.cookies.items())
+
+            administrator.cookies.clear()
+            administrator.cookies.update(administrator_cookies)
+            granted = administrator.put(
+                f"/api/v1/admin/users/{editor_id}/editor",
+                headers={"X-CSRF-Token": csrf},
+                json={"editor_expires_at": renewed_expiry.isoformat()},
+            )
+            assert granted.status_code == 200
+
+            administrator.cookies.clear()
+            administrator.cookies.update(baseline_cookies)
+            assert administrator.get("/api/v1/auth/me").status_code == 401
+            administrator.cookies.clear()
+            administrator.cookies.update(administrator_cookies)
+
+            disabled = administrator.post(
+                f"/api/v1/admin/users/{editor_id}/disable",
+                headers={"X-CSRF-Token": csrf},
+            )
+            assert disabled.status_code == 200
+            blocked_login = administrator.post(
+                "/api/v1/auth/login",
+                json={"login": editor_login, "password": STUDENT_CREDENTIAL},
+            )
+            assert blocked_login.status_code == 401
+
+            disabled_listing = administrator.get("/api/v1/admin/users")
+            disabled_editor = next(
+                user for user in disabled_listing.json()["items"] if user["id"] == str(editor_id)
+            )
+            assert disabled_editor["status"] == "disabled"
+
+        async def assert_history() -> None:
+            assert editor_id is not None
+            async with database.sessions() as session:
+                events = (
+                    await session.scalars(
+                        select(AuditEvent)
+                        .where(AuditEvent.object_id == editor_id)
+                        .order_by(AuditEvent.occurred_at)
+                    )
+                ).all()
+                editor_grants = (
+                    await session.scalars(
+                        select(UserRole)
+                        .where(
+                            UserRole.user_id == editor_id,
+                            UserRole.role == Role.EDITOR.value,
+                        )
+                        .order_by(UserRole.granted_at)
+                    )
+                ).all()
+                assert {
+                    "identity.user_created",
+                    "identity.editor_revoked",
+                    "identity.editor_granted",
+                    "identity.user_disabled",
+                }.issubset({event.action for event in events})
+                assert len(editor_grants) == 2
+                assert editor_grants[0].revoked_at is not None
+                assert editor_grants[1].expires_at == renewed_expiry
+
+        asyncio.run(assert_history())
+    finally:
+        asyncio.run(database.dispose())
+        asyncio.run(remove_test_identities(integration_settings, created_ids))
+
+
 async def test_postgresql_rejects_duplicate_normalized_login(
     integration_settings: Settings,
 ) -> None:

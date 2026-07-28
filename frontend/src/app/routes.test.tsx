@@ -60,6 +60,9 @@ const administrator: User = {
     "components.review",
     "components.publish",
     "imports.create",
+    "users.view",
+    "users.manage",
+    "roles.assign",
     "system.diagnostics",
   ],
 };
@@ -132,6 +135,7 @@ function renderRoute(path: string, user: User) {
   });
   queryClient.setQueryData(duplicateKeys.all, { items: [], total: 0 });
   queryClient.setQueryData(importReviewKeys.all, { items: [] });
+  queryClient.setQueryData(["administration", "users"], { items: [], total: 0 });
   const router = createMemoryRouter(routes, { initialEntries: [path] });
   return render(
     <ThemeProvider><QueryClientProvider client={queryClient}>
@@ -167,6 +171,18 @@ describe("application routes", () => {
     expect(await screen.findByRole("heading", { name: "Редакция" })).toBeVisible();
     expect(screen.getByRole("link", { name: "Импорт" })).toBeVisible();
     expect(screen.queryByRole("link", { name: "Фоновые задачи" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Пользователи" })).not.toBeInTheDocument();
+  });
+
+  it("exposes user management only with the server permission", async () => {
+    const view = renderRoute("/admin/users", administrator);
+    expect(
+      await screen.findByRole("heading", { name: "Пользователи и временные редакторы" }),
+    ).toBeVisible();
+    expect(screen.getByRole("link", { name: "Пользователи" })).toBeVisible();
+    view.unmount();
+    renderRoute("/admin/users", editor);
+    expect(await screen.findByRole("heading", { name: "Недостаточно прав" })).toBeVisible();
   });
 
   it("does not authorize a forged administrator role without server permissions", async () => {

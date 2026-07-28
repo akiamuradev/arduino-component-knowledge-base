@@ -95,6 +95,10 @@ Permissions are resolved by the backend from active database grants. An editor g
 expires and does not provide user-management, publication, audit or system permissions.
 Login accepts credentials only. The authenticated response supplies server-resolved roles and
 permissions; frontend navigation and actions use those permissions only as UX guards.
+Administrators manage temporary editors at `/admin/users`: they can create an account with a
+safe student baseline, set or renew its expiry, revoke editor access early and disable the
+account. That screen has no administrator-role input; every mutation revokes affected sessions,
+retains grant history and creates an audit event.
 
 ### Data sources and licensing
 
@@ -324,6 +328,10 @@ Permissions вычисляются backend из активных grants в ба�
 сроком и не даёт доступа к пользователям, публикации, журналу и системным настройкам.
 Вход принимает только учётные данные. Ответ authenticated API содержит вычисленные сервером
 roles и permissions; frontend использует permissions только как UX guards навигации и действий.
+Администратор управляет временными редакторами в `/admin/users`: создаёт учётную запись с
+безопасной базовой ролью student, задаёт или продлевает срок, досрочно отзывает editor и
+блокирует пользователя. На этом экране нельзя назначить administrator; mutations отзывают
+затронутые сессии, сохраняют историю grants и создают audit events.
 
 ### Источники данных и лицензирование
 
