@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Protocol
 from uuid import UUID, uuid4
 
-from arduino_component_kb.auth.domain import Principal, Role
+from arduino_component_kb.auth.domain import Permission, Principal
 from arduino_component_kb.auth.repository import AuthRepository
 from arduino_component_kb.config import Settings
 from arduino_component_kb.media.domain import (
@@ -216,7 +216,7 @@ class MediaService:
     @staticmethod
     def _authorize_owner(actor: Principal, asset: MediaAsset | None) -> None:
         if asset is None or (
-            asset.owner_user_id != actor.user_id and Role.ADMINISTRATOR not in actor.roles
+            asset.owner_user_id != actor.user_id and not actor.can(Permission.SYSTEM_DIAGNOSTICS)
         ):
             raise MediaNotFoundError
 

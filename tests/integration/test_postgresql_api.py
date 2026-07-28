@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import Mock
 from uuid import UUID, uuid4
 
@@ -12,7 +12,7 @@ from sqlalchemy import delete, select, text
 from sqlalchemy.exc import IntegrityError
 
 from arduino_component_kb.auth.domain import Role
-from arduino_component_kb.auth.models import AuditEvent, User
+from arduino_component_kb.auth.models import AuditEvent, User, UserRole
 from arduino_component_kb.auth.passwords import PasswordManager
 from arduino_component_kb.auth.repository import AuthRepository
 from arduino_component_kb.config import Settings
@@ -208,4 +208,42 @@ async def test_postgresql_rejects_duplicate_normalized_login(
         if first_id is not None:
             async with database.sessions() as session, session.begin():
                 await session.execute(delete(User).where(User.id == first_id))
+        await database.dispose()
+
+
+async def test_expired_editor_grant_is_ignored_but_history_is_preserved(
+    integration_settings: Settings,
+) -> None:
+    database = Database(integration_settings)
+    user_id: UUID | None = None
+    try:
+        granted_at = datetime.now(UTC) - timedelta(days=2)
+        async with database.sessions() as session, session.begin():
+            repository = AuthRepository(session)
+            user = await repository.create_user(
+                login=f"expired-editor-{uuid4().hex}",
+                display_name="Expired editor",
+                password_hash=PasswordManager().hash(ADMIN_CREDENTIAL),
+                roles=frozenset({Role.STUDENT, Role.EDITOR}),
+                actor_id=None,
+                now=granted_at,
+                editor_expires_at=granted_at + timedelta(days=1),
+            )
+            user_id = user.id
+
+        async with database.sessions() as session:
+            identity = await AuthRepository(session).find_user(user_id)
+            grants = (
+                await session.scalars(select(UserRole).where(UserRole.user_id == user_id))
+            ).all()
+            assert identity is not None
+            assert identity.roles == frozenset({Role.STUDENT})
+            assert {grant.role for grant in grants} == {"student", "editor"}
+            editor_grant = next(grant for grant in grants if grant.role == "editor")
+            assert editor_grant.expires_at is not None
+            assert editor_grant.revoked_at is None
+    finally:
+        if user_id is not None:
+            async with database.sessions() as session, session.begin():
+                await session.execute(delete(User).where(User.id == user_id))
         await database.dispose()

@@ -11,8 +11,12 @@ from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from arduino_component_kb.api.dependencies import csrf_principal, database_session, require_roles
-from arduino_component_kb.auth.domain import Principal, Role
+from arduino_component_kb.api.dependencies import (
+    csrf_principal,
+    database_session,
+    require_permissions,
+)
+from arduino_component_kb.auth.domain import Permission, Principal
 from arduino_component_kb.auth.repository import AuthRepository
 from arduino_component_kb.imports.pipeline.models.enrichment import ComponentSymbolRelationType
 from arduino_component_kb.imports.pipeline.models.persistence import (
@@ -31,7 +35,7 @@ from arduino_component_kb.imports.review import (
 from arduino_component_kb.logging import current_request_id
 
 router = APIRouter(prefix="/api/v1/admin/import-reviews", tags=["import-review"])
-administrator = require_roles(Role.ADMINISTRATOR)
+administrator = require_permissions(Permission.COMPONENTS_REVIEW)
 
 ReviewStatus = Literal["pending", "confirmed"]
 RelationType = Literal[

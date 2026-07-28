@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 from sqlalchemy import delete, func, select, update
@@ -23,14 +23,14 @@ class AuthRepository:
         user = await self.session.scalar(select(User).where(User.login == login))
         if user is None:
             return None
-        roles = await self._roles(user.id)
+        roles = await self._roles(user.id, datetime.now(UTC))
         return self._identity(user, roles)
 
     async def find_user(self, user_id: UUID) -> UserIdentity | None:
         user = await self.session.get(User, user_id)
         if user is None:
             return None
-        return self._identity(user, await self._roles(user.id))
+        return self._identity(user, await self._roles(user.id, datetime.now(UTC)))
 
     async def lock_login(self, login: str) -> None:
         """Serialize creation of one normalized login in PostgreSQL."""
@@ -141,7 +141,7 @@ class AuthRepository:
         if row is None:
             return None
         auth_session, user = row.tuple()
-        roles = await self._roles(user.id)
+        roles = await self._roles(user.id, now)
         if not roles:
             return None
         return Principal(
@@ -183,6 +183,7 @@ class AuthRepository:
         roles: frozenset[Role],
         actor_id: UUID | None,
         now: datetime,
+        editor_expires_at: datetime | None = None,
     ) -> UserIdentity:
         user = User(
             id=uuid4(),
@@ -198,10 +199,12 @@ class AuthRepository:
         for role in roles:
             self.session.add(
                 UserRole(
+                    id=uuid4(),
                     user_id=user.id,
                     role=role.value,
                     granted_by=actor_id,
                     granted_at=now,
+                    expires_at=editor_expires_at if role is Role.EDITOR else None,
                 )
             )
         await self.session.flush()
@@ -213,15 +216,22 @@ class AuthRepository:
         roles: frozenset[Role],
         actor_id: UUID,
         now: datetime,
+        editor_expires_at: datetime | None = None,
     ) -> None:
-        await self.session.execute(delete(UserRole).where(UserRole.user_id == user_id))
+        await self.session.execute(
+            update(UserRole)
+            .where(UserRole.user_id == user_id, UserRole.revoked_at.is_(None))
+            .values(revoked_at=now)
+        )
         self.session.add_all(
             [
                 UserRole(
+                    id=uuid4(),
                     user_id=user_id,
                     role=role.value,
                     granted_by=actor_id,
                     granted_at=now,
+                    expires_at=editor_expires_at if role is Role.EDITOR else None,
                 )
                 for role in roles
             ]
@@ -242,6 +252,7 @@ class AuthRepository:
             .join(UserRole, UserRole.user_id == User.id)
             .where(
                 UserRole.role == Role.ADMINISTRATOR.value,
+                UserRole.revoked_at.is_(None),
                 User.status == UserStatus.ACTIVE.value,
             )
             .with_for_update(of=User)
@@ -276,9 +287,13 @@ class AuthRepository:
             )
         )
 
-    async def _roles(self, user_id: UUID) -> frozenset[Role]:
+    async def _roles(self, user_id: UUID, now: datetime) -> frozenset[Role]:
         values = await self.session.scalars(
-            select(UserRole.role).where(UserRole.user_id == user_id)
+            select(UserRole.role).where(
+                UserRole.user_id == user_id,
+                UserRole.revoked_at.is_(None),
+                (UserRole.expires_at.is_(None) | (UserRole.expires_at > now)),
+            )
         )
         return frozenset(Role(value) for value in values)
 

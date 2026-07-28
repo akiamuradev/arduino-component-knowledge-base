@@ -32,7 +32,9 @@ async def test_workspace_rejects_student_on_backend() -> None:
     with pytest.raises(HTTPException) as error:
         await editor(principal(Role.STUDENT))
     assert error.value.status_code == 403
-    assert await editor(principal(Role.TEACHER))
+    with pytest.raises(HTTPException):
+        await editor(principal(Role.TEACHER))
+    assert await editor(principal(Role.EDITOR))
 
 
 def test_draft_rejects_raw_html() -> None:

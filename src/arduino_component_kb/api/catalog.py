@@ -1,4 +1,4 @@
-"""Teacher workspace API for catalog cards."""
+"""Editor workspace API for catalog cards."""
 
 from __future__ import annotations
 
@@ -14,11 +14,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from arduino_component_kb.api.dependencies import (
     csrf_principal,
-    current_principal,
     database_session,
-    require_roles,
+    require_permissions,
 )
-from arduino_component_kb.auth.domain import Principal, Role
+from arduino_component_kb.auth.domain import Permission, Principal
 from arduino_component_kb.auth.repository import AuthRepository
 from arduino_component_kb.catalog.domain import (
     CatalogCard,
@@ -50,8 +49,12 @@ from arduino_component_kb.media.storage import MediaStorage
 router = APIRouter(prefix="/api/v1/workspace", tags=["catalog-workspace"])
 admin_router = APIRouter(prefix="/api/v1/admin/catalog", tags=["catalog-administration"])
 public_router = APIRouter(prefix="/api/v1/catalog", tags=["student-catalog"])
-editor = require_roles(Role.TEACHER, Role.ADMINISTRATOR)
-administrator = require_roles(Role.ADMINISTRATOR)
+viewer = require_permissions(Permission.COMPONENTS_VIEW)
+editor = require_permissions(Permission.COMPONENTS_EDIT)
+creator = require_permissions(Permission.COMPONENTS_CREATE)
+archiver = require_permissions(Permission.COMPONENTS_ARCHIVE)
+publisher = require_permissions(Permission.COMPONENTS_PUBLISH)
+administrator = require_permissions(Permission.SYSTEM_SETTINGS)
 
 
 class CategoryResponse(BaseModel):
@@ -551,7 +554,7 @@ async def public_response(
 
 @public_router.get("/categories", response_model=list[CategoryResponse])
 async def public_categories(
-    _: Annotated[Principal, Depends(current_principal)],
+    _: Annotated[Principal, Depends(viewer)],
     session: Annotated[AsyncSession, Depends(database_session)],
 ) -> list[CategoryResponse]:
     return [
@@ -562,7 +565,7 @@ async def public_categories(
 
 @public_router.get("/sources", response_model=list[CatalogSourceResponse])
 async def public_sources(
-    _: Annotated[Principal, Depends(current_principal)],
+    _: Annotated[Principal, Depends(viewer)],
     session: Annotated[AsyncSession, Depends(database_session)],
 ) -> list[CatalogSourceResponse]:
     sources = (
@@ -577,7 +580,7 @@ async def public_sources(
 async def public_components(
     request: Request,
     response: Response,
-    _: Annotated[Principal, Depends(current_principal)],
+    _: Annotated[Principal, Depends(viewer)],
     session: Annotated[AsyncSession, Depends(database_session)],
     query: Annotated[str | None, Query(alias="q", min_length=1, max_length=100)] = None,
     category_id: UUID | None = None,
@@ -610,7 +613,7 @@ async def public_component(
     slug: str,
     request: Request,
     response: Response,
-    _: Annotated[Principal, Depends(current_principal)],
+    _: Annotated[Principal, Depends(viewer)],
     session: Annotated[AsyncSession, Depends(database_session)],
 ) -> PublicComponentResponse:
     try:
@@ -734,7 +737,7 @@ async def get_component(
 @router.post("/components", response_model=ComponentResponse, status_code=status.HTTP_201_CREATED)
 async def create_component(
     payload: DraftRequest,
-    actor: Annotated[Principal, Depends(editor)],
+    actor: Annotated[Principal, Depends(creator)],
     _: Annotated[Principal, Depends(csrf_principal)],
     session: Annotated[AsyncSession, Depends(database_session)],
 ) -> ComponentResponse:
@@ -814,7 +817,7 @@ async def _transition(
 async def publish_component(
     component_id: UUID,
     payload: LifecycleRequest,
-    actor: Annotated[Principal, Depends(editor)],
+    actor: Annotated[Principal, Depends(publisher)],
     _: Annotated[Principal, Depends(csrf_principal)],
     session: Annotated[AsyncSession, Depends(database_session)],
 ) -> ComponentResponse:
@@ -825,7 +828,7 @@ async def publish_component(
 async def archive_component(
     component_id: UUID,
     payload: LifecycleRequest,
-    actor: Annotated[Principal, Depends(editor)],
+    actor: Annotated[Principal, Depends(archiver)],
     _: Annotated[Principal, Depends(csrf_principal)],
     session: Annotated[AsyncSession, Depends(database_session)],
 ) -> ComponentResponse:

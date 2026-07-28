@@ -26,7 +26,7 @@ repository import автоматически. При публикации source
 
 ## Редакционный процесс
 
-Repository parser создаёт только `draft`. До публикации teacher или administrator проверяет
+Repository parser создаёт только `draft`. Editor подготавливает материал, а administrator до публикации проверяет
 содержимое карточки, а backend повторно проверяет наличие revision, origin, license, attribution и
 modifications notice. Frontend показывает эти сведения read-only; источник истины для проверки —
 backend. Ручная карточка без стороннего материала может не иметь source snapshot.

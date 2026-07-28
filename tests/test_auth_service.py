@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import cast
 from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
@@ -14,6 +14,7 @@ from arduino_component_kb.auth.domain import (
     LastAdministratorError,
     Principal,
     Role,
+    RoleGrantPolicyError,
     TooManyAttemptsError,
     UserIdentity,
     UserStatus,
@@ -238,3 +239,71 @@ async def test_disabling_last_administrator_is_checked_under_global_lock() -> No
 
     assert call_order == ["lock", "find", "count"]
     repository.disable_user.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "editor_expires_at",
+    [None, datetime(2020, 1, 1, tzinfo=UTC)],
+)
+async def test_editor_role_requires_a_future_expiration(
+    editor_expires_at: datetime | None,
+) -> None:
+    administrator = administrator_identity()
+    target = UserIdentity(
+        id=uuid4(),
+        login="target",
+        display_name="Target",
+        password_hash=uuid4().hex,
+        status=UserStatus.ACTIVE,
+        roles=frozenset({Role.STUDENT}),
+    )
+    repository = repository_mock()
+    repository.lock_administrator_membership = AsyncMock()
+    repository.find_user = AsyncMock(return_value=target)
+    repository.set_roles = AsyncMock()
+    service = AuthService(repository, settings(), PasswordManager())
+
+    with pytest.raises(RoleGrantPolicyError):
+        await service.set_roles(
+            actor=administrator_principal(administrator),
+            user_id=target.id,
+            roles=frozenset({Role.EDITOR}),
+            request_id="request-editor-grant",
+            editor_expires_at=editor_expires_at,
+        )
+
+    repository.set_roles.assert_not_awaited()
+
+
+async def test_future_editor_role_is_persisted_and_sessions_are_revoked() -> None:
+    administrator = administrator_identity()
+    target = UserIdentity(
+        id=uuid4(),
+        login="target",
+        display_name="Target",
+        password_hash=uuid4().hex,
+        status=UserStatus.ACTIVE,
+        roles=frozenset({Role.STUDENT}),
+    )
+    expiry = datetime.now(UTC) + timedelta(days=7)
+    repository = repository_mock()
+    repository.lock_administrator_membership = AsyncMock()
+    repository.find_user = AsyncMock(return_value=target)
+    repository.set_roles = AsyncMock()
+    repository.revoke_user_sessions = AsyncMock()
+    repository.audit = AsyncMock()
+    service = AuthService(repository, settings(), PasswordManager())
+
+    await service.set_roles(
+        actor=administrator_principal(administrator),
+        user_id=target.id,
+        roles=frozenset({Role.STUDENT, Role.EDITOR}),
+        request_id="request-editor-grant",
+        editor_expires_at=expiry,
+    )
+
+    call = repository.set_roles.await_args
+    assert call is not None
+    assert call.kwargs["editor_expires_at"] == expiry
+    repository.revoke_user_sessions.assert_awaited_once()
+    repository.audit.assert_awaited_once()

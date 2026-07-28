@@ -17,7 +17,59 @@ class Role(StrEnum):
 
     STUDENT = "student"
     TEACHER = "teacher"
+    EDITOR = "editor"
     ADMINISTRATOR = "administrator"
+
+
+class Permission(StrEnum):
+    """Stable server-side capabilities used at authorization boundaries."""
+
+    COMPONENTS_VIEW = "components.view"
+    COMPONENTS_CREATE = "components.create"
+    COMPONENTS_EDIT = "components.edit"
+    COMPONENTS_ARCHIVE = "components.archive"
+    COMPONENTS_DELETE = "components.delete"
+    COMPONENTS_SUBMIT_FOR_REVIEW = "components.submit_for_review"
+    COMPONENTS_REVIEW = "components.review"
+    COMPONENTS_PUBLISH = "components.publish"
+    IMPORTS_VIEW = "imports.view"
+    IMPORTS_CREATE = "imports.create"
+    IMPORTS_RETRY = "imports.retry"
+    IMPORTS_CANCEL = "imports.cancel"
+    USERS_VIEW = "users.view"
+    USERS_MANAGE = "users.manage"
+    ROLES_ASSIGN = "roles.assign"
+    AUDIT_VIEW = "audit.view"
+    SYSTEM_SETTINGS = "system.settings"
+    SYSTEM_DIAGNOSTICS = "system.diagnostics"
+
+
+_VIEW_PERMISSIONS = frozenset({Permission.COMPONENTS_VIEW})
+_EDITOR_PERMISSIONS = _VIEW_PERMISSIONS | frozenset(
+    {
+        Permission.COMPONENTS_CREATE,
+        Permission.COMPONENTS_EDIT,
+        Permission.COMPONENTS_ARCHIVE,
+        Permission.COMPONENTS_SUBMIT_FOR_REVIEW,
+        Permission.IMPORTS_VIEW,
+        Permission.IMPORTS_CREATE,
+        Permission.IMPORTS_RETRY,
+        Permission.IMPORTS_CANCEL,
+    }
+)
+_ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
+    Role.STUDENT: _VIEW_PERMISSIONS,
+    Role.TEACHER: _VIEW_PERMISSIONS,
+    Role.EDITOR: _EDITOR_PERMISSIONS,
+    Role.ADMINISTRATOR: frozenset(Permission),
+}
+
+
+def permissions_for_roles(roles: frozenset[Role]) -> frozenset[Permission]:
+    """Resolve the union of capabilities granted by backend-loaded roles."""
+    return frozenset(
+        permission for role in roles for permission in _ROLE_PERMISSIONS.get(role, frozenset())
+    )
 
 
 class UserStatus(StrEnum):
@@ -50,6 +102,15 @@ class Principal:
     session_id: UUID
     csrf_hash: str
     expires_at: datetime
+
+    @property
+    def permissions(self) -> frozenset[Permission]:
+        """Resolve permissions without accepting client-provided capability data."""
+        return permissions_for_roles(self.roles)
+
+    def can(self, permission: Permission) -> bool:
+        """Return whether this authenticated principal has one capability."""
+        return permission in self.permissions
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,6 +148,10 @@ class UserAlreadyExistsError(AuthError):
 
 class LastAdministratorError(AuthError):
     """An operation would remove the last active administrator."""
+
+
+class RoleGrantPolicyError(AuthError):
+    """A role grant has an invalid or missing lifetime."""
 
 
 def normalize_login(value: str) -> str:

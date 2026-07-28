@@ -11,8 +11,12 @@ from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from arduino_component_kb.api.dependencies import csrf_principal, database_session, require_roles
-from arduino_component_kb.auth.domain import Principal, Role
+from arduino_component_kb.api.dependencies import (
+    csrf_principal,
+    database_session,
+    require_permissions,
+)
+from arduino_component_kb.auth.domain import Permission, Principal
 from arduino_component_kb.config import Settings
 from arduino_component_kb.imports.acquisition import (
     AcquisitionPolicy,
@@ -34,8 +38,8 @@ from arduino_component_kb.imports.repository_domain import (
 from arduino_component_kb.imports.urls import approve_source_url
 
 router = APIRouter(prefix="/api/v1/import-jobs", tags=["imports"])
-editor = require_roles(Role.TEACHER, Role.ADMINISTRATOR)
-administrator = require_roles(Role.ADMINISTRATOR)
+editor = require_permissions(Permission.IMPORTS_CREATE)
+import_viewer = require_permissions(Permission.IMPORTS_VIEW)
 
 
 class ImportRequest(BaseModel):
@@ -275,7 +279,7 @@ async def discover_repository_files(
     response: Response,
     source_key: Annotated[Literal["seeed_wiki", "kicad_symbols"], Query()],
     revision: Annotated[str, Query(min_length=1, max_length=100)],
-    actor: Annotated[Principal, Depends(administrator)],
+    actor: Annotated[Principal, Depends(editor)],
     session: Annotated[AsyncSession, Depends(database_session)],
     query: Annotated[str | None, Query(alias="q", min_length=2, max_length=100)] = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
@@ -315,7 +319,7 @@ async def discover_repository_entries(
     source_key: Annotated[Literal["seeed_wiki", "kicad_symbols"], Query()],
     revision: Annotated[str, Query(min_length=1, max_length=100)],
     file_path: Annotated[str, Query(min_length=1, max_length=1000)],
-    actor: Annotated[Principal, Depends(administrator)],
+    actor: Annotated[Principal, Depends(editor)],
     session: Annotated[AsyncSession, Depends(database_session)],
     query: Annotated[str | None, Query(alias="q", min_length=1, max_length=100)] = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
@@ -362,7 +366,7 @@ async def preview_repository_import(
     payload: RepositoryImportRequest,
     request: Request,
     response: Response,
-    actor: Annotated[Principal, Depends(administrator)],
+    actor: Annotated[Principal, Depends(editor)],
     _: Annotated[Principal, Depends(csrf_principal)],
     session: Annotated[AsyncSession, Depends(database_session)],
 ) -> RepositoryPreviewResponse:
@@ -400,7 +404,7 @@ async def create_repository_import(
     payload: RepositoryImportRequest,
     request: Request,
     response: Response,
-    actor: Annotated[Principal, Depends(administrator)],
+    actor: Annotated[Principal, Depends(editor)],
     _: Annotated[Principal, Depends(csrf_principal)],
     session: Annotated[AsyncSession, Depends(database_session)],
     queue: Annotated[ImportQueue, Depends(queue_from_request)],
@@ -464,11 +468,13 @@ async def create_repository_import(
 async def get_import(
     job_id: UUID,
     response: Response,
-    actor: Annotated[Principal, Depends(editor)],
+    actor: Annotated[Principal, Depends(import_viewer)],
     session: Annotated[AsyncSession, Depends(database_session)],
 ) -> ImportJobResponse:
     job = await ImportRepository(session).get_job(job_id)
-    if job is None or (Role.ADMINISTRATOR not in actor.roles and job.requested_by != actor.user_id):
+    if job is None or (
+        not actor.can(Permission.SYSTEM_DIAGNOSTICS) and job.requested_by != actor.user_id
+    ):
         raise HTTPException(404, detail={"code": "import_job_not_found"})
     response.headers["Cache-Control"] = "no-store"
     return _response(job)

@@ -25,8 +25,8 @@
 
 Arduino Component Knowledge Base is a self-hosted educational platform for maintaining a
 reviewed catalogue of Arduino-compatible boards, sensors, actuators, displays and related
-components. Students browse published learning material; teachers prepare drafts; administrators
-control users, duplicate decisions and operational jobs.
+components. Students and teachers browse published learning material, temporary editors prepare
+drafts, and administrators control users, review, publication and operational jobs.
 
 The application is currently at version **0.21.0**. Its backend, frontend, workers, migrations,
 media storage and reverse proxy form a runnable Docker Compose stack. A new database intentionally
@@ -38,7 +38,8 @@ explicit publication.
 
 - responsive React interface with light, dark and system themes;
 - student catalogue, full-text search, filters and component detail pages;
-- teacher/administrator dashboard, card editor, preview, publish and archive workflow;
+- editor/administrator dashboard, card editor, preview and archive workflow with
+  administrator-only publication;
 - FastAPI application factory, async SQLAlchemy/asyncpg and PostgreSQL readiness checks;
 - Argon2id passwords, opaque server-side sessions, CSRF protection, RBAC, audit events and
   brute-force throttling;
@@ -71,7 +72,7 @@ Browser -> reverse proxy -> React frontend
                                     -> Redis -> Dramatiq workers
                                     -> private MinIO
 
-Allowed source URL -> parser worker -> reviewed draft -> teacher/admin -> published revision
+Allowed source URL -> parser worker -> reviewed draft -> editor -> administrator -> published revision
 ```
 
 The backend is always the authorization source of truth. Frontend route guards are only a user
@@ -80,15 +81,20 @@ separate administrator decision.
 
 ### Roles
 
-| Action | Student | Teacher | Administrator |
-|---|:---:|:---:|:---:|
-| Browse published cards | Yes | Yes | Yes |
-| Create and edit drafts | No | Yes | Yes |
-| Start a repository import | No | No | Yes |
-| Publish/archive a reviewed card | No | Yes | Yes |
-| Manage users and roles | No | No | Yes |
-| Confirm duplicate merge | No | No | Yes |
-| Monitor/retry all background jobs | No | No | Yes |
+| Action | Student | Teacher | Editor | Administrator |
+|---|:---:|:---:|:---:|:---:|
+| Browse published cards | Yes | Yes | Yes | Yes |
+| Create, edit and archive drafts | No | No | Yes | Yes |
+| Start a registered import | No | No | Yes | Yes |
+| Publish a reviewed card | No | No | No | Yes |
+| Manage users and roles | No | No | No | Yes |
+| Confirm duplicate merge | No | No | No | Yes |
+| Monitor all background jobs | No | No | No | Yes |
+
+Permissions are resolved by the backend from active database grants. An editor grant always
+expires and does not provide user-management, publication, audit or system permissions.
+This stage establishes the server contract; role-aware frontend navigation is intentionally
+scheduled for the later authentication and interface stages of the 1.0.0 plan.
 
 ### Data sources and licensing
 
@@ -161,13 +167,13 @@ established when the volume is first initialized.
 
 ### Content workflow
 
-1. Sign in as a teacher or administrator to create a manual draft.
-2. An administrator may open **Administration → Import**, select Seeed or KiCad, perform bounded
+1. Sign in as an editor or administrator to create a manual draft.
+2. An editor or administrator may open import, select Seeed or KiCad, perform bounded
    discovery and inspect the normalized preview.
 3. Click **Create draft** to enqueue the selected entry, then review and complete the resulting
    draft in the editor.
 4. Resolve any duplicate candidate; merge confirmation is administrator-only.
-5. Preview and explicitly publish the card.
+5. An administrator previews and explicitly publishes the card.
 6. The immutable published snapshot becomes available in the student catalogue.
 
 A clean installation shows an empty catalogue until the first reviewed draft is explicitly
@@ -296,7 +302,7 @@ Arduino Component Knowledge Base — самостоятельная образо
                                      -> Redis -> Dramatiq workers
                                      -> private MinIO
 
-Разрешённый URL -> parser worker -> проверяемый draft -> teacher/admin -> published revision
+Разрешённый URL -> parser worker -> проверяемый draft -> editor -> administrator -> published revision
 ```
 
 Backend всегда является источником истины для авторизации. Frontend guards только улучшают UX.
@@ -304,15 +310,20 @@ Parser не может публиковать карточку, а duplicate mer
 
 ### Роли
 
-| Действие | Student | Teacher | Administrator |
-|---|:---:|:---:|:---:|
-| Просмотр опубликованных карточек | Да | Да | Да |
-| Создание и редактирование draft | Нет | Да | Да |
-| Запуск repository import | Нет | Нет | Да |
-| Публикация/архивирование после проверки | Нет | Да | Да |
-| Управление пользователями и ролями | Нет | Нет | Да |
-| Подтверждение merge дубликатов | Нет | Нет | Да |
-| Мониторинг/retry всех фоновых задач | Нет | Нет | Да |
+| Действие | Student | Teacher | Editor | Administrator |
+|---|:---:|:---:|:---:|:---:|
+| Просмотр опубликованных карточек | Да | Да | Да | Да |
+| Создание, изменение и архивирование draft | Нет | Нет | Да | Да |
+| Запуск зарегистрированного import | Нет | Нет | Да | Да |
+| Публикация после проверки | Нет | Нет | Нет | Да |
+| Управление пользователями и ролями | Нет | Нет | Нет | Да |
+| Подтверждение merge дубликатов | Нет | Нет | Нет | Да |
+| Мониторинг всех фоновых задач | Нет | Нет | Нет | Да |
+
+Permissions вычисляются backend из активных grants в базе. Роль editor всегда ограничена
+сроком и не даёт доступа к пользователям, публикации, журналу и системным настройкам.
+На этом этапе зафиксирован серверный контракт; role-aware навигация frontend намеренно
+перенесена в следующие этапы входа и интерфейса плана 1.0.0.
 
 ### Источники данных и лицензирование
 
@@ -384,12 +395,12 @@ python3 scripts/compose_smoke.py
 
 ### Наполнение каталога
 
-1. Войдите как teacher или administrator, чтобы создать ручной draft.
-2. Administrator может открыть **Администрирование → Импорт**, выбрать Seeed или KiCad,
+1. Войдите как editor или administrator, чтобы создать ручной draft.
+2. Editor или administrator может открыть импорт, выбрать Seeed или KiCad,
    выполнить ограниченный поиск и проверить нормализованный preview.
 3. Нажмите **Создать черновик**, дождитесь job и проверьте полученный draft в редакторе.
 4. Разберите найденный duplicate candidate; merge подтверждает только administrator.
-5. Откройте preview и явно опубликуйте карточку.
+5. Administrator открывает preview и явно публикует карточку.
 6. Immutable published snapshot появится в студенческом каталоге.
 
 Чистая установка показывает пустой каталог до первой проверенной и явно опубликованной карточки.
@@ -431,9 +442,9 @@ lint/type/tests/build, Playwright E2E, PostgreSQL/MinIO integration и container
 | `/health`, `/ready` | Liveness процесса и bounded PostgreSQL readiness |
 | `/api/v1/auth/*` | Login, backend-resolved principal и logout |
 | `/api/v1/catalog/*` | Опубликованный студенческий каталог и реестр источников |
-| `/api/v1/workspace/*` | Карточки и категории teacher/administrator |
+| `/api/v1/workspace/*` | Карточки и категории editor/administrator |
 | `/api/v1/media/*` | Private upload, completion и processing status |
-| `/api/v1/import-jobs/repository/*` | Administrator discovery, preview и durable draft jobs |
+| `/api/v1/import-jobs/repository/*` | Editor/administrator discovery, preview и durable draft jobs |
 | `/api/v1/admin/*` | Пользователи, job monitor и duplicate decisions |
 | `/api/v1/openapi.json` | Версионированный OpenAPI contract |
 

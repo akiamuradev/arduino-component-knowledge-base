@@ -24,10 +24,13 @@ Argon2id hash. Переход к SSO потребует отдельной Alemb
 
 ### `user_roles`
 
-`user_id`, `role(student|teacher|administrator)`, `granted_by`, `granted_at`.
+`id`, `user_id`, `role(student|teacher|editor|administrator)`, `granted_by`,
+`granted_at`, `expires_at?`, `revoked_at?`.
 
-Primary key: `(user_id, role)`. Service identity и database credentials не моделируются
-как человеческая роль.
+Primary key: `id`. Неотозванный grant уникален для пары `(user_id, role)`. Для `editor`
+срок `expires_at > granted_at` обязателен; остальные человеческие роли бессрочны.
+Просроченный или отозванный grant не входит в текущий principal, но строка сохраняется
+для истории. Service identity и database credentials не моделируются как человеческая роль.
 
 ### `auth_sessions`
 

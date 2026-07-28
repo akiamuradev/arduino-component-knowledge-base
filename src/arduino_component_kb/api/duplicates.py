@@ -13,8 +13,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from arduino_component_kb.api.catalog import ComponentResponse
 from arduino_component_kb.api.catalog import response as component_response
-from arduino_component_kb.api.dependencies import csrf_principal, database_session, require_roles
-from arduino_component_kb.auth.domain import Principal, Role
+from arduino_component_kb.api.dependencies import (
+    csrf_principal,
+    database_session,
+    require_permissions,
+)
+from arduino_component_kb.auth.domain import Permission, Principal
 from arduino_component_kb.auth.repository import AuthRepository
 from arduino_component_kb.catalog.domain import CatalogError, RevisionConflictError
 from arduino_component_kb.deduplication.review import (
@@ -28,7 +32,7 @@ from arduino_component_kb.deduplication.review import (
 from arduino_component_kb.logging import current_request_id
 
 router = APIRouter(prefix="/api/v1/admin/duplicates", tags=["duplicate-review"])
-administrator = require_roles(Role.ADMINISTRATOR)
+administrator = require_permissions(Permission.COMPONENTS_REVIEW)
 
 
 class CandidateResponse(BaseModel):

@@ -15,6 +15,7 @@ from arduino_component_kb.auth.domain import (
     LoginResult,
     Principal,
     Role,
+    RoleGrantPolicyError,
     TooManyAttemptsError,
     UserAlreadyExistsError,
     UserIdentity,
@@ -151,6 +152,7 @@ class AuthService:
         password: str,
         roles: frozenset[Role],
         request_id: str | None,
+        editor_expires_at: datetime | None = None,
     ) -> UserIdentity:
         normalized = normalize_login(login)
         await self.repository.lock_login(normalized)
@@ -159,6 +161,7 @@ class AuthService:
         if not roles:
             roles = frozenset({Role.STUDENT})
         now = datetime.now(UTC)
+        self._validate_role_lifetime(roles, editor_expires_at, now)
         user = await self.repository.create_user(
             login=normalized,
             display_name=display_name.strip(),
@@ -166,6 +169,7 @@ class AuthService:
             roles=roles,
             actor_id=actor.user_id,
             now=now,
+            editor_expires_at=editor_expires_at,
         )
         await self.repository.audit(
             now=now,
@@ -175,7 +179,12 @@ class AuthService:
             object_id=user.id,
             request_id=request_id,
             outcome="success",
-            details={"roles": sorted(role.value for role in roles)},
+            details={
+                "roles": sorted(role.value for role in roles),
+                "editor_expires_at": (
+                    editor_expires_at.isoformat() if editor_expires_at is not None else None
+                ),
+            },
         )
         return user
 
@@ -186,6 +195,7 @@ class AuthService:
         user_id: UUID,
         roles: frozenset[Role],
         request_id: str | None,
+        editor_expires_at: datetime | None = None,
     ) -> None:
         await self.repository.lock_administrator_membership()
         user = await self._existing_user(user_id)
@@ -193,8 +203,14 @@ class AuthService:
             if await self.repository.count_active_administrators() <= 1:
                 raise LastAdministratorError
         now = datetime.now(UTC)
+        effective_roles = roles or frozenset({Role.STUDENT})
+        self._validate_role_lifetime(effective_roles, editor_expires_at, now)
         await self.repository.set_roles(
-            user_id, roles or frozenset({Role.STUDENT}), actor.user_id, now
+            user_id,
+            effective_roles,
+            actor.user_id,
+            now,
+            editor_expires_at=editor_expires_at,
         )
         await self.repository.revoke_user_sessions(user_id, now)
         await self.repository.audit(
@@ -205,7 +221,12 @@ class AuthService:
             object_id=user_id,
             request_id=request_id,
             outcome="success",
-            details={"roles": sorted(role.value for role in roles)},
+            details={
+                "roles": sorted(role.value for role in effective_roles),
+                "editor_expires_at": (
+                    editor_expires_at.isoformat() if editor_expires_at is not None else None
+                ),
+            },
         )
 
     async def disable_user(
@@ -239,6 +260,20 @@ class AuthService:
         if user is None:
             raise AuthenticationRequiredError
         return user
+
+    @staticmethod
+    def _validate_role_lifetime(
+        roles: frozenset[Role],
+        editor_expires_at: datetime | None,
+        now: datetime,
+    ) -> None:
+        has_editor = Role.EDITOR in roles
+        if has_editor != (editor_expires_at is not None):
+            raise RoleGrantPolicyError
+        if editor_expires_at is not None and (
+            editor_expires_at.tzinfo is None or editor_expires_at <= now
+        ):
+            raise RoleGrantPolicyError
 
     def _throttle_keys(self, login: str, client_identifier: str) -> tuple[str, str]:
         pepper = self.settings.auth_throttle_pepper.get_secret_value().encode()

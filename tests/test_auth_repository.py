@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import cast
 from unittest.mock import AsyncMock, Mock
 from uuid import UUID
@@ -37,3 +38,18 @@ async def test_administrator_changes_use_a_transaction_advisory_lock() -> None:
     call = session.execute.await_args
     assert call is not None
     assert "pg_advisory_xact_lock" in str(call.args[0])
+
+
+async def test_role_lookup_filters_revoked_and_expired_grants() -> None:
+    session = Mock(spec=AsyncSession)
+    session.scalars = AsyncMock(return_value=["student"])
+    repository = AuthRepository(cast(AsyncSession, session))
+
+    roles = await repository._roles(UUID(int=1), datetime.now(UTC))
+
+    assert {role.value for role in roles} == {"student"}
+    call = session.scalars.await_args
+    assert call is not None
+    sql = str(call.args[0])
+    assert "user_roles.revoked_at IS NULL" in sql
+    assert "user_roles.expires_at IS NULL OR user_roles.expires_at >" in sql

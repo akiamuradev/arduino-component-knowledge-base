@@ -58,7 +58,7 @@ def _actor(user_id: UUID) -> Principal:
         user_id=user_id,
         login="multiple-images",
         display_name="Multiple images",
-        roles=frozenset({Role.TEACHER}),
+        roles=frozenset({Role.EDITOR}),
         session_id=uuid4(),
         csrf_hash="integration",
         expires_at=datetime.max.replace(tzinfo=UTC),
