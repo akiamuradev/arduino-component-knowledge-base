@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import type { JobStatus } from "../api/contracts";
 import { ErrorState, LoadingState } from "../components/AsyncStates";
 import { SplatEmptyState } from "../components/SplatEmptyState";
+import { JOB_STATUS_LABELS } from "../config/uiLabels";
 import {
   useAdminImportJobs,
   useAdminJobs,
@@ -15,7 +16,7 @@ const statuses: { value: JobStatus | "all"; label: string }[] = [
   { value: "all", label: "Все" },
   { value: "queued", label: "В очереди" },
   { value: "running", label: "Выполняются" },
-  { value: "retrying", label: "Ожидают retry" },
+  { value: "retrying", label: "Ожидают повторного запуска" },
   { value: "failed", label: "Ошибки" },
   { value: "succeeded", label: "Завершены" },
 ];
@@ -34,7 +35,7 @@ export function AdminJobsPage() {
     return (
       <ErrorState
         title="Монитор задач недоступен"
-        message="Backend не вернул durable job state. Ошибка не заменена локальными данными."
+        message="Сервер не вернул сохранённое состояние фоновых задач."
         onRetry={() => {
           void Promise.all([jobs.refetch(), importJobs.refetch()]);
         }}
@@ -50,7 +51,7 @@ export function AdminJobsPage() {
           <h2>Диагностика обработки</h2>
         </div>
         <label className="job-filter">
-          Статус
+          Состояние
           <select
             value={status}
             onChange={(event) => {
@@ -64,12 +65,12 @@ export function AdminJobsPage() {
         </label>
       </div>
       <p className="lede">
-        PostgreSQL является источником статуса. Список обновляется каждые пять секунд;
-        очистка Redis не превращает failed job в successful.
+        PostgreSQL является источником состояния. Список обновляется каждые пять секунд;
+        очистка Redis не меняет результат уже сохранённой задачи.
       </p>
       {retry.isError ? <p className="form-error" role="alert">Не удалось поставить задачу повторно.</p> : null}
       {retryImport.isError ? <p className="form-error" role="alert">Не удалось повторить импорт.</p> : null}
-      <div className="section-heading"><div><p className="section-kicker">Import jobs</p><h3>Импорт карточек</h3></div><span>{importJobs.data.total}</span></div>
+      <div className="section-heading"><div><p className="section-kicker">Задачи импорта</p><h3>Импорт карточек</h3></div><span>{importJobs.data.total}</span></div>
       {importJobs.data.items.length === 0 ? (
         <p className="muted">Задач импорта для выбранного статуса нет.</p>
       ) : (
@@ -77,13 +78,13 @@ export function AdminJobsPage() {
           {importJobs.data.items.map((job) => (
             <article className="job-row" key={job.id}>
               <div>
-                <strong>{job.source_entry_name ?? job.source_file_path ?? "Repository import"}</strong>
-                <small>import · imports · {job.id.slice(0, 8)}</small>
+                <strong>{job.source_entry_name ?? job.source_file_path ?? "Импорт из репозитория"}</strong>
+                <small>импорт · очередь: imports · {job.id.slice(0, 8)}</small>
               </div>
-              <span className={`status-badge status-badge--${job.status}`}>{job.status}</span>
+              <span className={`status-badge status-badge--${job.status}`}>{JOB_STATUS_LABELS[job.status]}</span>
               <div className="job-progress">
-                <span>{job.repository_url ?? "repository"}</span>
-                {job.draft_component_id === null ? null : <Link to={`/admin/components/${job.draft_component_id}/edit`}>Открыть draft</Link>}
+                <span>{job.repository_url ?? "Репозиторий не указан"}</span>
+                {job.draft_component_id === null ? null : <Link to={`/admin/components/${job.draft_component_id}/edit`}>Открыть черновик</Link>}
               </div>
               <span>{job.attempts}/{job.max_attempts}</span>
               <span className="job-error">{job.error_code ?? "—"}</span>
@@ -103,7 +104,7 @@ export function AdminJobsPage() {
           ))}
         </div>
       )}
-      <div className="section-heading"><div><p className="section-kicker">Media jobs</p><h3>Обработка медиа</h3></div><span>{jobs.data.total}</span></div>
+      <div className="section-heading"><div><p className="section-kicker">Задачи обработки файлов</p><h3>Обработка медиа</h3></div><span>{jobs.data.total}</span></div>
       {jobs.data.items.length === 0 && importJobs.data.items.length === 0 ? (
         <SplatEmptyState icon="↻" title="Задач пока нет" description="Для выбранного статуса фоновые задачи отсутствуют." />
       ) : jobs.data.items.length === 0 ? (
@@ -114,11 +115,11 @@ export function AdminJobsPage() {
             <article className="job-row" key={job.id}>
               <div>
                 <strong>{job.task_name}</strong>
-                <small>{job.kind} · {job.queue_name} · {job.id.slice(0, 8)}</small>
+                <small>тип: {job.kind} · очередь: {job.queue_name} · {job.id.slice(0, 8)}</small>
               </div>
-              <span className={`status-badge status-badge--${job.status}`}>{job.status}</span>
+              <span className={`status-badge status-badge--${job.status}`}>{JOB_STATUS_LABELS[job.status]}</span>
               <div className="job-progress">
-                <span>{job.phase} · {job.progress_percent}%</span>
+                <span>этап: {job.phase} · {job.progress_percent}%</span>
                 <progress max={100} value={job.progress_percent}>{job.progress_percent}%</progress>
               </div>
               <span>{job.attempts}/{job.max_attempts}</span>

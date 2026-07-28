@@ -129,7 +129,7 @@ describe("evidence-first import review", () => {
       await screen.findByRole("heading", { name: "Grove OLED Display", level: 2 }),
     ).toBeVisible();
     expect(screen.getByText("quality.enrichment_review_required")).toBeVisible();
-    await userEvent.click(screen.getByText("Score breakdown и evidence"));
+    await userEvent.click(screen.getByText("Расчёт оценки и подтверждения"));
     expect(screen.getByText(/Exact evidenced part number/)).toBeInTheDocument();
     expect(screen.getByText("Display colour")).toBeVisible();
     expect(screen.getByText(/parser_issue_marked/)).toBeVisible();
@@ -138,7 +138,7 @@ describe("evidence-first import review", () => {
       .closest("section");
     const internalSection = screen.getByRole("heading", { name: "Внутренние компоненты" })
       .closest("section");
-    const kicadSection = screen.getByRole("heading", { name: "Symbol и footprint KiCad" })
+    const kicadSection = screen.getByRole("heading", { name: "Символ и посадочное место KiCad" })
       .closest("section");
     expect(moduleSection).not.toBeNull();
     expect(internalSection).not.toBeNull();
@@ -148,11 +148,11 @@ describe("evidence-first import review", () => {
     expect(within(requiredElement(internalSection)).getByText("SSD1306")).toBeVisible();
     expect(
       within(requiredElement(kicadSection)).getByText(
-        "Выводы символа KiCad — не pinout модуля",
+        "Выводы символа KiCad — не распиновка модуля",
       ),
     ).toBeInTheDocument();
 
-    const accept = screen.getByRole("button", { name: "Принять enrichment" });
+    const accept = screen.getByRole("button", { name: "Принять дополнение" });
     expect(accept).toBeDisabled();
     await userEvent.type(
       screen.getByRole("textbox", { name: "Основание следующего решения" }),

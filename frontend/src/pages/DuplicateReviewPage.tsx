@@ -8,6 +8,7 @@ import type {
 } from "../api/contracts";
 import { ErrorState, LoadingState } from "../components/AsyncStates";
 import { SplatEmptyState } from "../components/SplatEmptyState";
+import { COMPONENT_STATUS_LABELS } from "../config/uiLabels";
 import {
   useDuplicateCandidate,
   useDuplicateCandidates,
@@ -96,7 +97,7 @@ function ReviewPanel({ candidate }: { candidate: DuplicateCandidate }) {
     <section>
       <Link className="back-link" to="/admin/duplicates">← К очереди</Link>
       <div className="section-heading duplicate-heading">
-        <div><p className="eyebrow">Только administrator</p><h2>Проверка дубликата</h2></div>
+        <div><p className="eyebrow">Только для администратора</p><h2>Проверка дубликата</h2></div>
         <strong className="duplicate-score">{Math.round(candidate.score * 100)}%</strong>
       </div>
       <p className="lede">Алгоритм {candidate.algorithm_version} предлагает кандидата, но решение принимает администратор.</p>
@@ -109,7 +110,7 @@ function ReviewPanel({ candidate }: { candidate: DuplicateCandidate }) {
             </label>
             <h3>{card.title}</h3>
             <p>{card.summary}</p>
-            <small>{card.status} · revision {card.revision} · {card.slug}</small>
+            <small>{COMPONENT_STATUS_LABELS[card.status]} · версия {card.revision} · {card.slug}</small>
           </article>
         ))}
       </div>
@@ -146,19 +147,19 @@ export function DuplicateReviewPage() {
   const detail = useDuplicateCandidate(candidateId);
   const query = candidateId === undefined ? list : detail;
   if (query.isPending) return <LoadingState label="Загружаем кандидатов…" />;
-  if (query.isError) return <ErrorState title="Проверка дубликатов недоступна" message="Backend не вернул подтверждённые данные." onRetry={() => { void query.refetch(); }} />;
+  if (query.isError) return <ErrorState title="Проверка дубликатов недоступна" message="Сервер не вернул подтверждённые данные." onRetry={() => { void query.refetch(); }} />;
   if (candidateId !== undefined && detail.data !== undefined) return <ReviewPanel candidate={detail.data} />;
   if (list.data === undefined) return null;
   return (
     <section>
-      <p className="eyebrow">Только administrator</p><h2>Проверка дубликатов</h2>
-      <p className="lede">Очередь отсортирована по score. Ни один кандидат не объединяется автоматически.</p>
+      <p className="eyebrow">Только для администратора</p><h2>Проверка дубликатов</h2>
+      <p className="lede">Очередь отсортирована по оценке совпадения. Ни один кандидат не объединяется автоматически.</p>
       {list.data.items.length === 0 ? <SplatEmptyState icon="✓" title="Дубликатов не найдено" description="Открытых кандидатов для проверки сейчас нет." /> : (
         <div className="duplicate-queue">
           {list.data.items.map((item) => (
             <Link key={item.id} to={`/admin/duplicates/${item.id}`}>
               <strong>{item.left.title} ↔ {item.right.title}</strong>
-              <span>{Math.round(item.score * 100)}% · {item.kind} · {item.algorithm_version}</span>
+              <span>{Math.round(item.score * 100)}% · тип: {item.kind} · алгоритм: {item.algorithm_version}</span>
             </Link>
           ))}
         </div>

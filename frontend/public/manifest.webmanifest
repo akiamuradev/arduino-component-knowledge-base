@@ -1,6 +1,6 @@
 {
-  "name": "Arduino Component Knowledge Base",
-  "short_name": "Arduino Base",
+  "name": "Справочник электронных компонентов",
+  "short_name": "База компонентов Arduino",
   "description": "Учебная база знаний об Arduino-совместимых компонентах.",
   "lang": "ru",
   "start_url": "/",

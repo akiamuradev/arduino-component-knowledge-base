@@ -281,10 +281,10 @@ Arduino Component Knowledge Base — самостоятельная образо
 
 ### Реализовано
 
-- адаптивный React-интерфейс со светлой, тёмной и системной темами;
+- полностью русифицированный адаптивный React-интерфейс со светлой, тёмной и системной темами;
 - студенческий каталог, полнотекстовый поиск, фильтры и страницы компонентов;
-- dashboard преподавателя/администратора, редактор и серверный review lifecycle с обратимыми
-  archive, hide/show и публикацией только administrator;
+- редакционный обзор, редактор и серверная проверка карточек с обратимым архивированием,
+  скрытием/возвратом и публикацией только администратором;
 - FastAPI application factory, async SQLAlchemy/asyncpg и PostgreSQL readiness;
 - Argon2id, opaque server-side sessions, CSRF, backend RBAC, audit и brute-force protection;
 - неизменяемые опубликованные revisions и optimistic conflict handling;

@@ -170,6 +170,7 @@ test("captures approved responsive theme views", async ({ page }) => {
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(page.getByRole("heading", { name: "Исследуйте мир Arduino-компонентов" })).toBeVisible();
   await page.screenshot({ fullPage: true, path: "../docs/screenshots/frontend-dark-desktop.png" });
 
   await page.unrouteAll({ behavior: "wait" });
@@ -183,5 +184,6 @@ test("captures approved responsive theme views", async ({ page }) => {
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(page.getByRole("heading", { name: "Вход в систему" })).toBeVisible();
   await page.screenshot({ fullPage: true, path: "../docs/screenshots/frontend-dark-mobile.png" });
 });

@@ -265,7 +265,7 @@ describe("application routes", () => {
     const view = renderRoute("/admin/import-reviews", {
       ...administrator,
     });
-    expect(await screen.findByRole("heading", { name: "Evidence-first import review" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Проверка импорта по подтверждениям" })).toBeVisible();
     view.unmount();
     renderRoute("/admin/import-reviews", teacher);
     expect(await screen.findByRole("heading", { name: "Недостаточно прав" })).toBeVisible();

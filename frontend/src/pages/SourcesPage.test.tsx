@@ -27,6 +27,6 @@ describe("sources registry", () => {
     expect(screen.getByRole("heading", { name: "Активные источники" })).toBeVisible();
     expect(screen.getByRole("heading", { name: "Неактивные источники" })).toBeVisible();
     expect(screen.getByText("Использование запрещено владельцем источника.")).toBeVisible();
-    expect(screen.getByRole("link", { name: /Официальный repository/ })).toHaveAttribute("rel", "noopener noreferrer");
+    expect(screen.getByRole("link", { name: /Официальный репозиторий/ })).toHaveAttribute("rel", "noopener noreferrer");
   });
 });

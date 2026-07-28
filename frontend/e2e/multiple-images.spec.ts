@@ -312,16 +312,16 @@ test("multiple-image draft, upload, publication and immutable public snapshot", 
 
   await page.goto("/admin/components/new");
   await page.getByLabel("Название", { exact: true }).fill("Датчик с двумя изображениями");
-  await page.getByLabel("Slug").fill("multi-image-sensor");
+  await page.getByLabel("Адрес страницы").fill("multi-image-sensor");
   await page.getByLabel("Аннотация").fill(
     "Учебная карточка с несколькими изображениями компонента.",
   );
-  await page.getByLabel("Описание (Markdown без raw HTML)").fill(
+  await page.getByLabel("Описание (Markdown без необработанного HTML)").fill(
     "Описание компонента для полного E2E-сценария публикации.",
   );
-  await page.getByRole("button", { name: "Сохранить draft" }).click();
+  await page.getByRole("button", { name: "Сохранить черновик" }).click();
   await expect(page).toHaveURL(new RegExp(`/admin/components/${componentId}/edit$`));
-  await expect(page.getByText("Изображений пока нет. Это не мешает сохранять draft."))
+  await expect(page.getByText("Изображений пока нет. Это не мешает сохранять черновик."))
     .toBeVisible();
 
   await page.getByLabel("Добавить изображения").setInputFiles([
@@ -330,20 +330,20 @@ test("multiple-image draft, upload, publication and immutable public snapshot", 
   ]);
   await expect(page.getByText("2 / 12")).toBeVisible();
   await expect(page.getByText("Готово")).toHaveCount(2);
-  await page.getByLabel("Alt изображения 1").fill("Вид спереди");
+  await page.getByLabel("Альтернативный текст изображения 1").fill("Вид спереди");
   await page.getByLabel("Подпись изображения 1").fill("Передняя сторона");
-  await page.getByLabel("Alt изображения 2").fill("Вид сзади");
+  await page.getByLabel("Альтернативный текст изображения 2").fill("Вид сзади");
   await page.getByLabel("Подпись изображения 2").fill("Задняя сторона");
   await page.getByLabel("Основное изображение 2").check();
   await page.getByRole("button", { name: "Переместить изображение 2 выше" }).click();
   await page.getByRole("button", { name: "Сохранить изображения" }).click();
-  await expect(page.getByText("Revision 4")).toBeVisible();
+  await expect(page.getByText("Версия 4")).toBeVisible();
   await page.getByRole("button", { name: "Отправить на проверку" }).click();
-  await expect(page.getByText("Revision 5")).toBeVisible();
+  await expect(page.getByText("Версия 5")).toBeVisible();
   await page.getByRole("button", { name: "Одобрить" }).click();
-  await expect(page.getByText("Revision 6")).toBeVisible();
+  await expect(page.getByText("Версия 6")).toBeVisible();
   await page.getByRole("button", { name: "Опубликовать" }).click();
-  await expect(page.getByText("Revision 7")).toBeVisible();
+  await expect(page.getByText("Версия 7")).toBeVisible();
 
   await page.goto("/components/multi-image-sensor");
   await expect(page.getByRole("img", { name: "Вид сзади" })).toBeVisible();
@@ -356,7 +356,7 @@ test("multiple-image draft, upload, publication and immutable public snapshot", 
   await page.goto(`/admin/components/${componentId}/edit`);
   await page.getByRole("button", { name: "Переместить изображение 2 выше" }).click();
   await page.getByRole("button", { name: "Сохранить изображения" }).click();
-  await expect(page.getByText("Revision 8")).toBeVisible();
+  await expect(page.getByText("Версия 8")).toBeVisible();
   expect(liveMedia.map((item) => item.asset_id)).not.toEqual(publishedOrder);
 
   await page.goto("/components/multi-image-sensor");

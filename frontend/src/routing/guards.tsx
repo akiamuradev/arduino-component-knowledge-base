@@ -19,7 +19,7 @@ export function RequireAuthenticated() {
     }
     return (
       <ErrorState
-        message="Backend не подтвердил сессию. Проверьте соединение и повторите запрос."
+        message="Сервер не подтвердил сеанс. Проверьте соединение и повторите запрос."
         onRetry={() => void currentUser.refetch()}
       />
     );

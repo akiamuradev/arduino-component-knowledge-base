@@ -1,10 +1,10 @@
 export const PRODUCT_BRAND = Object.freeze({
-  productName: "Arduino Component Knowledge Base",
-  shortName: "Arduino Base",
+  productName: "Справочник электронных компонентов",
+  shortName: "База компонентов Arduino",
   authorName: "akiamuradev",
   authorUrl: "https://github.com/akiamuradev",
   officialRepository: "https://github.com/akiamuradev/arduino-component-knowledge-base",
-  copyright: "Copyright © 2026 akiamuradev",
+  copyright: "© 2026 akiamuradev",
   licenseName: "PolyForm Noncommercial License 1.0.0",
 });
 
@@ -22,6 +22,6 @@ function environmentValue(value: string | undefined, fallback: string): string {
 
 export const BUILD_INFO = Object.freeze({
   version: environmentValue(import.meta.env.VITE_APP_VERSION, "0.21.0"),
-  commitSha: environmentValue(import.meta.env.VITE_COMMIT_SHA, "unknown"),
-  buildDate: environmentValue(import.meta.env.VITE_BUILD_DATE, "unknown"),
+  commitSha: environmentValue(import.meta.env.VITE_COMMIT_SHA, "не указан"),
+  buildDate: environmentValue(import.meta.env.VITE_BUILD_DATE, "не указана"),
 });

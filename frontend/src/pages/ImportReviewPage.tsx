@@ -9,6 +9,11 @@ import type {
 import { ErrorState, LoadingState } from "../components/AsyncStates";
 import { SplatEmptyState } from "../components/SplatEmptyState";
 import {
+  IMPORT_RELATION_LABELS,
+  IMPORT_REVIEW_STATUS_LABELS,
+  technicalValueLabel,
+} from "../config/uiLabels";
+import {
   useDraftConfirmation,
   useEnrichmentDecision,
   useEnrichmentRelation,
@@ -46,14 +51,14 @@ function list(value: unknown): string[] {
 }
 
 function Evidence({ values }: { values: Record<string, unknown>[] }) {
-  if (values.length === 0) return <p className="muted">Evidence не сохранён.</p>;
+  if (values.length === 0) return <p className="muted">Подтверждения не сохранены.</p>;
   return (
     <ul className="evidence-list">
       {values.map((item, index) => (
         <li key={`${text(item.section, "source")}-${String(index)}`}>
           <strong>{text(item.section, "Источник")}</strong>
           <span>{text(item.locator ?? item.source_path ?? item.source)}</span>
-          <small>{text(item.parser_version, "parser version unknown")}</small>
+          <small>{text(item.parser_version, "Версия обработчика не указана")}</small>
         </li>
       ))}
     </ul>
@@ -82,17 +87,17 @@ function EnrichmentCard({
           <h4>{text(symbol.name ?? symbol.symbol_name, candidate.external_identity)}</h4>
         </div>
         <span className={`status-badge status-badge--${candidate.status}`}>
-          {candidate.status} · {Math.round(candidate.confidence_basis_points / 10)}%
+          {technicalValueLabel(candidate.status)} · {Math.round(candidate.confidence_basis_points / 10)}%
         </span>
       </header>
       <label>
-        Relation
+        Тип связи
         <select
           disabled={workspace.status === "confirmed"}
           value={selectedRelation}
           onChange={(event) => { setSelectedRelation(event.target.value as ImportRelationType); }}
         >
-          {relationTypes.map((item) => <option key={item} value={item}>{item}</option>)}
+          {relationTypes.map((item) => <option key={item} value={item}>{IMPORT_RELATION_LABELS[item]}</option>)}
         </select>
       </label>
       <button
@@ -108,13 +113,13 @@ function EnrichmentCard({
           });
         }}
       >
-        Сохранить relation
+        Сохранить тип связи
       </button>
       {candidate.review_reasons.length === 0 ? null : (
         <ul>{candidate.review_reasons.map((item) => <li key={item}>{item}</li>)}</ul>
       )}
       <details>
-        <summary>Score breakdown и evidence</summary>
+        <summary>Расчёт оценки и подтверждения</summary>
         <dl className="score-breakdown">
           {candidate.score_breakdown.map((item, index) => (
             <div key={`${text(item.rule_id, "rule")}-${String(index)}`}>
@@ -143,7 +148,7 @@ function EnrichmentCard({
             });
           }}
         >
-          Принять enrichment
+          Принять дополнение
         </button>
         <button
           className="button button--danger"
@@ -158,7 +163,7 @@ function EnrichmentCard({
             });
           }}
         >
-          Отклонить enrichment
+          Отклонить дополнение
         </button>
       </div>
       {decide.isError || relation.isError ? (
@@ -177,7 +182,7 @@ function ReviewWorkspace({ workspace }: { workspace: ImportReviewWorkspace }) {
   const mapping = useSpecificationMapping(workspace.id);
   const parserIssue = useParserIssue(workspace.id);
   const confirmation = useDraftConfirmation(workspace.id);
-  const title = text(object(workspace.draft.title).value, "Review draft");
+  const title = text(object(workspace.draft.title).value, "Черновик проверки");
   const qualityScore = Number(workspace.quality_report.overall_score_basis_points ?? 0);
   const qualityIssues = objects(workspace.quality_report.issues);
   const modulePins = objects(workspace.module_connection.pins);
@@ -186,29 +191,29 @@ function ReviewWorkspace({ workspace }: { workspace: ImportReviewWorkspace }) {
   const reasonMissing = reason.trim().length < 3;
   return (
     <section className="import-review-page">
-      <Link className="back-link" to="/admin/import-reviews">← К очереди review</Link>
+      <Link className="back-link" to="/admin/import-reviews">← К очереди проверки</Link>
       <div className="section-heading">
         <div>
-          <p className="eyebrow">Evidence-first review · revision {workspace.revision}</p>
+          <p className="eyebrow">Проверка по подтверждениям · версия {workspace.revision}</p>
           <h2>{title}</h2>
         </div>
         <span className={`status-badge status-badge--${workspace.status}`}>
-          {workspace.status}
+          {IMPORT_REVIEW_STATUS_LABELS[workspace.status]}
         </span>
       </div>
       <p className="lede">
-        Confidence и evidence показываются отдельно от публичного текста. Решения не изменяют
-        исходный snapshot.
+        Уверенность и подтверждения показываются отдельно от публичного текста. Решения не изменяют
+        исходный снимок данных.
       </p>
 
       <section className="review-overview">
         <article>
-          <p className="section-kicker">Quality</p>
+          <p className="section-kicker">Качество</p>
           <strong>{Math.round(qualityScore / 10)}%</strong>
-          <span>{text(workspace.quality_report.route, "route unknown")}</span>
+          <span>{technicalValueLabel(text(workspace.quality_report.route, "Маршрут не указан"))}</span>
         </article>
         <article>
-          <p className="section-kicker">Confidence полей</p>
+          <p className="section-kicker">Уверенность по полям</p>
           <dl>
             {Object.entries(workspace.field_confidence).map(([field, confidence]) => (
               <div key={field}><dt>{field}</dt><dd>{confidence}</dd></div>
@@ -218,32 +223,32 @@ function ReviewWorkspace({ workspace }: { workspace: ImportReviewWorkspace }) {
         <article>
           <p className="section-kicker">Конфликты</p>
           <strong>{workspace.conflicts.length}</strong>
-          <span>normalization conflicts</span>
+          <span>конфликтов нормализации</span>
         </article>
       </section>
 
       {qualityIssues.length === 0 ? null : (
         <section className="review-section warning-list">
-          <h3>Quality issues</h3>
+          <h3>Замечания к качеству</h3>
           <ul>
             {qualityIssues.map((item) => (
-              <li key={text(item.code)}><code>{text(item.code)}</code> · {text(item.severity)}</li>
+              <li key={text(item.code)}><code>{text(item.code)}</code> · {technicalValueLabel(text(item.severity))}</li>
             ))}
           </ul>
         </section>
       )}
 
       <section className="review-section">
-        <h3>Identity candidates</h3>
+        <h3>Варианты идентификации</h3>
         <div className="review-card-grid">
           {workspace.identity_candidates.map((candidate) => (
             <article className="review-card" key={candidate.id}>
               <header>
-                <div><h4>{candidate.canonical_name}</h4><p>{candidate.component_kind}</p></div>
-                <span>{candidate.confidence}</span>
+                <div><h4>{candidate.canonical_name}</h4><p>{technicalValueLabel(candidate.component_kind)}</p></div>
+                <span>{technicalValueLabel(candidate.confidence)}</span>
               </header>
-              <p>{candidate.selected_category ?? "Категория не выбрана"} · {candidate.resolution_status}</p>
-              <details><summary>Evidence и score breakdown</summary><pre>{JSON.stringify(candidate.evidence, null, 2)}</pre></details>
+              <p>{candidate.selected_category ?? "Категория не выбрана"} · {technicalValueLabel(candidate.resolution_status)}</p>
+              <details><summary>Подтверждения и расчёт оценки</summary><pre>{JSON.stringify(candidate.evidence, null, 2)}</pre></details>
               <button
                 className="button button--primary"
                 disabled={immutable || candidate.selected || reasonMissing || identity.isPending}
@@ -256,7 +261,7 @@ function ReviewWorkspace({ workspace }: { workspace: ImportReviewWorkspace }) {
                   });
                 }}
               >
-                {candidate.selected ? "Identity выбран" : "Выбрать identity"}
+                {candidate.selected ? "Вариант выбран" : "Выбрать вариант"}
               </button>
             </article>
           ))}
@@ -266,7 +271,7 @@ function ReviewWorkspace({ workspace }: { workspace: ImportReviewWorkspace }) {
       <section className="review-section">
         <h3>Несопоставленные характеристики</h3>
         {workspace.unmapped_specifications.length === 0 ? (
-          <p className="muted">Все характеристики сопоставлены с taxonomy.</p>
+          <p className="muted">Все характеристики сопоставлены с классификатором.</p>
         ) : workspace.unmapped_specifications.map((specification) => (
           <article className="review-card spec-review-card" key={specification.key}>
             <div>
@@ -275,7 +280,7 @@ function ReviewWorkspace({ workspace }: { workspace: ImportReviewWorkspace }) {
               <small>{specification.reason}</small>
             </div>
             <label>
-              Taxonomy
+              Классификатор
               <select
                 disabled={immutable}
                 value={taxonomy[specification.key] ?? specification.mapped_taxonomy_path ?? ""}
@@ -310,7 +315,7 @@ function ReviewWorkspace({ workspace }: { workspace: ImportReviewWorkspace }) {
                 });
               }}
             >
-              Сопоставить spec
+              Сопоставить характеристику
             </button>
             <Evidence values={specification.evidence} />
           </article>
@@ -318,7 +323,7 @@ function ReviewWorkspace({ workspace }: { workspace: ImportReviewWorkspace }) {
       </section>
 
       <section className="review-section">
-        <h3>KiCad enrichment candidates</h3>
+        <h3>Дополнения из KiCad</h3>
         <div className="review-card-grid">
           {workspace.enrichments.map((candidate) => (
             <EnrichmentCard
@@ -341,7 +346,7 @@ function ReviewWorkspace({ workspace }: { workspace: ImportReviewWorkspace }) {
           <dl className="pin-list">
             {modulePins.map((pin, index) => (
               <div key={`${text(pin.number ?? pin.name, "pin")}-${String(index)}`}>
-                <dt>{text(pin.number ?? pin.name, "Pin")}</dt>
+                <dt>{text(pin.number ?? pin.name, "Вывод")}</dt>
                 <dd>{text(pin.function)}</dd>
               </div>
             ))}
@@ -353,19 +358,19 @@ function ReviewWorkspace({ workspace }: { workspace: ImportReviewWorkspace }) {
           {workspace.internal_electronic_components.map((item, index) => (
             <article key={`${text(item.record_id)}-${String(index)}`}>
               <strong>{text(item.name)}</strong>
-              <p>{text(item.relation_type)} · {text(item.status)}</p>
+              <p>{technicalValueLabel(text(item.relation_type))} · {technicalValueLabel(text(item.status))}</p>
             </article>
           ))}
         </section>
         <section className="review-section">
           <p className="section-kicker">Схемный уровень</p>
-          <h3>Symbol и footprint KiCad</h3>
+          <h3>Символ и посадочное место KiCad</h3>
           {workspace.kicad_symbols.map((symbol, index) => (
             <article key={`${text(symbol.record_id)}-${String(index)}`}>
               <strong>{text(symbol.library)}:{text(symbol.symbol_name)}</strong>
-              <p>Footprints: {list(symbol.footprint_filters).join(", ") || "—"}</p>
+              <p>Посадочные места: {list(symbol.footprint_filters).join(", ") || "—"}</p>
               <details>
-                <summary>Выводы символа KiCad — не pinout модуля</summary>
+                <summary>Выводы символа KiCad — не распиновка модуля</summary>
                 <ul>{objects(symbol.pins).map((pin, pinIndex) => (
                   <li key={`${text(pin.number)}-${String(pinIndex)}`}>
                     {text(pin.number)}: {text(pin.name)} · {text(pin.electrical_type)}
@@ -378,12 +383,12 @@ function ReviewWorkspace({ workspace }: { workspace: ImportReviewWorkspace }) {
       </div>
 
       <section className="review-section">
-        <h3>Provenance draft</h3>
+        <h3>Происхождение черновика</h3>
         <Evidence values={workspace.provenance} />
       </section>
 
       <section className="review-section parser-issue-form">
-        <h3>Пометить проблему парсера</h3>
+        <h3>Пометить проблему обработчика</h3>
         <label>Код<input maxLength={80} value={issueCode} onChange={(event) => { setIssueCode(event.target.value); }} /></label>
         <label>Описание<textarea maxLength={1000} rows={3} value={issueNote} onChange={(event) => { setIssueNote(event.target.value); }} /></label>
         <button
@@ -398,7 +403,7 @@ function ReviewWorkspace({ workspace }: { workspace: ImportReviewWorkspace }) {
             });
           }}
         >
-          Сохранить parser issue
+          Сохранить проблему обработчика
         </button>
         {workspace.parser_issues.map((item) => (
           <p key={text(item.code)}><code>{text(item.code)}</code> · {text(item.note)}</p>
@@ -406,12 +411,12 @@ function ReviewWorkspace({ workspace }: { workspace: ImportReviewWorkspace }) {
       </section>
 
       <section className="review-section">
-        <h3>Audit trail</h3>
+        <h3>История решений</h3>
         {workspace.audit_trail.length === 0 ? <p className="muted">Решений пока нет.</p> : (
           <ol className="audit-list">
             {workspace.audit_trail.map((item) => (
               <li key={item.id}>
-                <strong>r{item.review_revision} · {item.action}</strong>
+                <strong>Версия {item.review_revision} · {technicalValueLabel(item.action)}</strong>
                 <span>{item.reason}</span>
                 <small>{item.occurred_at}</small>
               </li>
@@ -433,7 +438,7 @@ function ReviewWorkspace({ workspace }: { workspace: ImportReviewWorkspace }) {
       </label>
       {identity.isError || mapping.isError || parserIssue.isError || confirmation.isError ? (
         <p className="form-error" role="alert">
-          Решение не сохранено. Обновите workspace: revision могла измениться.
+          Решение не сохранено. Обновите рабочую область: версия могла измениться.
         </p>
       ) : null}
       <div className="editor-actions">
@@ -445,10 +450,10 @@ function ReviewWorkspace({ workspace }: { workspace: ImportReviewWorkspace }) {
             confirmation.mutate({ reason, expectedRevision: workspace.revision });
           }}
         >
-          {immutable ? "Draft подтверждён" : "Подтвердить draft"}
+          {immutable ? "Черновик подтверждён" : "Подтвердить черновик"}
         </button>
         <span className="validation-note">
-          Подтверждение требует решений по enrichment и mapping всех unmapped specs.
+          Подтверждение требует решений по дополнениям и сопоставления всем несопоставленным характеристикам.
         </span>
       </div>
     </section>
@@ -460,23 +465,23 @@ export function ImportReviewPage() {
   const listQuery = useImportReviews();
   const detailQuery = useImportReview(reviewDraftId);
   if (reviewDraftId !== undefined) {
-    if (detailQuery.isPending) return <LoadingState label="Загружаем evidence…" />;
+    if (detailQuery.isPending) return <LoadingState label="Загружаем подтверждения…" />;
     if (detailQuery.isError) {
-      return <ErrorState title="Import review недоступен" message="Draft не найден или доступ запрещён." onRetry={() => { void detailQuery.refetch(); }} />;
+      return <ErrorState title="Проверка импорта недоступна" message="Черновик не найден или доступ запрещён." onRetry={() => { void detailQuery.refetch(); }} />;
     }
     return <ReviewWorkspace workspace={detailQuery.data} />;
   }
-  if (listQuery.isPending) return <LoadingState label="Загружаем очередь review…" />;
+  if (listQuery.isPending) return <LoadingState label="Загружаем очередь проверки…" />;
   if (listQuery.isError) {
-    return <ErrorState title="Очередь import review недоступна" message="Backend не вернул review drafts." onRetry={() => { void listQuery.refetch(); }} />;
+    return <ErrorState title="Очередь проверки импорта недоступна" message="Сервер не вернул черновики для проверки." onRetry={() => { void listQuery.refetch(); }} />;
   }
   return (
     <section className="import-review-page">
-      <p className="eyebrow">Только administrator</p>
-      <h2>Evidence-first import review</h2>
-      <p className="lede">Проверка identity, taxonomy и KiCad enrichment до подтверждения draft.</p>
+      <p className="eyebrow">Только для администратора</p>
+      <h2>Проверка импорта по подтверждениям</h2>
+      <p className="lede">Проверка идентификации, классификации и дополнений KiCad до подтверждения черновика.</p>
       {listQuery.data.items.length === 0 ? (
-        <SplatEmptyState icon="✓" title="Очередь review пуста" description="Новых evidence-first drafts пока нет." />
+        <SplatEmptyState icon="✓" title="Очередь проверки пуста" description="Новых черновиков для проверки пока нет." />
       ) : (
         <div className="duplicate-queue">
           {listQuery.data.items.map((item) => (
@@ -484,7 +489,7 @@ export function ImportReviewPage() {
               <strong>{item.title}</strong>
               <span>
                 {Math.round(item.quality_score_basis_points / 10)}% · {item.quality_route}
-                {" · "}revision {item.revision}
+                {" · "}версия {item.revision}
               </span>
             </Link>
           ))}

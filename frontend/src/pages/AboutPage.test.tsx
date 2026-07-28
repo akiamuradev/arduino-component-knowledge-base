@@ -11,8 +11,8 @@ describe("about page", () => {
     expect(screen.getByRole("heading", { name: PRODUCT_BRAND.productName })).toBeVisible();
     expect(screen.getByRole("heading", { name: PRODUCT_BRAND.authorName })).toBeVisible();
     expect(screen.getByRole("heading", { name: PRODUCT_BRAND.licenseName })).toBeVisible();
-    expect(screen.getByText(/backend не передал source snapshot/i)).toBeVisible();
-    expect(screen.getByText(/Seeed Studio Wiki и Official KiCad Libraries/i)).toBeVisible();
+    expect(screen.getByText(/сервер не передал снимок источника/i)).toBeVisible();
+    expect(screen.getByText(/Seeed Studio Wiki и официальные библиотеки KiCad/i)).toBeVisible();
     const repository = screen.getByRole("link", { name: /Официальный репозиторий/ });
     expect(repository).toHaveAttribute("href", PRODUCT_BRAND.officialRepository);
     expect(repository).toHaveAttribute("rel", "noopener noreferrer");

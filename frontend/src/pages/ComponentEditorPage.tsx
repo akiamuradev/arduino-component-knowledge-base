@@ -16,6 +16,7 @@ import type {
   ComponentDraftInput,
   ComponentHistoryEntry,
   ComponentMedia,
+  ComponentStatus,
   CatalogMedia,
   Difficulty,
   TechnicalSpecificationInput,
@@ -28,6 +29,7 @@ import { ComponentImagesEditor } from "../components/ComponentImagesEditor";
 import { LearningExample } from "../components/LearningExample";
 import { MediaGallery } from "../components/MediaGallery";
 import { SourceAttributionBlock } from "../components/SourceAttributionBlock";
+import { COMPONENT_STATUS_LABELS, DIFFICULTY_LABELS } from "../config/uiLabels";
 import {
   workspaceCategoriesQuery,
   workspaceComponentQuery,
@@ -210,13 +212,13 @@ export function ComponentEditorPage({ mode }: { mode: EditorMode }) {
     return <LoadingState label="Открываем редактор…" />;
   }
   if (categories.isError) {
-    return <ErrorState message="Backend не вернул категории для редактора." onRetry={() => void categories.refetch()} />;
+    return <ErrorState message="Сервер не вернул категории для редактора." onRetry={() => void categories.refetch()} />;
   }
   if (categories.data.length === 0) {
     return <ErrorState message="Нельзя создать карточку без категории." />;
   }
   if (mode === "edit" && (component.isError || component.data === undefined)) {
-    return <ErrorState message="Не удалось загрузить актуальную revision карточки." onRetry={() => void component.refetch()} />;
+    return <ErrorState message="Не удалось загрузить актуальную версию карточки." onRetry={() => void component.refetch()} />;
   }
 
   const card = mode === "edit" ? component.data : undefined;
@@ -285,7 +287,7 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
     mutationFn: async () => {
       const input = toDraftInput(state);
       if (mode === "new") return api.createComponentDraft(input);
-      if (workingCard === undefined) throw new Error("Loaded component is required for editing");
+      if (workingCard === undefined) throw new Error("Для редактирования требуется загруженная карточка");
       return api.updateComponentDraft(workingCard.id, {
         ...input,
         revision: workingCard.revision,
@@ -299,7 +301,7 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
 
   const lifecycle = useMutation({
     mutationFn: async (action: LifecycleAction) => {
-      if (workingCard === undefined) throw new Error("Save the draft before changing lifecycle");
+      if (workingCard === undefined) throw new Error("Сохраните черновик перед изменением состояния");
       const operations: Record<
         LifecycleAction,
         (componentId: string, revision: number) => Promise<ComponentCard>
@@ -332,10 +334,10 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
     (source) => source.license_spdx.trim() === "" || source.license_spdx === "Unknown",
   ) === true;
   const backendValidationLabels: Record<string, string> = {
-    source_revision_missing: "не сохранена revision источника",
+    source_revision_missing: "не сохранена версия источника",
     source_origin_missing: "не сохранена ссылка на оригинал",
     source_license_missing: "не сохранена лицензия источника",
-    source_attribution_missing: "не сохранён attribution",
+    source_attribution_missing: "не сохранены сведения об авторстве",
     source_modifications_notice_missing: "не сохранено описание изменений",
     component_image_required: "добавьте хотя бы одно готовое изображение",
     component_image_not_ready: "дождитесь обработки всех изображений",
@@ -393,12 +395,12 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
     <section>
       <div className="editor-header">
         <div>
-          <p className="eyebrow">{mode === "new" ? "Новый draft" : `Revision ${String(workingCard?.revision ?? 0)}`}</p>
+          <p className="eyebrow">{mode === "new" ? "Новый черновик" : `Версия ${String(workingCard?.revision ?? 0)}`}</p>
           <h2>{state.title || "Без названия"}</h2>
         </div>
         <div className="editor-tabs" aria-label="Режим редактора">
           <button className={view === "edit" ? "active" : ""} type="button" onClick={() => { setView("edit"); }}>Редактор</button>
-          <button className={view === "preview" ? "active" : ""} type="button" onClick={() => { setView("preview"); }}>Preview</button>
+          <button className={view === "preview" ? "active" : ""} type="button" onClick={() => { setView("preview"); }}>Предпросмотр</button>
           {workingCard === undefined ? null : <button className={view === "history" ? "active" : ""} type="button" onClick={() => { setView("history"); }}>История</button>}
         </div>
       </div>
@@ -406,10 +408,10 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
       {conflict === undefined ? null : (
         <div className="conflict-banner" role="alert">
           <div><strong>Карточку уже изменил другой пользователь</strong><p>Локальный текст сохранён в форме. Автоматическая перезапись остановлена.</p></div>
-          {reloadServer === undefined ? null : <button className="button button--quiet" type="button" onClick={() => { void reload(); }}>Загрузить серверную revision</button>}
+          {reloadServer === undefined ? null : <button className="button button--quiet" type="button" onClick={() => { void reload(); }}>Загрузить версию с сервера</button>}
         </div>
       )}
-      {otherError === undefined ? null : <div className="inline-error" role="alert">Операция не выполнена: {backendValidation ?? (otherError instanceof ApiError ? otherError.code : "ошибка backend")}. Изменения остаются в редакторе.</div>}
+      {otherError === undefined ? null : <div className="inline-error" role="alert">Операция не выполнена: {backendValidation ?? (otherError instanceof ApiError ? otherError.code : "ошибка сервера")}. Изменения остаются в редакторе.</div>}
       {hasUnknownLicense ? <div className="license-warning" role="alert"><strong>Лицензия источника не подтверждена</strong><span>Условия использования материала не определены. Перед публикацией проверьте правила исходного ресурса.</span></div> : null}
       {workingCard === undefined || workingCard.sources.length === 0 ? null : <SourceAttributionBlock sources={workingCard.sources} />}
 
@@ -421,7 +423,7 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
         <form className="editor-form" onSubmit={submit}>
           <fieldset><legend>Идентификация</legend><div className="form-grid">
             <EditorField label="Название" value={state.title} maxLength={160} required onChange={(value) => { update("title", value); }} />
-            <EditorField label="Slug" value={state.slug} maxLength={160} required onChange={(value) => { update("slug", value); }} />
+            <EditorField label="Адрес страницы" value={state.slug} maxLength={160} required onChange={(value) => { update("slug", value); }} />
             <EditorField label="Производитель" value={state.manufacturer} maxLength={120} onChange={(value) => { update("manufacturer", value); }} />
             <EditorField label="Модель" value={state.model} maxLength={120} onChange={(value) => { update("model", value); }} />
             <label>Категория<select value={state.primaryCategoryId} onChange={(event) => { update("primaryCategoryId", event.target.value); }}>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
@@ -442,11 +444,11 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
           />
           <fieldset><legend>Учебное содержание</legend>
             <EditorTextArea label="Аннотация" value={state.summary} maxLength={500} required onChange={(value) => { update("summary", value); }} />
-            <EditorTextArea label="Описание (Markdown без raw HTML)" value={state.description} maxLength={30000} required rows={10} onChange={(value) => { update("description", value); }} />
+            <EditorTextArea label="Описание (Markdown без необработанного HTML)" value={state.description} maxLength={30000} required rows={10} onChange={(value) => { update("description", value); }} />
             <EditorTextArea label="Назначение" value={state.purpose} maxLength={2000} onChange={(value) => { update("purpose", value); }} />
             <EditorTextArea label="Рекомендации" value={state.usageNotes} maxLength={5000} onChange={(value) => { update("usageNotes", value); }} />
             <EditorTextArea label="Безопасность" value={state.safetyNotes} maxLength={5000} onChange={(value) => { update("safetyNotes", value); }} />
-            <EditorTextArea label="Заметки преподавателя — скрыты от student" value={state.teacherNotes} maxLength={10000} onChange={(value) => { update("teacherNotes", value); }} />
+            <EditorTextArea label="Заметки преподавателя — скрыты от ученика" value={state.teacherNotes} maxLength={10000} onChange={(value) => { update("teacherNotes", value); }} />
             <label className="checkbox"><input type="checkbox" checked={state.manualOriginal} onChange={(event) => { update("manualOriginal", event.target.checked); }} />Материал создан вручную</label>
           </fieldset>
           <fieldset><legend>Характеристики</legend><p className="field-help">Ключ стабилен между карточками; числовое значение используется будущими фильтрами.</p>
@@ -470,7 +472,7 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
             </div>)}</div>
             <button className="button button--quiet" disabled={state.compatibility.length >= 30} type="button" onClick={() => { update("compatibility", [...state.compatibility, { target_type: "board", name: "", version_constraint: null, notes: null }]); }}>Добавить совместимость</button>
           </fieldset>
-          <fieldset><legend>Учебные примеры кода</legend><p className="field-help">Код хранится и показывается только как текст: backend его не запускает.</p>
+          <fieldset><legend>Учебные примеры кода</legend><p className="field-help">Код хранится и показывается только как текст: сервер его не запускает.</p>
             <div className="structured-list">{state.codeExamples.map((item, index) => <section className="code-example-editor" key={`${String(index)}:${item.title}`}>
               <div className="form-grid">
                 <EditorField label="Название задания" value={item.title} maxLength={160} required onChange={(value) => { updateCodeExample(index, "title", value); }} />
@@ -491,7 +493,7 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
             <button className="button button--quiet" disabled={state.codeExamples.length >= 10} type="button" onClick={() => { update("codeExamples", [...state.codeExamples, { title: "", language: "arduino", practical_task: "", hints: [], body: "", libraries: "", explanation: null, visibility: "student" }]); }}>Добавить учебный пример</button>
           </fieldset>
           <div className="editor-actions">
-            <button className="button button--primary" disabled={!editable || save.isPending || lifecycle.isPending} type="submit">{save.isPending ? "Сохраняем…" : "Сохранить draft"}</button>
+            <button className="button button--primary" disabled={!editable || save.isPending || lifecycle.isPending} type="submit">{save.isPending ? "Сохраняем…" : "Сохранить черновик"}</button>
             {workingCard !== undefined && ["draft", "changes_requested"].includes(workingCard.status) && canSubmit ? <button className="button button--success" disabled={problems.length > 0 || imagesDirty || save.isPending || lifecycle.isPending} type="button" onClick={() => { lifecycle.mutate("submit"); }}>Отправить на проверку</button> : null}
             {workingCard?.status === "in_review" && canReview ? <><button className="button button--quiet" disabled={lifecycle.isPending} type="button" onClick={() => { lifecycle.mutate("request-changes"); }}>Запросить исправления</button><button className="button button--success" disabled={lifecycle.isPending} type="button" onClick={() => { lifecycle.mutate("approve"); }}>Одобрить</button></> : null}
             {workingCard?.status === "approved" && canReview ? <button className="button button--quiet" disabled={lifecycle.isPending} type="button" onClick={() => { lifecycle.mutate("request-changes"); }}>Запросить исправления</button> : null}
@@ -502,7 +504,7 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
             {workingCard !== undefined && workingCard.status !== "archived" && canArchive && !archiveConfirmation ? <button className="button button--danger" type="button" onClick={() => { setArchiveConfirmation(true); }}>В архив</button> : null}
             {archiveConfirmation ? <><span>Архивировать карточку? Действие можно отменить.</span><button className="button button--danger" type="button" onClick={() => { lifecycle.mutate("archive"); }}>Подтвердить</button><button className="button button--quiet" type="button" onClick={() => { setArchiveConfirmation(false); }}>Отмена</button></> : null}
           </div>
-          {!editable ? <p className="validation-note">Содержимое заблокировано в состоянии «{workingCard.status}». Используйте доступный переход жизненного цикла.</p> : null}
+          {!editable ? <p className="validation-note">Содержимое заблокировано в состоянии «{COMPONENT_STATUS_LABELS[workingCard.status]}». Используйте доступное действие.</p> : null}
           {workingCard !== undefined && ["draft", "changes_requested", "approved"].includes(workingCard.status) && problems.length > 0 ? <p className="validation-note">Для проверки и публикации заполните: {problems.join(", ")}.</p> : null}
           {workingCard !== undefined && ["draft", "changes_requested", "approved"].includes(workingCard.status) && imagesDirty ? <p className="validation-note">Перед переходом сохраните изменения изображений.</p> : null}
         </form>
@@ -566,7 +568,7 @@ function ComponentHistory({ componentId }: { componentId: string }) {
             <article>
               <header>
                 <strong>{item.summary}</strong>
-                <span>Revision {item.revision}</span>
+                <span>Версия {item.revision}</span>
               </header>
               <p>
                 {item.previous_status === null
@@ -638,10 +640,10 @@ function EditorMediaPreview({ images }: { images: ComponentMedia[] }) {
   return galleryItems.length === 0 ? null : <MediaGallery items={galleryItems} />;
 }
 
-function ComponentPreview({ state, categories, status }: { state: EditorState; categories: Category[]; status: string }) {
+function ComponentPreview({ state, categories, status }: { state: EditorState; categories: Category[]; status: ComponentStatus }) {
   const category = categories.find((item) => item.id === state.primaryCategoryId);
   return <article className="component-preview">
-    <div className="preview-meta"><span className={`status-badge status-badge--${status}`}>{status}</span><span>{category?.name ?? "Без категории"}</span><span>{state.difficulty}</span></div>
+    <div className="preview-meta"><span className={`status-badge status-badge--${status}`}>{COMPONENT_STATUS_LABELS[status]}</span><span>{category?.name ?? "Без категории"}</span><span>{DIFFICULTY_LABELS[state.difficulty]}</span></div>
     <p className="eyebrow">Предпросмотр карточки</p><h1>{state.title || "Без названия"}</h1>
     <p className="preview-summary">{state.summary || "Аннотация ещё не заполнена."}</p>
     <EditorMediaPreview images={state.images} />

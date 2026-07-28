@@ -168,9 +168,9 @@ describe("component editor", () => {
   it("allows a new draft without images and explains when upload becomes available", () => {
     renderNewEditor();
 
-    expect(screen.getByText("Сначала сохраните draft")).toBeVisible();
+    expect(screen.getByText("Сначала сохраните черновик")).toBeVisible();
     expect(screen.getByText(/Карточку можно сохранить без изображений/)).toBeVisible();
-    expect(screen.getByRole("button", { name: "Сохранить draft" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Сохранить черновик" })).toBeEnabled();
     expect(screen.queryByRole("button", { name: "Добавить изображения" })).not.toBeInTheDocument();
   });
 
@@ -210,7 +210,7 @@ describe("component editor", () => {
 
   it("renders a safe preview without interpreting raw HTML", async () => {
     renderEditor({ ...card, description: "<img src=x onerror=alert(1)>" });
-    await userEvent.click(screen.getByRole("button", { name: "Preview" }));
+    await userEvent.click(screen.getByRole("button", { name: "Предпросмотр" }));
 
     expect(screen.getByRole("heading", { name: "Arduino Uno", level: 1 })).toBeVisible();
     expect(screen.getByText("<img src=x onerror=alert(1)>")).toBeVisible();
@@ -242,7 +242,7 @@ describe("component editor", () => {
       }),
     );
     renderEditor({ ...card, media: editorImages });
-    await userEvent.click(screen.getByRole("button", { name: "Preview" }));
+    await userEvent.click(screen.getByRole("button", { name: "Предпросмотр" }));
 
     const gallery = await screen.findByRole("region", {
       name: "Галерея изображений компонента",
@@ -306,11 +306,11 @@ describe("component editor", () => {
     const title = within(screen.getByRole("group", { name: "Идентификация" })).getByLabelText("Название");
     await userEvent.clear(title);
     await userEvent.type(title, "Локальное название");
-    await userEvent.click(screen.getByRole("button", { name: "Сохранить draft" }));
+    await userEvent.click(screen.getByRole("button", { name: "Сохранить черновик" }));
 
     expect(await screen.findByText("Карточку уже изменил другой пользователь")).toBeVisible();
     expect(title).toHaveValue("Локальное название");
-    expect(screen.getByRole("button", { name: "Загрузить серверную revision" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Загрузить версию с сервера" })).toBeVisible();
   });
 
   it("runs review, publication, visibility and reversible archive transitions", async () => {
@@ -349,7 +349,7 @@ describe("component editor", () => {
     await userEvent.click(screen.getByRole("button", { name: "Подтвердить" }));
     await userEvent.click(await screen.findByRole("button", { name: "Восстановить из архива" }));
 
-    expect(await screen.findByText("Revision 16")).toBeVisible();
+    expect(await screen.findByText("Версия 16")).toBeVisible();
     expect(fetchMock).toHaveBeenCalledTimes(9);
     expect(fetchMock.mock.calls[0]?.[1]?.body).toBe('{"revision":7}');
     expect(fetchMock.mock.calls[8]?.[1]?.body).toBe('{"revision":15}');
@@ -361,6 +361,6 @@ describe("component editor", () => {
     expect(screen.queryByRole("button", { name: "Опубликовать" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Одобрить" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Отправить на проверку" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Сохранить draft" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Сохранить черновик" })).toBeEnabled();
   });
 });

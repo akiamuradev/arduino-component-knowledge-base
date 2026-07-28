@@ -141,7 +141,7 @@ function ImageThumbnail({
       )}
       <span className={`image-status image-status--${status.data?.status ?? image.status}`}>
         {status.isError
-          ? "Статус недоступен"
+          ? "Состояние недоступно"
           : statusLabel(status.data, image)}
       </span>
       {status.data?.failure_code === null || status.data?.failure_code === undefined
@@ -162,7 +162,7 @@ function errorLabel(error: unknown): string {
     media_upload_failed: "MinIO не принял файл",
     media_enqueue_failed: "обработчик изображений временно недоступен",
     media_not_found: "изображение больше недоступно",
-    component_image_metadata_invalid: "проверьте назначение, alt и подпись",
+    component_image_metadata_invalid: "проверьте назначение, альтернативный текст и подпись",
   };
   return labels[error.code] ?? error.code;
 }
@@ -190,7 +190,7 @@ export function ComponentImagesEditor({
 
   const persist = useMutation({
     mutationFn: async (nextImages: ComponentMedia[]) => {
-      if (card === undefined) throw new Error("Save the draft before editing images");
+      if (card === undefined) throw new Error("Сохраните черновик перед редактированием изображений");
       const payload = mutationPayload(nextImages);
       return api.updateComponentImages(card.id, {
         revision: card.revision,
@@ -202,7 +202,7 @@ export function ComponentImagesEditor({
 
   const upload = useMutation({
     mutationFn: async (files: File[]) => {
-      if (card === undefined) throw new Error("Save the draft before uploading images");
+      if (card === undefined) throw new Error("Сохраните черновик перед загрузкой изображений");
       let activeCard = card;
       try {
         if (dirty) {
@@ -224,7 +224,7 @@ export function ComponentImagesEditor({
             declared_size_bytes: file.size,
           });
           if (reservation.component_revision === null) {
-            throw new Error("Backend did not return the component revision");
+            throw new Error("Сервер не вернул версию карточки");
           }
           if (typeof URL.createObjectURL === "function") {
             const preview = URL.createObjectURL(file);
@@ -305,14 +305,14 @@ export function ComponentImagesEditor({
       <div className="images-editor__heading">
         <p className="field-help">
           До 12 файлов JPEG, PNG или WebP, каждый не больше 8 МиБ. Первое изображение
-          backend назначает основным автоматически.
+          сервер назначает основным автоматически.
         </p>
         <span>{String(orderedImages.length)} / {String(MAX_COMPONENT_IMAGES)}</span>
       </div>
 
       {card === undefined ? (
         <div className="images-editor__locked">
-          <strong>Сначала сохраните draft</strong>
+          <strong>Сначала сохраните черновик</strong>
           <span>Карточку можно сохранить без изображений, а затем добавить файлы.</span>
         </div>
       ) : (
@@ -366,7 +366,7 @@ export function ComponentImagesEditor({
           <div className={conflict ? "conflict-banner" : "inline-error"} role="alert">
             <span>
               {conflict
-                ? "Revision карточки изменилась. Локальный порядок и metadata сохранены."
+                ? "Версия карточки изменилась. Локальный порядок и описания сохранены."
                 : `Изображения не сохранены: ${errorLabel(mutationError)}.`}
             </span>
             {!conflict || onReload === undefined
@@ -377,7 +377,7 @@ export function ComponentImagesEditor({
                   onClick={() => { void onReload(); }}
                   type="button"
                 >
-                  Загрузить серверную revision
+                  Загрузить версию с сервера
                 </button>
               )}
           </div>
@@ -385,7 +385,7 @@ export function ComponentImagesEditor({
 
       {orderedImages.length === 0 ? (
         <p className="images-editor__empty">
-          Изображений пока нет. Это не мешает сохранять draft.
+          Изображений пока нет. Это не мешает сохранять черновик.
         </p>
       ) : (
         <div className="images-editor__list">
@@ -409,7 +409,7 @@ export function ComponentImagesEditor({
                   />
                 </label>
                 <label>
-                  Alt изображения {String(index + 1)}
+                  Альтернативный текст изображения {String(index + 1)}
                   <input
                     maxLength={500}
                     onChange={(event) => {
@@ -500,7 +500,7 @@ export function ComponentImagesEditor({
           <span>
             {dirty
               ? "Есть несохранённые изменения изображений."
-              : "Порядок и metadata синхронизированы с backend."}
+              : "Порядок и описания синхронизированы с сервером."}
           </span>
         </div>
       )}

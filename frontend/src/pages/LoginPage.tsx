@@ -113,7 +113,7 @@ export function LoginPage() {
           <p className="login-security"><span aria-hidden="true">●</span> Роль и права загружаются с сервера после входа.</p>
         </div>
         <footer className="login-footer">
-          <span>Developed by <a aria-label="GitHub автора akiamuradev (откроется в новой вкладке)" href={PRODUCT_BRAND.authorUrl} target="_blank" rel="noopener noreferrer">{PRODUCT_BRAND.authorName}</a></span>
+          <span>Разработчик: <a aria-label="GitHub автора akiamuradev (откроется в новой вкладке)" href={PRODUCT_BRAND.authorUrl} target="_blank" rel="noopener noreferrer">{PRODUCT_BRAND.authorName}</a></span>
           <span>{PRODUCT_BRAND.copyright}</span>
         </footer>
       </section>
