@@ -13,6 +13,7 @@ import { ComponentListPage } from "../pages/ComponentListPage";
 import { DuplicateReviewPage } from "../pages/DuplicateReviewPage";
 import { LoginPage } from "../pages/LoginPage";
 import { ImportReviewPage } from "../pages/ImportReviewPage";
+import { UserManagementPage } from "../pages/UserManagementPage";
 import { SourcesPage } from "../pages/SourcesPage";
 import { ForbiddenPage, NotFoundPage, RouteErrorPage } from "../pages/StatusPages";
 import {
@@ -59,6 +60,12 @@ export const routes: RouteObject[] = [
                 element: <RequirePermission permission="system.diagnostics" />,
                 children: [
                   { path: "jobs", element: <AdminJobsPage /> },
+                ],
+              },
+              {
+                element: <RequirePermission permission="users.view" />,
+                children: [
+                  { path: "users", element: <UserManagementPage /> },
                 ],
               },
               {

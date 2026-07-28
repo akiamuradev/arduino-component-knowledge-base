@@ -351,3 +351,91 @@ async def test_future_editor_role_is_persisted_and_sessions_are_revoked() -> Non
     assert call.kwargs["editor_expires_at"] == expiry
     repository.revoke_user_sessions.assert_awaited_once()
     repository.audit.assert_awaited_once()
+
+
+async def test_dedicated_editor_grant_preserves_baseline_and_records_audit() -> None:
+    administrator = administrator_identity()
+    target = UserIdentity(
+        id=uuid4(),
+        login="target",
+        display_name="Target",
+        password_hash=uuid4().hex,
+        status=UserStatus.ACTIVE,
+        roles=frozenset({Role.TEACHER}),
+    )
+    expiry = datetime.now(UTC) + timedelta(days=14)
+    repository = repository_mock()
+    repository.lock_administrator_membership = AsyncMock()
+    repository.find_user = AsyncMock(return_value=target)
+    repository.grant_editor = AsyncMock()
+    repository.revoke_user_sessions = AsyncMock()
+    repository.audit = AsyncMock()
+    service = AuthService(repository, settings(), PasswordManager())
+
+    await service.grant_editor(
+        actor=administrator_principal(administrator),
+        user_id=target.id,
+        expires_at=expiry,
+        request_id="request-dedicated-editor-grant",
+    )
+
+    repository.grant_editor.assert_awaited_once()
+    grant_call = repository.grant_editor.await_args
+    assert grant_call is not None
+    assert grant_call.args[0] == target.id
+    assert grant_call.args[3] == expiry
+    repository.revoke_user_sessions.assert_awaited_once_with(target.id, grant_call.args[2])
+    audit_call = repository.audit.await_args
+    assert audit_call is not None
+    assert audit_call.kwargs["action"] == "identity.editor_granted"
+    assert audit_call.kwargs["details"] == {"editor_expires_at": expiry.isoformat()}
+
+
+async def test_dedicated_editor_grant_cannot_change_an_administrator() -> None:
+    administrator = administrator_identity()
+    repository = repository_mock()
+    repository.lock_administrator_membership = AsyncMock()
+    repository.find_user = AsyncMock(return_value=administrator)
+    repository.grant_editor = AsyncMock()
+    service = AuthService(repository, settings(), PasswordManager())
+
+    with pytest.raises(RoleGrantPolicyError):
+        await service.grant_editor(
+            actor=administrator_principal(administrator),
+            user_id=administrator.id,
+            expires_at=datetime.now(UTC) + timedelta(days=7),
+            request_id="request-admin-editor-grant",
+        )
+
+    repository.grant_editor.assert_not_awaited()
+
+
+async def test_dedicated_editor_revoke_preserves_history_and_records_audit() -> None:
+    administrator = administrator_identity()
+    target = UserIdentity(
+        id=uuid4(),
+        login="target",
+        display_name="Target",
+        password_hash=uuid4().hex,
+        status=UserStatus.ACTIVE,
+        roles=frozenset({Role.STUDENT, Role.EDITOR}),
+    )
+    repository = repository_mock()
+    repository.lock_administrator_membership = AsyncMock()
+    repository.find_user = AsyncMock(return_value=target)
+    repository.revoke_editor = AsyncMock()
+    repository.revoke_user_sessions = AsyncMock()
+    repository.audit = AsyncMock()
+    service = AuthService(repository, settings(), PasswordManager())
+
+    await service.revoke_editor(
+        actor=administrator_principal(administrator),
+        user_id=target.id,
+        request_id="request-editor-revoke",
+    )
+
+    repository.revoke_editor.assert_awaited_once()
+    repository.revoke_user_sessions.assert_awaited_once()
+    audit_call = repository.audit.await_args
+    assert audit_call is not None
+    assert audit_call.kwargs["action"] == "identity.editor_revoked"

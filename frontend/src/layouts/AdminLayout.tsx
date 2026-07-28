@@ -13,6 +13,7 @@ export function AdminLayout() {
   const canImport = hasPermission(user, "imports.create");
   const canReview = hasPermission(user, "components.review");
   const canDiagnose = hasPermission(user, "system.diagnostics");
+  const canViewUsers = hasPermission(user, "users.view");
   return (
     <div className="app-shell">
       <AppHeader />
@@ -30,6 +31,7 @@ export function AdminLayout() {
           {canReview ? <NavLink to="/admin/duplicates"><span aria-hidden="true">◇</span>Дубликаты</NavLink> : null}
           {canImport ? <NavLink to="/admin/import"><span aria-hidden="true">⇣</span>Импорт</NavLink> : null}
           {canReview ? <NavLink to="/admin/import-reviews"><span aria-hidden="true">⌕</span>Проверка импорта</NavLink> : null}
+          {canViewUsers ? <NavLink to="/admin/users"><span aria-hidden="true">♙</span>Пользователи</NavLink> : null}
           {canDiagnose ? <NavLink to="/admin/jobs"><span aria-hidden="true">↻</span>Фоновые задачи</NavLink> : null}
         </nav>
         <div className="admin-nav__footer">

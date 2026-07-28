@@ -46,6 +46,37 @@ export interface CreateUserInput {
   display_name: string;
   password: string;
   roles: Role[];
+  editor_expires_at: string | null;
+}
+
+export interface CreateEditorInput {
+  login: string;
+  display_name: string;
+  password: string;
+  editor_expires_at: string;
+}
+
+export interface SetRolesInput {
+  roles: Role[];
+  editor_expires_at: string | null;
+}
+
+export interface EditorGrantInput {
+  editor_expires_at: string;
+}
+
+export interface ManagedUser {
+  id: string;
+  login: string;
+  display_name: string;
+  status: "active" | "disabled";
+  roles: Role[];
+  editor_expires_at: string | null;
+}
+
+export interface ManagedUserListResponse {
+  items: ManagedUser[];
+  total: number;
 }
 
 export interface MutationResponse {

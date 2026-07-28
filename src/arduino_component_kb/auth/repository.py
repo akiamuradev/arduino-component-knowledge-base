@@ -9,7 +9,13 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from arduino_component_kb.auth.domain import Principal, Role, UserIdentity, UserStatus
+from arduino_component_kb.auth.domain import (
+    ManagedUserIdentity,
+    Principal,
+    Role,
+    UserIdentity,
+    UserStatus,
+)
 from arduino_component_kb.auth.models import AuditEvent, AuthSession, AuthThrottle, User, UserRole
 
 
@@ -31,6 +37,33 @@ class AuthRepository:
         if user is None:
             return None
         return self._identity(user, await self._roles(user.id, datetime.now(UTC)))
+
+    async def list_users(self, now: datetime) -> tuple[ManagedUserIdentity, ...]:
+        """Return safe account state and current editor lifetime without password data."""
+        users = list(await self.session.scalars(select(User).order_by(User.login)))
+        managed: list[ManagedUserIdentity] = []
+        for user in users:
+            editor_expires_at = await self.session.scalar(
+                select(UserRole.expires_at)
+                .where(
+                    UserRole.user_id == user.id,
+                    UserRole.role == Role.EDITOR.value,
+                    UserRole.revoked_at.is_(None),
+                )
+                .order_by(UserRole.granted_at.desc())
+                .limit(1)
+            )
+            managed.append(
+                ManagedUserIdentity(
+                    id=user.id,
+                    login=user.login,
+                    display_name=user.display_name,
+                    status=UserStatus(user.status),
+                    roles=await self._roles(user.id, now),
+                    editor_expires_at=editor_expires_at,
+                )
+            )
+        return tuple(managed)
 
     async def lock_login(self, login: str) -> None:
         """Serialize creation of one normalized login in PostgreSQL."""
@@ -235,6 +268,46 @@ class AuthRepository:
                 )
                 for role in roles
             ]
+        )
+
+    async def grant_editor(
+        self,
+        user_id: UUID,
+        actor_id: UUID,
+        now: datetime,
+        expires_at: datetime,
+    ) -> None:
+        """Replace only the current editor grant and preserve every baseline role."""
+        await self.session.execute(
+            update(UserRole)
+            .where(
+                UserRole.user_id == user_id,
+                UserRole.role == Role.EDITOR.value,
+                UserRole.revoked_at.is_(None),
+            )
+            .values(revoked_at=now)
+        )
+        self.session.add(
+            UserRole(
+                id=uuid4(),
+                user_id=user_id,
+                role=Role.EDITOR.value,
+                granted_by=actor_id,
+                granted_at=now,
+                expires_at=expires_at,
+            )
+        )
+
+    async def revoke_editor(self, user_id: UUID, now: datetime) -> None:
+        """Revoke only the editor grant while retaining its history."""
+        await self.session.execute(
+            update(UserRole)
+            .where(
+                UserRole.user_id == user_id,
+                UserRole.role == Role.EDITOR.value,
+                UserRole.revoked_at.is_(None),
+            )
+            .values(revoked_at=now)
         )
 
     async def disable_user(self, user_id: UUID, now: datetime) -> None:
