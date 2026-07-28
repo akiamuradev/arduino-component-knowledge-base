@@ -7,7 +7,9 @@ from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
 
 import pytest
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from arduino_component_kb.api.media import _audit_upload_rejection
 from arduino_component_kb.auth.domain import Principal, Role
 from arduino_component_kb.auth.repository import AuthRepository
 from arduino_component_kb.config import Settings
@@ -51,6 +53,7 @@ async def test_reservation_uses_private_quarantine_and_presigned_put() -> None:
     actor = teacher()
     repository = Mock(spec=MediaRepository)
     repository.lock_upload_reservations = AsyncMock()
+    repository.count_recent_uploads = AsyncMock(return_value=0)
     repository.count_pending = AsyncMock(return_value=0)
     repository.count_all_pending = AsyncMock(return_value=0)
     repository.create_reservation = AsyncMock(
@@ -128,6 +131,7 @@ async def test_video_reservation_uses_video_limits_and_prefix() -> None:
     actor = teacher()
     repository = Mock(spec=MediaRepository)
     repository.lock_upload_reservations = AsyncMock()
+    repository.count_recent_uploads = AsyncMock(return_value=0)
     repository.count_pending = AsyncMock(return_value=0)
     repository.count_all_pending = AsyncMock(return_value=0)
     repository.create_reservation = AsyncMock(
@@ -174,6 +178,7 @@ async def test_reservation_quota_is_checked_under_global_transaction_lock() -> N
 
     repository = Mock(spec=MediaRepository)
     repository.lock_upload_reservations = AsyncMock(side_effect=record_lock)
+    repository.count_recent_uploads = AsyncMock(return_value=0)
     repository.count_pending = AsyncMock(side_effect=count_owner)
     repository.count_all_pending = AsyncMock()
     repository.create_reservation = AsyncMock()
@@ -203,10 +208,78 @@ async def test_reservation_quota_is_checked_under_global_transaction_lock() -> N
     repository.create_reservation.assert_not_awaited()
 
 
+async def test_reservation_rate_limit_is_checked_before_pending_quotas() -> None:
+    actor = teacher()
+    repository = Mock(spec=MediaRepository)
+    repository.lock_upload_reservations = AsyncMock()
+    repository.count_recent_uploads = AsyncMock(return_value=settings().media_upload_rate_limit)
+    repository.count_pending = AsyncMock()
+    repository.count_all_pending = AsyncMock()
+    repository.create_reservation = AsyncMock()
+    service = MediaService(
+        repository,
+        Mock(spec=AuthRepository),
+        Mock(spec=MediaStorage),
+        settings(),
+    )
+
+    with pytest.raises(MediaQuotaError) as captured:
+        await service.reserve_upload(
+            actor=actor,
+            kind=MediaKind.IMAGE,
+            component_id=None,
+            component_revision=None,
+            purpose="hero",
+            alt_text="Arduino board",
+            attribution=None,
+            declared_mime="image/png",
+            declared_size_bytes=100,
+            request_id="request-rate-limit",
+        )
+
+    assert captured.value.code == "media_upload_rate_limited"
+    repository.count_pending.assert_not_awaited()
+    repository.count_all_pending.assert_not_awaited()
+    repository.create_reservation.assert_not_awaited()
+
+
+async def test_rejected_upload_is_audited_without_payload_or_file_name() -> None:
+    actor = teacher()
+    audit = Mock(spec=AuthRepository)
+    audit.audit = AsyncMock()
+    service = MediaService(
+        Mock(spec=MediaRepository),
+        audit,
+        Mock(spec=MediaStorage),
+        settings(),
+    )
+    session = Mock(spec=AsyncSession)
+    session.commit = AsyncMock()
+
+    await _audit_upload_rejection(
+        service,
+        session,
+        actor,
+        kind=MediaKind.IMAGE,
+        component_id=None,
+        code="image_magic_not_allowed",
+    )
+
+    values = audit.audit.await_args.kwargs
+    assert values["details"] == {
+        "code": "image_magic_not_allowed",
+        "kind": "image",
+    }
+    assert "file" not in values["details"]
+    assert "content" not in values["details"]
+    session.commit.assert_awaited_once()
+
+
 async def test_reservation_enforces_global_pending_quota() -> None:
     actor = teacher()
     repository = Mock(spec=MediaRepository)
     repository.lock_upload_reservations = AsyncMock()
+    repository.count_recent_uploads = AsyncMock(return_value=0)
     repository.count_pending = AsyncMock(return_value=0)
     repository.count_all_pending = AsyncMock(
         return_value=settings().media_global_pending_upload_limit
@@ -252,6 +325,7 @@ async def test_asset_id_does_not_bypass_owner_authorization() -> None:
 async def test_attached_reservation_requires_component_revision() -> None:
     repository = Mock(spec=MediaRepository)
     repository.lock_upload_reservations = AsyncMock()
+    repository.count_recent_uploads = AsyncMock(return_value=0)
     repository.count_pending = AsyncMock(return_value=0)
     repository.count_all_pending = AsyncMock(return_value=0)
     repository.create_reservation = AsyncMock()
@@ -306,6 +380,7 @@ async def test_component_media_quotas_are_enforced_before_reservation(
     actor = teacher()
     repository = Mock(spec=MediaRepository)
     repository.lock_upload_reservations = AsyncMock()
+    repository.count_recent_uploads = AsyncMock(return_value=0)
     repository.count_pending = AsyncMock(return_value=0)
     repository.count_all_pending = AsyncMock(return_value=0)
     repository.lock_component_revision = AsyncMock(return_value=1)

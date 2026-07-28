@@ -254,6 +254,12 @@ REQ-MEDIA-003. Upload проходит `pending` → `processing` → `ready` л
 REQ-MEDIA-004. Download производится через короткоживущий presigned URL или backend proxy
 после авторизации. MinIO bucket никогда не становится public.
 
+REQ-MEDIA-005. Reservation ограничивается атомарными PostgreSQL-квотами: не более 5
+одновременных загрузок пользователя, 100 глобально и 20 новых reservation за 60 секунд
+на пользователя по умолчанию. Лимиты настраиваются, но не могут быть отключены. Успешная
+reservation, подтверждение и безопасный код отклонения попадают в audit без имени файла,
+содержимого или presigned URL.
+
 ## Импорт и дедупликация
 
 1. Administrator выбирает registered source, revision и discovered file/entry. Исторический
@@ -267,6 +273,20 @@ REQ-MEDIA-004. Download производится через короткожив
 5. Exact и fuzzy dedup формируют объяснимые candidates с evidence.
 6. Editor редактирует draft. Administrator отдельно выбирает merge/attach/create/reject.
 7. После разрешения конфликтов administrator публикует revision.
+
+REQ-IMPORT-001. Repository import принимает только относительный POSIX path без пустых,
+`.`/`..` и управляющих сегментов. Для Seeed разрешены только `.md`/`.mdx`, для KiCad —
+`.kicad_sym`; один файл ограничен 2 MiB и проверяется соответствующим data-only parser.
+
+REQ-IMPORT-002. Создание import job требует `imports.create`, CSRF и стабильный
+`Idempotency-Key`. Повтор с тем же ключом возвращает существующий job и не расходует квоту.
+Новые job по умолчанию ограничены пятью активными на пользователя, сотней глобально и десятью
+отправками за 60 секунд. Проверка квот и insert сериализованы PostgreSQL advisory lock.
+
+REQ-IMPORT-003. Отмена и повтор требуют отдельных `imports.cancel`/`imports.retry`; editor
+действует только над собственным job, administrator — над любым. Worker проверяет terminal
+`cancelled` перед сохранением результата. Создание, отклонение, отмена, retry и ошибка enqueue
+журналируются безопасными кодами без URL, path, содержимого или внутренних исключений.
 
 REQ-DEDUP-001. Exact keys: `(source_id, source_item_id)`, canonical source URL, media SHA-256
 и нормализованная пара manufacturer/model. Проверка выполняется под Redis lock и повторяется

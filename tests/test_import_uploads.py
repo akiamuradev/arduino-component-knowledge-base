@@ -3,21 +3,29 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from typing import cast
+from typing import Literal, cast
 from unittest.mock import AsyncMock, Mock
 from uuid import UUID, uuid4
 
 import pytest
 from fastapi import HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from arduino_component_kb.api.imports import (
+    RepositoryImportRequest,
+    _admit_submission,
     _display_status,
+    _enqueue_import,
     _list_item,
     _owned_job,
+    _response,
+    _validated_entry,
 )
 from arduino_component_kb.auth.domain import Principal, Role
+from arduino_component_kb.config import Settings
 from arduino_component_kb.imports.models import ImportJob
 from arduino_component_kb.imports.processor import _mark_failed
+from arduino_component_kb.imports.queue import ImportQueue
 from arduino_component_kb.imports.repository import ImportRepository
 
 
@@ -105,6 +113,19 @@ def test_safe_import_item_excludes_internal_processing_details() -> None:
         assert internal_field not in response
 
 
+def test_editor_job_response_masks_internal_failure_details() -> None:
+    job = import_job("failed")
+
+    safe = _response(job).model_dump(mode="json")
+    diagnostic = _response(job, include_diagnostics=True).model_dump(mode="json")
+
+    assert safe["error_code"] == "import_processing_failed"
+    assert safe["metrics_json"] == {}
+    assert safe["heartbeat_at"] is None
+    assert diagnostic["error_code"] == "internal_parser_failure"
+    assert diagnostic["metrics_json"] == {"internal": "must-not-leak"}
+
+
 def test_cancellation_is_terminal_and_preserved_by_failure_handling() -> None:
     job = import_job()
     cancelled_at = datetime.now(UTC)
@@ -141,3 +162,162 @@ async def test_administrator_can_act_on_any_import() -> None:
     actor = principal(Role.ADMINISTRATOR, uuid4())
 
     assert await _owned_job(job.id, actor, repository) is job
+
+
+@pytest.mark.parametrize(
+    ("source_key", "file_path"),
+    [
+        ("seeed_wiki", "../secret.md"),
+        ("seeed_wiki", "components//Sensor.md"),
+        ("seeed_wiki", "components/Sensor\x00.md"),
+        ("seeed_wiki", "components/Sensor.png"),
+        ("kicad_symbols", "Sensor_Temperature.md"),
+    ],
+)
+def test_repository_upload_rejects_unsafe_paths_and_file_types(
+    source_key: str, file_path: str
+) -> None:
+    payload = RepositoryImportRequest(
+        source_key=cast(Literal["seeed_wiki", "kicad_symbols"], source_key),
+        revision="main",
+        file_path=file_path,
+        entry_name="Sensor" if source_key == "kicad_symbols" else None,
+    )
+
+    with pytest.raises(HTTPException) as captured:
+        _validated_entry(payload)
+
+    assert captured.value.status_code == 422
+    assert cast(dict[str, str], captured.value.detail)["code"] in {
+        "repository_path_invalid",
+        "repository_path_outside_snapshot",
+        "repository_file_type_not_allowed",
+    }
+
+
+@pytest.mark.asyncio
+async def test_idempotent_import_replay_bypasses_submission_limits() -> None:
+    job = import_job()
+    repository = Mock(spec=ImportRepository)
+    repository.lock_submissions = AsyncMock()
+    repository.get_idempotent_job = AsyncMock(return_value=job)
+    repository.count_recent_submissions = AsyncMock()
+    repository.count_active = AsyncMock()
+    session = Mock(spec=AsyncSession)
+    actor = principal(Role.EDITOR, job.requested_by)
+
+    result = await _admit_submission(
+        repository,
+        cast(AsyncSession, session),
+        actor,
+        Settings(
+            _env_file=None,
+            environment="test",
+            database_url="postgresql+asyncpg://ackb:placeholder@localhost/ackb",
+        ),
+        job.idempotency_key,
+    )
+
+    assert result is job
+    repository.count_recent_submissions.assert_not_awaited()
+    repository.count_active.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_import_rate_limit_is_safe_audited_and_returns_retry_after() -> None:
+    repository = Mock(spec=ImportRepository)
+    repository.lock_submissions = AsyncMock()
+    repository.get_idempotent_job = AsyncMock(return_value=None)
+    repository.count_recent_submissions = AsyncMock(return_value=10)
+    repository.count_active = AsyncMock()
+    session = Mock(spec=AsyncSession)
+    session.commit = AsyncMock()
+    actor = principal(Role.EDITOR, uuid4())
+    configured = Settings(
+        _env_file=None,
+        environment="test",
+        database_url="postgresql+asyncpg://ackb:placeholder@localhost/ackb",
+        import_submission_rate_limit=10,
+        import_submission_rate_window_seconds=60,
+    )
+
+    with pytest.raises(HTTPException) as captured:
+        await _admit_submission(
+            repository,
+            cast(AsyncSession, session),
+            actor,
+            configured,
+            "new-request",
+        )
+
+    assert captured.value.status_code == 429
+    assert cast(dict[str, str], captured.value.detail) == {"code": "import_rate_limited"}
+    assert captured.value.headers == {"Retry-After": "60"}
+    session.add.assert_called_once()
+    session.commit.assert_awaited_once()
+    repository.count_active.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    ("active_counts", "expected_code"),
+    [
+        ([5], "import_pending_quota_exceeded"),
+        ([0, 100], "import_global_pending_quota_exceeded"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_import_active_quotas_are_checked_under_submission_lock(
+    active_counts: list[int], expected_code: str
+) -> None:
+    repository = Mock(spec=ImportRepository)
+    repository.lock_submissions = AsyncMock()
+    repository.get_idempotent_job = AsyncMock(return_value=None)
+    repository.count_recent_submissions = AsyncMock(return_value=0)
+    repository.count_active = AsyncMock(side_effect=active_counts)
+    session = Mock(spec=AsyncSession)
+    session.commit = AsyncMock()
+    actor = principal(Role.EDITOR, uuid4())
+    configured = Settings(
+        _env_file=None,
+        environment="test",
+        database_url="postgresql+asyncpg://ackb:placeholder@localhost/ackb",
+        import_pending_job_limit=5,
+        import_global_pending_job_limit=100,
+    )
+
+    with pytest.raises(HTTPException) as captured:
+        await _admit_submission(
+            repository,
+            cast(AsyncSession, session),
+            actor,
+            configured,
+            "new-request",
+        )
+
+    assert cast(dict[str, str], captured.value.detail) == {"code": expected_code}
+    repository.lock_submissions.assert_awaited_once()
+    session.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_enqueue_failure_is_safe_audited_and_remains_replayable() -> None:
+    job = import_job()
+    actor = principal(Role.EDITOR, job.requested_by)
+    queue = Mock(spec=ImportQueue)
+    queue.enqueue.side_effect = RuntimeError("internal broker address must not leak")
+    session = Mock(spec=AsyncSession)
+    session.commit = AsyncMock()
+
+    with pytest.raises(HTTPException) as captured:
+        await _enqueue_import(
+            queue,
+            cast(AsyncSession, session),
+            actor,
+            job,
+        )
+
+    assert captured.value.status_code == 503
+    assert cast(dict[str, str], captured.value.detail) == {"code": "import_enqueue_failed"}
+    assert job.status == "queued"
+    session.add.assert_called_once()
+    session.commit.assert_awaited_once()

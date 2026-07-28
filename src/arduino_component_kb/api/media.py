@@ -129,6 +129,28 @@ def media_queue_from_request(request: Request) -> MediaQueue:
     return cast(MediaQueue, request.app.state.media_queue)
 
 
+async def _audit_upload_rejection(
+    service: MediaService,
+    session: AsyncSession,
+    actor: Principal,
+    *,
+    kind: MediaKind,
+    component_id: UUID | None,
+    code: str,
+) -> None:
+    await service.audit.audit(
+        now=datetime.now(UTC),
+        actor_user_id=actor.user_id,
+        action="media.upload_rejected",
+        object_type="media_upload",
+        object_id=component_id,
+        request_id=current_request_id(),
+        outcome="rejected",
+        details={"code": code, "kind": kind.value},
+    )
+    await session.commit()
+
+
 @router.post("/images/uploads", response_model=UploadReservationResponse, status_code=201)
 async def reserve_upload(
     payload: UploadReservationRequest,
@@ -152,12 +174,52 @@ async def reserve_upload(
             request_id=current_request_id(),
         )
     except MediaQuotaError as error:
-        raise HTTPException(429, detail={"code": error.code}) from error
+        await _audit_upload_rejection(
+            service,
+            session,
+            actor,
+            kind=MediaKind.IMAGE,
+            component_id=payload.component_id,
+            code=error.code,
+        )
+        raise HTTPException(
+            429,
+            detail={"code": error.code},
+            headers=(
+                {"Retry-After": str(service.settings.media_upload_rate_window_seconds)}
+                if error.code == "media_upload_rate_limited"
+                else None
+            ),
+        ) from error
     except MediaValidationError as error:
+        await _audit_upload_rejection(
+            service,
+            session,
+            actor,
+            kind=MediaKind.IMAGE,
+            component_id=payload.component_id,
+            code=error.code,
+        )
         raise HTTPException(422, detail={"code": error.code}) from error
     except MediaRevisionConflictError as error:
+        await _audit_upload_rejection(
+            service,
+            session,
+            actor,
+            kind=MediaKind.IMAGE,
+            component_id=payload.component_id,
+            code="revision_conflict",
+        )
         raise HTTPException(409, detail={"code": "revision_conflict"}) from error
     except MediaNotFoundError as error:
+        await _audit_upload_rejection(
+            service,
+            session,
+            actor,
+            kind=MediaKind.IMAGE,
+            component_id=payload.component_id,
+            code="component_not_found",
+        )
         raise HTTPException(404, detail={"code": "component_not_found"}) from error
     await session.commit()
     response.headers["Cache-Control"] = "no-store"
@@ -297,12 +359,52 @@ async def reserve_video_upload(
             request_id=current_request_id(),
         )
     except MediaQuotaError as error:
-        raise HTTPException(429, detail={"code": error.code}) from error
+        await _audit_upload_rejection(
+            service,
+            session,
+            actor,
+            kind=MediaKind.VIDEO,
+            component_id=payload.component_id,
+            code=error.code,
+        )
+        raise HTTPException(
+            429,
+            detail={"code": error.code},
+            headers=(
+                {"Retry-After": str(service.settings.media_upload_rate_window_seconds)}
+                if error.code == "media_upload_rate_limited"
+                else None
+            ),
+        ) from error
     except MediaValidationError as error:
+        await _audit_upload_rejection(
+            service,
+            session,
+            actor,
+            kind=MediaKind.VIDEO,
+            component_id=payload.component_id,
+            code=error.code,
+        )
         raise HTTPException(422, detail={"code": error.code}) from error
     except MediaRevisionConflictError as error:
+        await _audit_upload_rejection(
+            service,
+            session,
+            actor,
+            kind=MediaKind.VIDEO,
+            component_id=payload.component_id,
+            code="revision_conflict",
+        )
         raise HTTPException(409, detail={"code": "revision_conflict"}) from error
     except MediaNotFoundError as error:
+        await _audit_upload_rejection(
+            service,
+            session,
+            actor,
+            kind=MediaKind.VIDEO,
+            component_id=payload.component_id,
+            code="component_not_found",
+        )
         raise HTTPException(404, detail={"code": "component_not_found"}) from error
     await session.commit()
     response.headers["Cache-Control"] = "no-store"

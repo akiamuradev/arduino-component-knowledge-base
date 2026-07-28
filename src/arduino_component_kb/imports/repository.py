@@ -12,6 +12,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.elements import ColumnElement
 
 from arduino_component_kb.catalog.domain import Difficulty, DraftData, TechnicalSpecification
 from arduino_component_kb.catalog.models import Category, Component
@@ -68,6 +69,32 @@ class ImportRepository:
         if lock:
             query = query.with_for_update()
         return cast(ImportJob | None, await self.session.scalar(query))
+
+    async def lock_submissions(self) -> None:
+        """Serialize import quota checks and inserts across API instances."""
+        await self.session.execute(select(func.pg_advisory_xact_lock(0x494D5054, 0x5355424D)))
+
+    async def count_recent_submissions(self, actor_id: UUID, *, since: datetime) -> int:
+        count = await self.session.scalar(
+            select(func.count())
+            .select_from(ImportJob)
+            .where(
+                ImportJob.requested_by == actor_id,
+                ImportJob.created_at >= since,
+            )
+        )
+        return int(count or 0)
+
+    async def count_active(self, actor_id: UUID | None = None) -> int:
+        filters: list[ColumnElement[bool]] = [
+            ImportJob.status.in_(("queued", "running", "retrying"))
+        ]
+        if actor_id is not None:
+            filters.append(ImportJob.requested_by == actor_id)
+        count = await self.session.scalar(
+            select(func.count()).select_from(ImportJob).where(*filters)
+        )
+        return int(count or 0)
 
     async def list_jobs(
         self, *, status: str | None, limit: int, offset: int
