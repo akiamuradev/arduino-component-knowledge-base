@@ -4,7 +4,27 @@ import type {
   ImportRelationType,
   ImportReviewStatus,
   JobStatus,
+  Role,
 } from "../api/contracts";
+
+export const ROLE_LABELS: Record<Role, string> = {
+  student: "Ученик",
+  teacher: "Преподаватель",
+  editor: "Редактор базы",
+  administrator: "Администратор",
+};
+
+const ROLE_PRIORITY: readonly Role[] = [
+  "administrator",
+  "editor",
+  "teacher",
+  "student",
+];
+
+export function primaryRoleLabel(roles: readonly Role[]): string {
+  const role = ROLE_PRIORITY.find((candidate) => roles.includes(candidate));
+  return role === undefined ? "Пользователь" : ROLE_LABELS[role];
+}
 
 export const COMPONENT_STATUS_LABELS: Record<ComponentStatus, string> = {
   draft: "Черновик",

@@ -1,6 +1,6 @@
 import { NavLink, Outlet } from "react-router-dom";
 
-import { hasPermission } from "../auth/permissions";
+import { navigationFor } from "../app/navigation";
 import { useCurrentUser } from "../auth/queries";
 import { AppFooter } from "../components/AppFooter";
 import { AppHeader } from "../components/AppHeader";
@@ -9,11 +9,8 @@ export function AdminLayout() {
   const currentUser = useCurrentUser();
   const user = currentUser.data;
   if (user === undefined) return null;
-  const canCreate = hasPermission(user, "components.create");
-  const canImport = hasPermission(user, "imports.create");
-  const canReview = hasPermission(user, "components.review");
-  const canDiagnose = hasPermission(user, "system.diagnostics");
-  const canViewUsers = hasPermission(user, "users.view");
+  const materialsNavigation = navigationFor(user, "materials");
+  const administrationNavigation = navigationFor(user, "administration");
   return (
     <div className="app-shell">
       <AppHeader />
@@ -25,14 +22,24 @@ export function AdminLayout() {
           <p>Управление учебными материалами и публикациями.</p>
         </div>
         <nav aria-label="Рабочее место редактора">
-          <NavLink end to="/admin"><span aria-hidden="true">⌂</span>Обзор</NavLink>
-          <NavLink to="/admin/components"><span aria-hidden="true">▤</span>Карточки</NavLink>
-          {canCreate ? <NavLink to="/admin/components/new"><span aria-hidden="true">＋</span>Новая карточка</NavLink> : null}
-          {canReview ? <NavLink to="/admin/duplicates"><span aria-hidden="true">◇</span>Дубликаты</NavLink> : null}
-          {canImport ? <NavLink to="/admin/import"><span aria-hidden="true">⇣</span>Загрузка компонентов</NavLink> : null}
-          {canReview ? <NavLink to="/admin/import-reviews"><span aria-hidden="true">⌕</span>Проверка импорта</NavLink> : null}
-          {canViewUsers ? <NavLink to="/admin/users"><span aria-hidden="true">♙</span>Пользователи</NavLink> : null}
-          {canDiagnose ? <NavLink to="/admin/jobs"><span aria-hidden="true">↻</span>Диагностика</NavLink> : null}
+          <section className="admin-nav__section">
+            <h2>Материалы</h2>
+            {materialsNavigation.map((item) => (
+              <NavLink end={item.end} key={item.path} to={item.path}>
+                <span aria-hidden="true">{item.icon}</span>{item.label}
+              </NavLink>
+            ))}
+          </section>
+          {administrationNavigation.length === 0 ? null : (
+            <section className="admin-nav__section">
+              <h2>Администрирование</h2>
+              {administrationNavigation.map((item) => (
+                <NavLink end={item.end} key={item.path} to={item.path}>
+                  <span aria-hidden="true">{item.icon}</span>{item.label}
+                </NavLink>
+              ))}
+            </section>
+          )}
         </nav>
         <div className="admin-nav__footer">
           <span className="system-dot" aria-hidden="true" />
