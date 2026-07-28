@@ -269,14 +269,62 @@ export const api = {
     ),
   getComponentImage: (assetId: string): Promise<MediaAsset> =>
     apiRequest<MediaAsset>(`/media/images/${encodeURIComponent(assetId)}`),
+  submitComponentForReview: (
+    componentId: string,
+    revision: number,
+  ): Promise<ComponentCard> =>
+    apiRequest<ComponentCard>(
+      `/workspace/components/${encodeURIComponent(componentId)}/submit-for-review`,
+      {
+        method: "POST",
+        body: JSON.stringify({ revision }),
+        csrf: true,
+      },
+    ),
+  requestComponentChanges: (
+    componentId: string,
+    revision: number,
+  ): Promise<ComponentCard> =>
+    apiRequest<ComponentCard>(
+      `/workspace/components/${encodeURIComponent(componentId)}/request-changes`,
+      {
+        method: "POST",
+        body: JSON.stringify({ revision }),
+        csrf: true,
+      },
+    ),
+  approveComponent: (componentId: string, revision: number): Promise<ComponentCard> =>
+    apiRequest<ComponentCard>(`/workspace/components/${encodeURIComponent(componentId)}/approve`, {
+      method: "POST",
+      body: JSON.stringify({ revision }),
+      csrf: true,
+    }),
   publishComponent: (componentId: string, revision: number): Promise<ComponentCard> =>
     apiRequest<ComponentCard>(`/workspace/components/${encodeURIComponent(componentId)}/publish`, {
       method: "POST",
       body: JSON.stringify({ revision }),
       csrf: true,
     }),
+  hideComponent: (componentId: string, revision: number): Promise<ComponentCard> =>
+    apiRequest<ComponentCard>(`/workspace/components/${encodeURIComponent(componentId)}/hide`, {
+      method: "POST",
+      body: JSON.stringify({ revision }),
+      csrf: true,
+    }),
+  showComponent: (componentId: string, revision: number): Promise<ComponentCard> =>
+    apiRequest<ComponentCard>(`/workspace/components/${encodeURIComponent(componentId)}/show`, {
+      method: "POST",
+      body: JSON.stringify({ revision }),
+      csrf: true,
+    }),
   archiveComponent: (componentId: string, revision: number): Promise<ComponentCard> =>
     apiRequest<ComponentCard>(`/workspace/components/${encodeURIComponent(componentId)}/archive`, {
+      method: "POST",
+      body: JSON.stringify({ revision }),
+      csrf: true,
+    }),
+  restoreComponent: (componentId: string, revision: number): Promise<ComponentCard> =>
+    apiRequest<ComponentCard>(`/workspace/components/${encodeURIComponent(componentId)}/restore`, {
       method: "POST",
       body: JSON.stringify({ revision }),
       csrf: true,

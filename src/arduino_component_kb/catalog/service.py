@@ -13,8 +13,11 @@ from uuid import UUID, uuid4
 from sqlalchemy import delete, func, literal_column, or_, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.elements import ColumnElement
 
 from arduino_component_kb.catalog.domain import (
+    EDITABLE_COMPONENT_STATUSES,
+    LIFECYCLE_TRANSITION_SOURCES,
     CatalogCard,
     CatalogValidationError,
     CategoryItem,
@@ -145,8 +148,13 @@ class CatalogService:
         limit: int,
     ) -> tuple[list[CatalogCard], int]:
         needle = _normalized(query) if query else ""
-        conditions = [
-            Component.status != ComponentStatus.ARCHIVED.value,
+        conditions: list[ColumnElement[bool]] = [
+            Component.status.notin_(
+                (
+                    ComponentStatus.HIDDEN.value,
+                    ComponentStatus.ARCHIVED.value,
+                )
+            ),
             Category.is_active.is_(True),
         ]
         if category_id is not None:
@@ -199,7 +207,12 @@ class CatalogService:
         row = await self.session.scalar(
             select(Component).where(
                 Component.slug == slug,
-                Component.status != ComponentStatus.ARCHIVED.value,
+                Component.status.notin_(
+                    (
+                        ComponentStatus.HIDDEN.value,
+                        ComponentStatus.ARCHIVED.value,
+                    )
+                ),
             )
         )
         if row is None:
@@ -243,6 +256,7 @@ class CatalogService:
         row = await self._locked(component_id)
         if row.revision != expected_revision:
             raise RevisionConflictError
+        self._require_editable(row)
         if row.published_at is not None and data.slug != row.slug:
             raise CatalogValidationError
         await self._validate(data)
@@ -250,6 +264,7 @@ class CatalogService:
             setattr(row, key, value)
         now = datetime.now(UTC)
         row.status = ComponentStatus.DRAFT.value
+        row.archived_from_status = None
         row.updated_by = actor_id
         row.updated_at = now
         row.revision += 1
@@ -270,7 +285,9 @@ class CatalogService:
         row = await self._locked(component_id)
         if row.revision != expected_revision:
             raise RevisionConflictError
+        self._require_editable(row)
         row.status = ComponentStatus.DRAFT.value
+        row.archived_from_status = None
         row.revision += 1
         row.updated_by = actor_id
         row.updated_at = now
@@ -291,6 +308,7 @@ class CatalogService:
         row = await self._locked(component_id)
         if row.revision != expected_revision:
             raise RevisionConflictError
+        self._require_editable(row)
         if len(images) > 12 or len({item.asset_id for item in images}) != len(images):
             raise CatalogValidationError("component_images_invalid")
         assets = await MediaRepository(self.session).component_assets(
@@ -354,6 +372,7 @@ class CatalogService:
 
         now = datetime.now(UTC)
         row.status = ComponentStatus.DRAFT.value
+        row.archived_from_status = None
         row.revision += 1
         row.updated_by = actor_id
         row.updated_at = now
@@ -368,54 +387,125 @@ class CatalogService:
         row = await self._locked(component_id)
         if row.revision != expected_revision:
             raise RevisionConflictError
+        source = ComponentStatus(row.status)
+        if source not in LIFECYCLE_TRANSITION_SOURCES.get(target, frozenset()):
+            raise CatalogValidationError("lifecycle_transition_denied")
         if target is ComponentStatus.PUBLISHED:
-            from arduino_component_kb.deduplication.models import DuplicateCandidate
-            from arduino_component_kb.deduplication.scoring import HIGH_SCORE_THRESHOLD
+            await self._validate_publication(row)
 
-            source_rows = await self._component_source_rows(row.id)
-            high_duplicates = await self.session.scalar(
-                select(func.count())
-                .select_from(DuplicateCandidate)
-                .where(
-                    DuplicateCandidate.status == "open",
-                    DuplicateCandidate.score >= HIGH_SCORE_THRESHOLD,
-                    or_(
-                        DuplicateCandidate.left_component_id == row.id,
-                        DuplicateCandidate.right_component_id == row.id,
-                    ),
-                )
-            )
-            if (
-                row.status != ComponentStatus.DRAFT.value
-                or (not row.manual_original and not source_rows)
-                or high_duplicates != 0
-                or not row.description.strip()
-            ):
-                raise CatalogValidationError
-            if not row.manual_original:
-                self._validate_publish_sources(source_rows)
-            await self._validate_publish_media(row.id)
-            row.published_at = datetime.now(UTC)
-        elif target is ComponentStatus.ARCHIVED:
-            if row.status != ComponentStatus.PUBLISHED.value:
-                raise CatalogValidationError
+        now = datetime.now(UTC)
+        if target is ComponentStatus.ARCHIVED:
+            row.archived_from_status = source.value
         else:
-            raise CatalogValidationError
+            row.archived_from_status = None
         row.status = target.value
         row.revision += 1
         row.updated_by = actor_id
-        row.updated_at = datetime.now(UTC)
-        data = await self._data(row)
-        await self._snapshot(row, data, actor_id, row.updated_at)
+        row.updated_at = now
         if target is ComponentStatus.PUBLISHED:
-            await self._upsert_search_document(row, data, row.updated_at)
-        else:
+            row.published_at = now
+        data = await self._data(row)
+        await self._snapshot(row, data, actor_id, now)
+        if target is ComponentStatus.PUBLISHED:
+            await self._upsert_search_document(row, data, now)
+        elif target in {ComponentStatus.HIDDEN, ComponentStatus.ARCHIVED}:
             await self.session.execute(
                 delete(PublishedSearchDocument).where(
                     PublishedSearchDocument.component_id == row.id
                 )
             )
+        await self.session.flush()
         return await self._card(row)
+
+    async def show_hidden(
+        self,
+        component_id: UUID,
+        expected_revision: int,
+        actor_id: UUID,
+    ) -> CatalogCard:
+        row = await self._locked(component_id)
+        if row.revision != expected_revision:
+            raise RevisionConflictError
+        if row.status != ComponentStatus.HIDDEN.value or row.published_at is None:
+            raise CatalogValidationError("lifecycle_transition_denied")
+        now = datetime.now(UTC)
+        row.status = ComponentStatus.PUBLISHED.value
+        row.archived_from_status = None
+        row.revision += 1
+        row.updated_by = actor_id
+        row.updated_at = now
+        data = await self._data(row)
+        await self._snapshot(row, data, actor_id, now)
+        await self._upsert_search_document(row, data, row.published_at)
+        await self.session.flush()
+        return await self._card(row)
+
+    async def restore_archived(
+        self,
+        component_id: UUID,
+        expected_revision: int,
+        actor_id: UUID,
+    ) -> CatalogCard:
+        row = await self._locked(component_id)
+        if row.revision != expected_revision:
+            raise RevisionConflictError
+        if row.status != ComponentStatus.ARCHIVED.value or row.archived_from_status is None:
+            raise CatalogValidationError("lifecycle_transition_denied")
+        try:
+            target = ComponentStatus(row.archived_from_status)
+        except ValueError as error:
+            raise CatalogValidationError("lifecycle_transition_denied") from error
+        if target is ComponentStatus.ARCHIVED:
+            raise CatalogValidationError("lifecycle_transition_denied")
+
+        now = datetime.now(UTC)
+        row.status = target.value
+        row.archived_from_status = None
+        row.revision += 1
+        row.updated_by = actor_id
+        row.updated_at = now
+        data = await self._data(row)
+        await self._snapshot(row, data, actor_id, now)
+        if target is ComponentStatus.HIDDEN:
+            await self.session.execute(
+                delete(PublishedSearchDocument).where(
+                    PublishedSearchDocument.component_id == row.id
+                )
+            )
+        elif row.published_at is not None:
+            if target is ComponentStatus.PUBLISHED:
+                await self._upsert_search_document(row, data, row.published_at)
+            else:
+                await self._restore_published_search_document(row)
+        await self.session.flush()
+        return await self._card(row)
+
+    async def _validate_publication(self, row: Component) -> None:
+        from arduino_component_kb.deduplication.models import DuplicateCandidate
+        from arduino_component_kb.deduplication.scoring import HIGH_SCORE_THRESHOLD
+
+        source_rows = await self._component_source_rows(row.id)
+        high_duplicates = await self.session.scalar(
+            select(func.count())
+            .select_from(DuplicateCandidate)
+            .where(
+                DuplicateCandidate.status == "open",
+                DuplicateCandidate.score >= HIGH_SCORE_THRESHOLD,
+                or_(
+                    DuplicateCandidate.left_component_id == row.id,
+                    DuplicateCandidate.right_component_id == row.id,
+                ),
+            )
+        )
+        if (
+            (not row.manual_original and not source_rows)
+            or high_duplicates != 0
+            or not row.description.strip()
+        ):
+            raise CatalogValidationError
+        if not row.manual_original:
+            self._validate_publish_sources(source_rows)
+        await self._validate_publish_media(row.id)
 
     async def resolve_duplicate_pair(
         self,
@@ -522,11 +612,13 @@ class CatalogService:
         await self._merge_media(survivor.id, loser.id)
         now = datetime.now(UTC)
         survivor.status = ComponentStatus.DRAFT.value
+        survivor.archived_from_status = None
         survivor.revision += 1
         survivor.updated_by = actor_id
         survivor.updated_at = now
+        if loser.status != ComponentStatus.ARCHIVED.value:
+            loser.archived_from_status = loser.status
         loser.status = ComponentStatus.ARCHIVED.value
-        loser.published_at = loser.published_at or now
         loser.revision += 1
         loser.updated_by = actor_id
         loser.updated_at = now
@@ -539,7 +631,12 @@ class CatalogService:
         return before_left, before_right, await self._card(survivor)
 
     async def _upsert_search_document(
-        self, row: Component, data: DraftData, published_at: datetime
+        self,
+        row: Component,
+        data: DraftData,
+        published_at: datetime,
+        *,
+        published_revision: int | None = None,
     ) -> None:
         identity_text = " ".join((*data.aliases, data.manufacturer or "", data.model or ""))
         content_text = " ".join((data.summary, *data.tags))
@@ -555,7 +652,7 @@ class CatalogService:
         )
         values: dict[str, object] = {
             "component_id": row.id,
-            "revision": row.revision,
+            "revision": published_revision or row.revision,
             "category_id": data.primary_category_id,
             "difficulty": data.difficulty.value,
             "title": data.title,
@@ -576,6 +673,17 @@ class CatalogService:
             )
         )
 
+    async def _restore_published_search_document(self, row: Component) -> None:
+        published = await self._published_card(row.id)
+        if published is None or published.published_at is None:
+            return
+        await self._upsert_search_document(
+            row,
+            published.data,
+            published.published_at,
+            published_revision=published.revision,
+        )
+
     async def _locked(self, component_id: UUID) -> Component:
         row = await self.session.scalar(
             select(Component).where(Component.id == component_id).with_for_update()
@@ -583,6 +691,11 @@ class CatalogService:
         if row is None:
             raise ComponentNotFoundError
         return row
+
+    @staticmethod
+    def _require_editable(row: Component) -> None:
+        if ComponentStatus(row.status) not in EDITABLE_COMPONENT_STATUSES:
+            raise CatalogValidationError("component_edit_locked")
 
     async def _validate(self, data: DraftData) -> None:
         if (
@@ -941,6 +1054,11 @@ class CatalogService:
             row.published_at,
             await self._source_snapshots(row.id),
             await MediaRepository(self.session).component_media(row.id),
+            (
+                ComponentStatus(row.archived_from_status)
+                if row.archived_from_status is not None
+                else None
+            ),
         )
 
     async def _snapshot(

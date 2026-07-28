@@ -38,8 +38,8 @@ explicit publication.
 
 - responsive React interface with light, dark and system themes;
 - student catalogue, full-text search, filters and component detail pages;
-- editor/administrator dashboard, card editor, preview and archive workflow with
-  administrator-only publication;
+- editor/administrator dashboard and a server-enforced review lifecycle with reversible archive,
+  hide/show and administrator-only approval/publication;
 - FastAPI application factory, async SQLAlchemy/asyncpg and PostgreSQL readiness checks;
 - Argon2id passwords, opaque server-side sessions, CSRF protection, RBAC, audit events and
   brute-force throttling;
@@ -85,6 +85,8 @@ separate administrator decision.
 |---|:---:|:---:|:---:|:---:|
 | Browse published cards | Yes | Yes | Yes | Yes |
 | Create, edit and archive drafts | No | No | Yes | Yes |
+| Submit a draft for review | No | No | Yes | Yes |
+| Request changes or approve | No | No | No | Yes |
 | Start a registered import | No | No | Yes | Yes |
 | Publish a reviewed card | No | No | No | Yes |
 | Manage users and roles | No | No | No | Yes |
@@ -177,8 +179,10 @@ established when the volume is first initialized.
 3. Click **Create draft** to enqueue the selected entry, then review and complete the resulting
    draft in the editor.
 4. Resolve any duplicate candidate; merge confirmation is administrator-only.
-5. An administrator previews and explicitly publishes the card.
-6. The immutable published snapshot becomes available in the student catalogue.
+5. An editor submits the draft; an administrator requests changes or approves it.
+6. An administrator explicitly publishes the approved card.
+7. The immutable published snapshot becomes available in the student catalogue. Editing it starts
+   a new draft without removing that public snapshot; hide/archive are reversible.
 
 A clean installation shows an empty catalogue until the first reviewed draft is explicitly
 published. Importing never performs that publication step.
@@ -276,7 +280,8 @@ Arduino Component Knowledge Base — самостоятельная образо
 
 - адаптивный React-интерфейс со светлой, тёмной и системной темами;
 - студенческий каталог, полнотекстовый поиск, фильтры и страницы компонентов;
-- dashboard преподавателя/администратора, редактор, preview, публикация и архивирование;
+- dashboard преподавателя/администратора, редактор и серверный review lifecycle с обратимыми
+  archive, hide/show и публикацией только administrator;
 - FastAPI application factory, async SQLAlchemy/asyncpg и PostgreSQL readiness;
 - Argon2id, opaque server-side sessions, CSRF, backend RBAC, audit и brute-force protection;
 - неизменяемые опубликованные revisions и optimistic conflict handling;
@@ -318,6 +323,8 @@ Parser не может публиковать карточку, а duplicate mer
 |---|:---:|:---:|:---:|:---:|
 | Просмотр опубликованных карточек | Да | Да | Да | Да |
 | Создание, изменение и архивирование draft | Нет | Нет | Да | Да |
+| Отправка draft на проверку | Нет | Нет | Да | Да |
+| Возврат на доработку и approval | Нет | Нет | Нет | Да |
 | Запуск зарегистрированного import | Нет | Нет | Да | Да |
 | Публикация после проверки | Нет | Нет | Нет | Да |
 | Управление пользователями и ролями | Нет | Нет | Нет | Да |
@@ -408,8 +415,10 @@ python3 scripts/compose_smoke.py
    выполнить ограниченный поиск и проверить нормализованный preview.
 3. Нажмите **Создать черновик**, дождитесь job и проверьте полученный draft в редакторе.
 4. Разберите найденный duplicate candidate; merge подтверждает только administrator.
-5. Administrator открывает preview и явно публикует карточку.
-6. Immutable published snapshot появится в студенческом каталоге.
+5. Editor отправляет draft на проверку; administrator возвращает его на доработку или approve.
+6. Administrator явно публикует approved-карточку.
+7. Immutable published snapshot появится в студенческом каталоге. Новая редакция начинает
+   отдельный draft, не убирая этот snapshot; hide/archive обратимы.
 
 Чистая установка показывает пустой каталог до первой проверенной и явно опубликованной карточки.
 Импорт сам по себе публикацию не выполняет.

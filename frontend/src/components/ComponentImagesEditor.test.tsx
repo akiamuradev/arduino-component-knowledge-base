@@ -69,6 +69,7 @@ const card: ComponentCard = {
   teacher_notes: null,
   manual_original: true,
   published_at: null,
+  archived_from_status: null,
   revision: 7,
   updated_at: "2026-07-23T05:00:00Z",
   sources: [],

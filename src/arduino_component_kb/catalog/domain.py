@@ -12,8 +12,42 @@ from arduino_component_kb.media.domain import ComponentMedia
 
 class ComponentStatus(StrEnum):
     DRAFT = "draft"
+    IN_REVIEW = "in_review"
+    CHANGES_REQUESTED = "changes_requested"
+    APPROVED = "approved"
     PUBLISHED = "published"
+    HIDDEN = "hidden"
     ARCHIVED = "archived"
+
+
+LIFECYCLE_TRANSITION_SOURCES: dict[ComponentStatus, frozenset[ComponentStatus]] = {
+    ComponentStatus.IN_REVIEW: frozenset(
+        {
+            ComponentStatus.DRAFT,
+            ComponentStatus.CHANGES_REQUESTED,
+        }
+    ),
+    ComponentStatus.CHANGES_REQUESTED: frozenset(
+        {
+            ComponentStatus.IN_REVIEW,
+            ComponentStatus.APPROVED,
+        }
+    ),
+    ComponentStatus.APPROVED: frozenset({ComponentStatus.IN_REVIEW}),
+    ComponentStatus.PUBLISHED: frozenset({ComponentStatus.APPROVED}),
+    ComponentStatus.HIDDEN: frozenset({ComponentStatus.PUBLISHED}),
+    ComponentStatus.ARCHIVED: frozenset(
+        status for status in ComponentStatus if status is not ComponentStatus.ARCHIVED
+    ),
+}
+
+EDITABLE_COMPONENT_STATUSES = frozenset(
+    {
+        ComponentStatus.DRAFT,
+        ComponentStatus.CHANGES_REQUESTED,
+        ComponentStatus.PUBLISHED,
+    }
+)
 
 
 class Difficulty(StrEnum):
@@ -118,6 +152,7 @@ class CatalogCard:
     published_at: datetime | None
     sources: tuple[SourceSnapshot, ...] = ()
     media: tuple[ComponentMedia, ...] = ()
+    archived_from_status: ComponentStatus | None = None
 
 
 class CatalogError(Exception):

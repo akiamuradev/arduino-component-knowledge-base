@@ -129,7 +129,9 @@ REQ-AUTH-008. Русский экран `/admin/users` доступен толь
 
 - `id`: UUID, immutable;
 - `slug`: уникальный стабильный URL key;
-- `status`: `draft`, `published` или `archived`;
+- `status`: `draft`, `in_review`, `changes_requested`, `approved`, `published`, `hidden`
+  или `archived`;
+- `archived_from_status`: предыдущий статус только для `archived`, нужен для обратимого restore;
 - `title`: обязательное отображаемое имя, 2–160 символов;
 - `aliases`: до 20 альтернативных имён, каждое до 100 символов;
 - `manufacturer`: до 120 символов, nullable;
@@ -176,6 +178,19 @@ REQ-CARD-002. Публичная карточка отдаёт только оп
 
 REQ-CARD-003. Удаление опубликованной карточки логическое (`archived`); физическое удаление
 допустимо только отдельной retention-процедурой с audit event.
+
+REQ-CARD-005. Lifecycle имеет только серверные переходы:
+`draft|changes_requested -> in_review`, `in_review -> changes_requested|approved`,
+`approved -> changes_requested|published`, `published -> hidden`, `hidden -> published`,
+любой неархивный статус может перейти в `archived`, а restore возвращает сохранённый
+предыдущий статус. Editor создаёт и редактирует `draft`/`changes_requested`, может отправить
+их на проверку и архивировать, но не может approve, publish, hide/show или физически удалить.
+Administrator выполняет review и публикацию. Каждый переход требует CSRF, permission,
+ожидаемую revision, допустимый исходный статус и audit event.
+
+REQ-CARD-006. Редактирование опубликованной карточки создаёт новый рабочий `draft`, но не
+удаляет последний immutable published snapshot из student catalog. Он заменяется только после
+нового review и publish. `hidden` и `archived` исключаются из публичного API, search и media.
 
 ## Категории
 

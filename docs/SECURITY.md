@@ -72,8 +72,10 @@ PostgreSQL, Redis и MinIO доступны только внутри deployment
 | Published catalog и источники | `components.view` | Только published snapshot |
 | Draft list/detail/update и media upload/status | `components.edit` | Media только владельца; administrator diagnostics видит все |
 | Создание draft | `components.create` | Серверная валидация карточки |
-| Архивирование | `components.archive` | Row lock и optimistic revision |
-| Публикация | `components.publish` | Source/license и revision validation |
+| Отправка на проверку | `components.submit_for_review` | Только `draft`/`changes_requested`, row lock и optimistic revision |
+| Review: возврат и approval | `components.review` | Только administrator, допустимый server-side переход |
+| Публикация, hide и show | `components.publish` | Только administrator; source/license/media и revision validation |
+| Архивирование и restore | `components.archive` | Без физического удаления; восстанавливается предыдущий статус |
 | Создание repository/URL import | `imports.create` | Allowlist и source policy |
 | Просмотр import job | `imports.view` | Только собственный job либо administrator |
 | Retry import job | `imports.retry` | Editor — только собственный job; administrator — любой |
@@ -83,10 +85,10 @@ PostgreSQL, Redis и MinIO доступны только внутри deployment
 | Общий job monitor и media retry | `system.diagnostics` | Только administrator |
 | Управление категориями | `system.settings` | Только administrator |
 
-Физическое удаление карточки, submit/review lifecycle карточки и cancel import ещё не имеют
-HTTP routes. Поэтому частичный или незащищённый endpoint для них не публикуется: прямой вызов
-получает `404`. Их бизнес-переходы добавляются отдельным lifecycle-этапом вместе с собственными
-permissions, audit и отрицательными тестами.
+Физическое удаление карточки и cancel import не имеют HTTP routes. Поэтому частичный или
+незащищённый endpoint для них не публикуется: прямой вызов получает `404`. Lifecycle карточки
+реализован отдельными узкими routes; каждый переход повторно проверяет исходный статус,
+permission, CSRF и ожидаемую revision на сервере и создаёт audit event.
 
 ## Browser boundary: CSRF, CORS и CSP
 

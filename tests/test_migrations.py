@@ -19,7 +19,7 @@ def alembic_config() -> Config:
 
 def test_alembic_has_one_backend_head() -> None:
     scripts = ScriptDirectory.from_config(alembic_config())
-    assert scripts.get_heads() == ["20260728_21"]
+    assert scripts.get_heads() == ["20260728_22"]
 
 
 def test_alembic_upgrade_renders_offline_postgresql_sql(
@@ -127,6 +127,13 @@ def test_alembic_upgrade_renders_offline_postgresql_sql(
     assert "ackb-1.0.0-safe-student:" in sql
     assert "ACKB role backfill left a user without an active baseline role" in sql
     assert "20260728_21" in sql
+    assert "ADD COLUMN archived_from_status" in sql
+    assert "revision.status = 'published'" in sql
+    assert "ELSE 'draft'" in sql
+    assert "changes_requested" in sql
+    assert "ck_components_archive_origin" in sql
+    assert "ck_component_revisions_status" in sql
+    assert "20260728_22" in sql
 
 
 def test_multiple_images_migration_renders_reversible_downgrade(
@@ -195,6 +202,29 @@ def test_existing_user_role_backfill_renders_reversible_downgrade(
     assert "role = 'student'" in sql
     assert "granted_by IS NULL" in sql
     assert "version_num='20260728_20'" in sql
+
+
+def test_component_lifecycle_migration_renders_reversible_downgrade(
+    monkeypatch: MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setenv(
+        "ACKB_DATABASE_URL",
+        "postgresql+asyncpg://ackb:placeholder@localhost:5432/ackb",
+    )
+    command.downgrade(
+        alembic_config(),
+        "20260728_22:20260728_21",
+        sql=True,
+    )
+    sql = capsys.readouterr().out
+    assert "DROP CONSTRAINT ck_component_revisions_status" in sql
+    assert "DROP CONSTRAINT ck_components_archive_origin" in sql
+    assert "DROP COLUMN archived_from_status" in sql
+    assert "WHEN status IN ('in_review','changes_requested','approved')" in sql
+    assert "WHEN status = 'hidden' THEN 'archived'" in sql
+    assert "VARCHAR(16)" in sql
+    assert "version_num='20260728_21'" in sql
 
 
 def test_runtime_has_no_create_all_escape_hatch() -> None:

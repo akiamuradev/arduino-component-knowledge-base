@@ -14,6 +14,8 @@ from arduino_component_kb.api.catalog import (
     archiver,
     creator,
     publisher,
+    reviewer,
+    submitter,
     viewer,
 )
 from arduino_component_kb.api.catalog import (
@@ -125,11 +127,15 @@ async def test_catalog_dependencies_separate_view_edit_publish_and_archive() -> 
     assert await creator(editor) is editor
     assert await component_editor(editor) is editor
     assert await archiver(editor) is editor
+    assert await submitter(editor) is editor
+    assert await reviewer(administrator) is administrator
     assert await publisher(administrator) is administrator
 
-    for dependency in (creator, component_editor, archiver, publisher):
+    for dependency in (creator, component_editor, archiver, submitter, reviewer, publisher):
         with pytest.raises(HTTPException):
             await dependency(teacher)
+    with pytest.raises(HTTPException):
+        await reviewer(editor)
     with pytest.raises(HTTPException):
         await publisher(editor)
 
@@ -154,6 +160,8 @@ async def test_administrator_has_every_protected_dependency() -> None:
         creator,
         component_editor,
         archiver,
+        submitter,
+        reviewer,
         publisher,
         media_editor,
         import_creator,

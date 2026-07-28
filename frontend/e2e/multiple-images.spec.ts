@@ -10,6 +10,8 @@ const administrator = {
     "components.create",
     "components.edit",
     "components.archive",
+    "components.submit_for_review",
+    "components.review",
     "components.publish",
   ],
 };
@@ -54,7 +56,7 @@ test("multiple-image draft, upload, publication and immutable public snapshot", 
     url: "http://127.0.0.1:4173",
   }]);
   let revision = 0;
-  let status: "draft" | "published" = "draft";
+  let status: "draft" | "in_review" | "approved" | "published" = "draft";
   let publishedAt: string | null = null;
   let liveMedia: TestMedia[] = [];
   let publishedMedia: TestMedia[] = [];
@@ -80,6 +82,7 @@ test("multiple-image draft, upload, publication and immutable public snapshot", 
     teacher_notes: null,
     manual_original: true,
     published_at: publishedAt,
+    archived_from_status: null,
     revision,
     updated_at: "2026-07-27T13:00:00Z",
     sources: [],
@@ -276,6 +279,22 @@ test("multiple-image draft, upload, publication and immutable public snapshot", 
       return json(route, workspaceCard());
     }
     if (
+      path === `/api/v1/workspace/components/${componentId}/submit-for-review`
+      && request.method() === "POST"
+    ) {
+      revision += 1;
+      status = "in_review";
+      return json(route, workspaceCard());
+    }
+    if (
+      path === `/api/v1/workspace/components/${componentId}/approve`
+      && request.method() === "POST"
+    ) {
+      revision += 1;
+      status = "approved";
+      return json(route, workspaceCard());
+    }
+    if (
       path === `/api/v1/workspace/components/${componentId}/publish`
       && request.method() === "POST"
     ) {
@@ -319,8 +338,12 @@ test("multiple-image draft, upload, publication and immutable public snapshot", 
   await page.getByRole("button", { name: "Переместить изображение 2 выше" }).click();
   await page.getByRole("button", { name: "Сохранить изображения" }).click();
   await expect(page.getByText("Revision 4")).toBeVisible();
-  await page.getByRole("button", { name: "Опубликовать" }).click();
+  await page.getByRole("button", { name: "Отправить на проверку" }).click();
   await expect(page.getByText("Revision 5")).toBeVisible();
+  await page.getByRole("button", { name: "Одобрить" }).click();
+  await expect(page.getByText("Revision 6")).toBeVisible();
+  await page.getByRole("button", { name: "Опубликовать" }).click();
+  await expect(page.getByText("Revision 7")).toBeVisible();
 
   await page.goto("/components/multi-image-sensor");
   await expect(page.getByRole("img", { name: "Вид сзади" })).toBeVisible();
@@ -333,7 +356,7 @@ test("multiple-image draft, upload, publication and immutable public snapshot", 
   await page.goto(`/admin/components/${componentId}/edit`);
   await page.getByRole("button", { name: "Переместить изображение 2 выше" }).click();
   await page.getByRole("button", { name: "Сохранить изображения" }).click();
-  await expect(page.getByText("Revision 6")).toBeVisible();
+  await expect(page.getByText("Revision 8")).toBeVisible();
   expect(liveMedia.map((item) => item.asset_id)).not.toEqual(publishedOrder);
 
   await page.goto("/components/multi-image-sensor");

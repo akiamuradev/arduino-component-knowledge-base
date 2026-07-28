@@ -252,7 +252,14 @@ export interface ApiErrorBody {
   };
 }
 
-export type ComponentStatus = "draft" | "published" | "archived";
+export type ComponentStatus =
+  | "draft"
+  | "in_review"
+  | "changes_requested"
+  | "approved"
+  | "published"
+  | "hidden"
+  | "archived";
 export type Difficulty = "beginner" | "intermediate" | "advanced";
 export type CodeExampleVisibility = "student" | "teacher";
 
@@ -333,6 +340,7 @@ export interface ComponentCard extends ComponentSummary {
   teacher_notes: string | null;
   manual_original: boolean;
   published_at: string | null;
+  archived_from_status: ComponentStatus | null;
   specifications: TechnicalSpecification[];
   compatibility: ComponentCompatibility[];
   code_examples: CodeExample[];

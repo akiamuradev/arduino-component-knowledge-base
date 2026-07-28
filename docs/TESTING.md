@@ -89,6 +89,10 @@ pytest -m integration --strict-markers
 - исторический parser contract и новые Seeed/KiCad repository fixtures без внешней сети;
 - запрет MDX/external-command execution, library allowlist и malformed document isolation;
 - repository idempotency, source deactivation и publish rejection без license snapshot;
+- полный lifecycle карточки `draft -> in_review -> changes_requested -> in_review -> approved
+  -> published -> hidden -> published -> archived -> restored`, запрет недопустимых переходов,
+  editor publish/review и физического delete, а также сохранение старого published snapshot
+  после редактирования;
 - evidence-first review revision locking, immutable snapshots and append-only action audit;
 - frontend unit tests и Chromium Playwright flow.
 

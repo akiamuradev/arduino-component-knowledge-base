@@ -51,17 +51,21 @@ client address в таблице не хранятся. Row/advisory locks се�
 
 ### `components`
 
-`id`, `slug`, `status(draft|published|archived)`, `title`, `manufacturer?`, `model?`,
-`summary`, `description`, `purpose?`, `usage_notes?`, `safety_notes?`, `difficulty`,
-`teacher_notes?`, `primary_category_id`, `manual_original`, `created_by`, `updated_by`,
-`published_at?`, `created_at`, `updated_at`, `revision`.
+`id`, `slug`,
+`status(draft|in_review|changes_requested|approved|published|hidden|archived)`,
+`archived_from_status?`, `title`, `manufacturer?`, `model?`, `summary`, `description`,
+`purpose?`, `usage_notes?`, `safety_notes?`, `difficulty`, `teacher_notes?`,
+`primary_category_id`, `manual_original`, `created_by`, `updated_by`, `published_at?`,
+`created_at`, `updated_at`, `revision`.
 
-Unique: `slug`. Checks: title/summary lengths, `published_at IS NOT NULL` только для
-published/archived published record, `revision > 0`.
+Unique: `slug`. Checks: title/summary lengths, `published_at IS NOT NULL` для `published` и
+`hidden`; `archived_from_status IS NOT NULL` только для `archived` и содержит точный предыдущий
+неархивный статус; `revision > 0`. Status columns имеют длину 24 для `changes_requested`.
 
-Published history нельзя надёжно представить только mutable row. При реализации CRUD
-добавляется `component_revisions` с immutable content snapshot, `revision`, actor и timestamp;
-`components` указывает на current draft и current published revision.
+Published history хранится в `component_revisions` как immutable content snapshot с lifecycle
+status, revision, actor и timestamp. Mutable `components` представляет рабочую head revision.
+После редактирования published head возвращается в `draft`, а публичное чтение продолжает
+использовать последний immutable `published` snapshot до повторной публикации.
 
 ### `component_aliases`
 
