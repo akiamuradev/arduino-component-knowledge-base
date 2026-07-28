@@ -19,7 +19,7 @@ def alembic_config() -> Config:
 
 def test_alembic_has_one_backend_head() -> None:
     scripts = ScriptDirectory.from_config(alembic_config())
-    assert scripts.get_heads() == ["20260728_22"]
+    assert scripts.get_heads() == ["20260728_23"]
 
 
 def test_alembic_upgrade_renders_offline_postgresql_sql(
@@ -134,6 +134,12 @@ def test_alembic_upgrade_renders_offline_postgresql_sql(
     assert "ck_components_archive_origin" in sql
     assert "ck_component_revisions_status" in sql
     assert "20260728_22" in sql
+    assert "ADD COLUMN previous_status" in sql
+    assert "ADD COLUMN action" in sql
+    assert "ADD COLUMN change_summary" in sql
+    assert "lag(status) OVER" in sql
+    assert "ck_component_revisions_action" in sql
+    assert "20260728_23" in sql
 
 
 def test_multiple_images_migration_renders_reversible_downgrade(
@@ -225,6 +231,29 @@ def test_component_lifecycle_migration_renders_reversible_downgrade(
     assert "WHEN status = 'hidden' THEN 'archived'" in sql
     assert "VARCHAR(16)" in sql
     assert "version_num='20260728_21'" in sql
+
+
+def test_component_history_migration_renders_reversible_downgrade(
+    monkeypatch: MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setenv(
+        "ACKB_DATABASE_URL",
+        "postgresql+asyncpg://ackb:placeholder@localhost:5432/ackb",
+    )
+    command.downgrade(
+        alembic_config(),
+        "20260728_23:20260728_22",
+        sql=True,
+    )
+    sql = capsys.readouterr().out
+    assert "DROP CONSTRAINT ck_component_revisions_summary" in sql
+    assert "DROP CONSTRAINT ck_component_revisions_previous_status" in sql
+    assert "DROP CONSTRAINT ck_component_revisions_action" in sql
+    assert "DROP COLUMN change_summary" in sql
+    assert "DROP COLUMN action" in sql
+    assert "DROP COLUMN previous_status" in sql
+    assert "version_num='20260728_22'" in sql
 
 
 def test_runtime_has_no_create_all_escape_hatch() -> None:

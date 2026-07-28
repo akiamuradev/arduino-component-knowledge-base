@@ -67,6 +67,18 @@ status, revision, actor и timestamp. Mutable `components` представля�
 После редактирования published head возвращается в `draft`, а публичное чтение продолжает
 использовать последний immutable `published` snapshot до повторной публикации.
 
+### `component_revisions`
+
+`id`, `component_id`, `revision`, `status`, `previous_status?`, `action`, `change_summary`,
+`content_json`, `actor_id`, `created_at`.
+
+Unique `(component_id, revision)`. `action` ограничен серверным перечнем card mutations,
+`change_summary` содержит 1–240 символов. `actor_id` ссылается на `users` без cascade delete:
+историю нельзя удалить вместе с account. Для старых revisions миграция `20260728_23` вычисляет
+предыдущее состояние через `lag(status)` и добавляет консервативное описание; новые revisions
+получают точное действие в одной транзакции с изменением карточки. History API возвращает только
+revision/status/summary/author/time и никогда не отдаёт `content_json`.
+
 ### `component_aliases`
 
 `id`, `component_id`, `alias`, `normalized_alias`, `position`.

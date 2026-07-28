@@ -20,6 +20,41 @@ class ComponentStatus(StrEnum):
     ARCHIVED = "archived"
 
 
+class ComponentChangeAction(StrEnum):
+    CREATED = "component.created"
+    UPDATED = "component.updated"
+    MEDIA_ATTACHED = "component.media_attached"
+    IMAGES_UPDATED = "component.images_updated"
+    SUBMITTED_FOR_REVIEW = "component.submitted_for_review"
+    CHANGES_REQUESTED = "component.changes_requested"
+    APPROVED = "component.approved"
+    PUBLISHED = "component.published"
+    HIDDEN = "component.hidden"
+    SHOWN = "component.shown"
+    ARCHIVED = "component.archived"
+    RESTORED = "component.restored"
+    MERGED = "component.merged"
+    ARCHIVED_BY_MERGE = "component.archived_by_merge"
+
+
+COMPONENT_CHANGE_SUMMARIES: dict[ComponentChangeAction, str] = {
+    ComponentChangeAction.CREATED: "Карточка создана",
+    ComponentChangeAction.UPDATED: "Содержимое карточки изменено",
+    ComponentChangeAction.MEDIA_ATTACHED: "К карточке добавлен медиафайл",
+    ComponentChangeAction.IMAGES_UPDATED: "Изображения карточки изменены",
+    ComponentChangeAction.SUBMITTED_FOR_REVIEW: "Карточка отправлена на проверку",
+    ComponentChangeAction.CHANGES_REQUESTED: "Карточка возвращена на исправление",
+    ComponentChangeAction.APPROVED: "Карточка одобрена",
+    ComponentChangeAction.PUBLISHED: "Карточка опубликована",
+    ComponentChangeAction.HIDDEN: "Карточка скрыта из каталога",
+    ComponentChangeAction.SHOWN: "Карточка возвращена в каталог",
+    ComponentChangeAction.ARCHIVED: "Карточка архивирована",
+    ComponentChangeAction.RESTORED: "Карточка восстановлена из архива",
+    ComponentChangeAction.MERGED: "В карточку объединены данные дубликата",
+    ComponentChangeAction.ARCHIVED_BY_MERGE: "Карточка архивирована после объединения дубликатов",
+}
+
+
 LIFECYCLE_TRANSITION_SOURCES: dict[ComponentStatus, frozenset[ComponentStatus]] = {
     ComponentStatus.IN_REVIEW: frozenset(
         {
@@ -153,6 +188,17 @@ class CatalogCard:
     sources: tuple[SourceSnapshot, ...] = ()
     media: tuple[ComponentMedia, ...] = ()
     archived_from_status: ComponentStatus | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ComponentHistoryEntry:
+    revision: int
+    previous_status: ComponentStatus | None
+    status: ComponentStatus
+    action: ComponentChangeAction
+    summary: str
+    actor_display_name: str
+    occurred_at: datetime
 
 
 class CatalogError(Exception):

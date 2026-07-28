@@ -192,6 +192,14 @@ REQ-CARD-006. Редактирование опубликованной карт
 удаляет последний immutable published snapshot из student catalog. Он заменяется только после
 нового review и publish. `hidden` и `archived` исключаются из публичного API, search и media.
 
+REQ-CARD-007. Каждая immutable revision хранит автора, время, предыдущее и новое состояние,
+серверный тип действия и короткое безопасное описание изменения. Эти же метаданные входят в
+audit event мутации. Editor читает историю только карточек, созданных им; administrator читает
+историю всех карточек. Student/teacher и публичный API историю не получают. History response не
+содержит snapshot payload, teacher notes, request identifiers или другие технические поля.
+Disable пользователя не меняет историю, а физическое удаление account отсутствует и
+дополнительно блокируется ссылочной целостностью revisions.
+
 ## Категории
 
 Baseline taxonomy состоит из десяти верхнеуровневых категорий:

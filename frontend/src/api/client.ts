@@ -7,6 +7,7 @@ import type {
   Category,
   ComponentCard,
   ComponentDraftInput,
+  ComponentHistoryResponse,
   ComponentImagesUpdateInput,
   ComponentListResponse,
   ComponentStatus,
@@ -224,6 +225,10 @@ export const api = {
     apiRequest<Category[]>("/workspace/categories"),
   getWorkspaceComponent: (componentId: string): Promise<ComponentCard> =>
     apiRequest<ComponentCard>(`/workspace/components/${encodeURIComponent(componentId)}`),
+  getComponentHistory: (componentId: string): Promise<ComponentHistoryResponse> =>
+    apiRequest<ComponentHistoryResponse>(
+      `/workspace/components/${encodeURIComponent(componentId)}/history`,
+    ),
   createComponentDraft: (input: ComponentDraftInput): Promise<ComponentCard> =>
     apiRequest<ComponentCard>("/workspace/components", {
       method: "POST",

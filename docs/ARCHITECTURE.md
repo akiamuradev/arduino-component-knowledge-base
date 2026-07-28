@@ -143,7 +143,11 @@ fallback scraper нет.
    для обратимого restore; физического удаления через HTTP нет.
 7. Редактирование published head переводит её в `draft`, но student API продолжает читать
    предыдущий immutable published snapshot до следующего review/publish.
-8. Parser по-прежнему может создать только draft; UI не содержит автоматического merge.
+8. Каждое изменение создаёт immutable revision с actor, временем, server action, предыдущим и
+   новым статусом и коротким описанием. Тот же набор безопасных полей записывается в audit.
+   Вкладка «История» не читает snapshot payload: editor получает только свои карточки,
+   administrator — все.
+9. Parser по-прежнему может создать только draft; UI не содержит автоматического merge.
 
 ### Импорт URL
 
