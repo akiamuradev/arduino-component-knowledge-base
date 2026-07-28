@@ -87,8 +87,8 @@
 }
 
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
-body { background: var(--color-bg); margin: 0; min-height: 100vh; }
+html { min-width: 320px; scroll-behavior: smooth; }
+body { background: var(--color-bg); margin: 0; min-width: 320px; min-height: 100vh; }
 button, input, select, textarea { color: inherit; font: inherit; }
 button, summary, a { -webkit-tap-highlight-color: transparent; }
 a { color: inherit; }
@@ -274,7 +274,7 @@ code, pre { font-family: var(--font-mono); }
 .component-preview { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-xl); margin: 0 auto; max-width: 900px; padding: clamp(2rem, 6vw, 5rem); }.component-preview h1 { font-size: clamp(2.5rem, 6vw, 5rem); }.preview-meta { align-items: center; display: flex; gap: var(--space-3); margin-bottom: var(--space-7); }.preview-summary { color: var(--color-text-muted); font-size: 1.2rem; line-height: 1.65; }.preview-body { border-top: 1px solid var(--color-border); display: grid; gap: var(--space-6); margin-top: var(--space-6); padding-top: var(--space-6); }.preview-body p, .component-preview aside p { line-height: 1.75; white-space: pre-wrap; }.component-preview aside { background: var(--color-surface-secondary); border-radius: var(--radius-lg); margin-top: var(--space-7); padding: var(--space-5); }
 
 .breadcrumb { align-items: center; display: inline-flex; gap: var(--space-2); margin-bottom: var(--space-6); }
-.student-card { display: grid; gap: var(--space-7); margin: 0 auto; max-width: 76rem; }
+.student-card { display: grid; gap: var(--space-7); grid-template-columns: minmax(0, 1fr); margin: 0 auto; max-width: 76rem; min-width: 0; width: 100%; }
 .student-card__hero { align-items: center; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-xl); display: grid; gap: var(--space-7); grid-template-columns: minmax(0, 1.15fr) minmax(260px, 0.85fr); padding: clamp(1.5rem, 5vw, 4rem); }
 .student-card__hero h1 { margin: var(--space-4) 0; }.student-card__meta { align-items: center; color: var(--color-text-muted); display: flex; flex-wrap: wrap; font-size: 0.8rem; gap: var(--space-3); }
 .student-card__visual { min-width: 0; }.component-symbol { align-items: center; aspect-ratio: 1.15; background: var(--color-surface-secondary); border: 1px solid var(--color-border); border-radius: var(--radius-xl); display: flex; justify-content: center; margin: auto; max-width: 22rem; position: relative; width: 100%; }.component-symbol > span { align-items: center; background: var(--oled-board); border: 0.55rem solid var(--oled-board-edge); border-radius: var(--radius-lg); color: #d7ead8; display: flex; font-size: 3.5rem; font-weight: 900; height: 58%; justify-content: center; width: 58%; }.component-symbol i { background: #c4a55e; border-radius: 50%; height: 0.75rem; position: absolute; width: 0.75rem; }.component-symbol i:nth-of-type(1) { left: 10%; top: 10%; }.component-symbol i:nth-of-type(2) { right: 10%; top: 10%; }.component-symbol i:nth-of-type(3) { bottom: 10%; left: 10%; }.component-symbol i:nth-of-type(4) { bottom: 10%; right: 10%; }
