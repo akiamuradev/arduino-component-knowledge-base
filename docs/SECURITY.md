@@ -57,8 +57,36 @@ PostgreSQL, Redis и MinIO доступны только внутри deployment
   автоматический retry и blind overwrite; локальная форма сохраняется до решения пользователя.
   Операции выполняются под PostgreSQL row lock и создают immutable revision snapshot.
 - Security route-matrix test проверяет централизованные permission dependencies для catalog,
-  workspace, media, import и admin routes, а каждая authenticated mutation содержит CSRF.
-  Foreign media/import identifiers дают одинаковый `404`.
+  workspace, media, import и admin routes, включая lazily included FastAPI routers, а каждая
+  authenticated mutation содержит CSRF. Contract фиксирует точное разрешение каждого HTTP
+  method/path и не допускает «любую подходящую dependency».
+- Прямые API-запросы без нужного разрешения получают только
+  `403 {"detail":{"code":"permission_denied"}}`; отсутствие session даёт безопасный `401`,
+  invalid CSRF — безопасный `403`. Foreign media/import identifiers, включая retry чужого
+  import job, не подтверждают существование объекта и дают одинаковый `404`.
+
+### Серверная матрица действий
+
+| Действие | Серверное разрешение | Дополнительная граница |
+|---|---|---|
+| Published catalog и источники | `components.view` | Только published snapshot |
+| Draft list/detail/update и media upload/status | `components.edit` | Media только владельца; administrator diagnostics видит все |
+| Создание draft | `components.create` | Серверная валидация карточки |
+| Архивирование | `components.archive` | Row lock и optimistic revision |
+| Публикация | `components.publish` | Source/license и revision validation |
+| Создание repository/URL import | `imports.create` | Allowlist и source policy |
+| Просмотр import job | `imports.view` | Только собственный job либо administrator |
+| Retry import job | `imports.retry` | Editor — только собственный job; administrator — любой |
+| Import review и duplicate decision | `components.review` | Только administrator |
+| Просмотр пользователей | `users.view` | Только safe account fields |
+| User/editor/role mutations | `users.manage` + `roles.assign` | CSRF, policy invariants, session revoke и audit |
+| Общий job monitor и media retry | `system.diagnostics` | Только administrator |
+| Управление категориями | `system.settings` | Только administrator |
+
+Физическое удаление карточки, submit/review lifecycle карточки и cancel import ещё не имеют
+HTTP routes. Поэтому частичный или незащищённый endpoint для них не публикуется: прямой вызов
+получает `404`. Их бизнес-переходы добавляются отдельным lifecycle-этапом вместе с собственными
+permissions, audit и отрицательными тестами.
 
 ## Browser boundary: CSRF, CORS и CSP
 
@@ -245,8 +273,9 @@ Bootstrap первого administrator интерактивен, не прини
 - Bounded exponential backoff только для transient errors; dead-letter/failed jobs видимы admin.
 - PostgreSQL остаётся durable job truth, поэтому очистка Redis не превращает failed job в
   success и не отменяет audit.
-- Общий monitor и ручной retry доступны только administrator через повторную backend RBAC
-  проверку; mutation требует CSRF и audit. UI guard не заменяет эти проверки.
+- Общий monitor и media retry доступны только administrator. Editor может повторить только
+  собственный import job; чужой UUID возвращает `404`. Любой retry повторно проходит backend
+  RBAC, mutation требует CSRF и audit. UI guard не заменяет эти проверки.
 - Stable idempotency key, row lock и heartbeat lease ограничивают duplicate delivery. Monitor
   отдаёт typed error codes и coarse progress, но не raw exception, object URL или credentials.
 - MinIO capacity, PostgreSQL storage, queue depth, failures и certificate expiry мониторятся.

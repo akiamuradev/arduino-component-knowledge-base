@@ -78,6 +78,10 @@ pytest -m integration --strict-markers
 - фактическое наличие Alembic revision и ключевых PostgreSQL tables;
 - Argon2id login всех четырёх ролей, серверные permissions, запрет role spoofing, opaque cookies,
   CSRF, administrator mutation, backend RBAC и logout;
+- точный permission contract каждого фактического API method/path, включая lazy included routers,
+  прямые отрицательные запросы student/teacher/editor и обязательный CSRF для administrator;
+- одинаковый `404` для отсутствующего и чужого media/import UUID, в том числе retry чужого
+  import job, без изменения job и без постановки в очередь;
 - полный PostgreSQL lifecycle временного editor: создание с безопасной базовой ролью, срок,
   досрочный отзыв, повторное назначение, session revocation, disable, история grants и audit;
 - PostgreSQL unique constraint для login;

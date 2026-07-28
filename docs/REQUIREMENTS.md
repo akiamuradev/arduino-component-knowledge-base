@@ -297,6 +297,11 @@ REQ-JOB-003. Только administrator видит общий monitor и вру�
   backend из активных grants и возвращаются authenticated API; клиентские query, form, cookie
   и localStorage не могут расширить principal. Editor создаётся только с непросроченным grant
   и безопасной базовой ролью.
+- REQ-SEC-007: executable route contract перечисляет точное permission set каждого защищённого
+  HTTP method/path, включая подключённые FastAPI routers. Прямой API без разрешения получает
+  единый `permission_denied`; object-scoped media/import operations проверяют владельца и
+  возвращают одинаковый `404` для отсутствующего и чужого UUID. Не реализованный lifecycle
+  action не должен существовать как частичный endpoint.
 
 ## Нефункциональные требования
 
