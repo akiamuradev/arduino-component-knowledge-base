@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
   Category,
   ComponentCard,
+  ComponentHistoryResponse,
   ComponentMedia,
   User,
 } from "../api/contracts";
@@ -251,6 +252,46 @@ describe("component editor", () => {
     expect(gallery).toBeVisible();
     await userEvent.click(screen.getByRole("button", { name: "Следующее изображение" }));
     expect(screen.getByRole("img", { name: "Разъёмы редактора" })).toBeVisible();
+  });
+
+  it("shows safe Russian authorship history without revision payloads", async () => {
+    const history: ComponentHistoryResponse = {
+      items: [
+        {
+          revision: 8,
+          previous_status: "draft",
+          status: "in_review",
+          summary: "Карточка отправлена на проверку",
+          actor_display_name: "Редактор",
+          occurred_at: "2026-07-28T10:00:00Z",
+        },
+        {
+          revision: 7,
+          previous_status: null,
+          status: "draft",
+          summary: "Карточка создана",
+          actor_display_name: "Редактор",
+          occurred_at: "2026-07-28T09:00:00Z",
+        },
+      ],
+      total: 2,
+    };
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse(history));
+    vi.stubGlobal("fetch", fetchMock);
+    renderEditor();
+
+    await userEvent.click(screen.getByRole("button", { name: "История" }));
+
+    const region = await screen.findByRole("region", {
+      name: "История изменений карточки",
+    });
+    expect(within(region).getByText("Карточка отправлена на проверку")).toBeVisible();
+    expect(within(region).getByText("Черновик → На проверке")).toBeVisible();
+    expect(within(region).getAllByText("Редактор")).toHaveLength(2);
+    expect(within(region).getByText("2 записи")).toBeVisible();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(history)).not.toContain("content_json");
+    expect(JSON.stringify(history)).not.toContain("teacher_notes");
   });
 
   it("keeps local edits and stops a blind overwrite on revision conflict", async () => {

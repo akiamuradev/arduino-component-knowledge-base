@@ -14,6 +14,7 @@ import type {
   ComponentCompatibilityInput,
   ComponentCard,
   ComponentDraftInput,
+  ComponentHistoryEntry,
   ComponentMedia,
   CatalogMedia,
   Difficulty,
@@ -34,7 +35,7 @@ import {
 } from "../workspace/queries";
 
 type EditorMode = "new" | "edit";
-type EditorView = "edit" | "preview";
+type EditorView = "edit" | "preview" | "history";
 type LifecycleAction =
   | "submit"
   | "request-changes"
@@ -277,6 +278,7 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
     }
     queryClient.setQueryData(workspaceKeys.component(saved.id), saved);
     void queryClient.invalidateQueries({ queryKey: workspaceKeys.componentLists });
+    void queryClient.invalidateQueries({ queryKey: workspaceKeys.componentHistory(saved.id) });
   };
 
   const save = useMutation({
@@ -397,6 +399,7 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
         <div className="editor-tabs" aria-label="Режим редактора">
           <button className={view === "edit" ? "active" : ""} type="button" onClick={() => { setView("edit"); }}>Редактор</button>
           <button className={view === "preview" ? "active" : ""} type="button" onClick={() => { setView("preview"); }}>Preview</button>
+          {workingCard === undefined ? null : <button className={view === "history" ? "active" : ""} type="button" onClick={() => { setView("history"); }}>История</button>}
         </div>
       </div>
 
@@ -410,7 +413,9 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
       {hasUnknownLicense ? <div className="license-warning" role="alert"><strong>Лицензия источника не подтверждена</strong><span>Условия использования материала не определены. Перед публикацией проверьте правила исходного ресурса.</span></div> : null}
       {workingCard === undefined || workingCard.sources.length === 0 ? null : <SourceAttributionBlock sources={workingCard.sources} />}
 
-      {view === "preview" ? (
+      {view === "history" && workingCard !== undefined ? (
+        <ComponentHistory componentId={workingCard.id} />
+      ) : view === "preview" ? (
         <ComponentPreview state={state} categories={categories} status={workingCard?.status ?? "draft"} />
       ) : (
         <form className="editor-form" onSubmit={submit}>
@@ -502,6 +507,85 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
           {workingCard !== undefined && ["draft", "changes_requested", "approved"].includes(workingCard.status) && imagesDirty ? <p className="validation-note">Перед переходом сохраните изменения изображений.</p> : null}
         </form>
       )}
+    </section>
+  );
+}
+
+const historyStatusLabels: Record<ComponentHistoryEntry["status"], string> = {
+  draft: "Черновик",
+  in_review: "На проверке",
+  changes_requested: "Требует исправлений",
+  approved: "Одобрена",
+  published: "Опубликована",
+  hidden: "Скрыта",
+  archived: "Архивирована",
+};
+
+function historyCountLabel(count: number): string {
+  const remainder100 = count % 100;
+  const remainder10 = count % 10;
+  const noun = remainder100 >= 11 && remainder100 <= 14
+    ? "записей"
+    : remainder10 === 1
+      ? "запись"
+      : remainder10 >= 2 && remainder10 <= 4
+        ? "записи"
+        : "записей";
+  return `${String(count)} ${noun}`;
+}
+
+function ComponentHistory({ componentId }: { componentId: string }) {
+  const history = useQuery({
+    queryKey: workspaceKeys.componentHistory(componentId),
+    queryFn: () => api.getComponentHistory(componentId),
+  });
+  if (history.isPending) {
+    return <LoadingState label="Загружаем историю карточки…" />;
+  }
+  if (history.isError) {
+    return (
+      <ErrorState
+        message="История доступна автору карточки и администратору."
+        onRetry={() => void history.refetch()}
+      />
+    );
+  }
+  return (
+    <section className="component-history" aria-label="История изменений карточки">
+      <header>
+        <div>
+          <p className="eyebrow">Ответственность и изменения</p>
+          <h3>История карточки</h3>
+        </div>
+        <span>{historyCountLabel(history.data.total)}</span>
+      </header>
+      <ol>
+        {history.data.items.map((item) => (
+          <li key={item.revision}>
+            <div className="component-history__marker" aria-hidden="true" />
+            <article>
+              <header>
+                <strong>{item.summary}</strong>
+                <span>Revision {item.revision}</span>
+              </header>
+              <p>
+                {item.previous_status === null
+                  ? `Создана в состоянии «${historyStatusLabels[item.status]}»`
+                  : `${historyStatusLabels[item.previous_status]} → ${historyStatusLabels[item.status]}`}
+              </p>
+              <footer>
+                <span>{item.actor_display_name}</span>
+                <time dateTime={item.occurred_at}>
+                  {new Intl.DateTimeFormat("ru-RU", {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  }).format(new Date(item.occurred_at))}
+                </time>
+              </footer>
+            </article>
+          </li>
+        ))}
+      </ol>
     </section>
   );
 }

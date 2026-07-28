@@ -76,6 +76,7 @@ PostgreSQL, Redis и MinIO доступны только внутри deployment
 | Review: возврат и approval | `components.review` | Только administrator, допустимый server-side переход |
 | Публикация, hide и show | `components.publish` | Только administrator; source/license/media и revision validation |
 | Архивирование и restore | `components.archive` | Без физического удаления; восстанавливается предыдущий статус |
+| История карточки | `components.edit` | Editor — только `created_by`; administrator — все карточки; без snapshot payload |
 | Создание repository/URL import | `imports.create` | Allowlist и source policy |
 | Просмотр import job | `imports.view` | Только собственный job либо administrator |
 | Retry import job | `imports.retry` | Editor — только собственный job; administrator — любой |
@@ -89,6 +90,13 @@ PostgreSQL, Redis и MinIO доступны только внутри deployment
 незащищённый endpoint для них не публикуется: прямой вызов получает `404`. Lifecycle карточки
 реализован отдельными узкими routes; каждый переход повторно проверяет исходный статус,
 permission, CSRF и ожидаемую revision на сервере и создаёт audit event.
+
+History endpoint не является общим audit viewer. Backend после permission dependency проверяет
+владение карточкой и отвечает одинаковым `404` для отсутствующей и чужой карточки. В response
+нет `content_json`, teacher notes, login, actor UUID, request ID и внутренних audit details.
+Administrator получает полный card scope только через серверное `audit.view`. Disable account
+не меняет revision rows; физический DELETE пользователя не опубликован, а FK history запрещает
+каскадное удаление автора.
 
 ## Browser boundary: CSRF, CORS и CSP
 

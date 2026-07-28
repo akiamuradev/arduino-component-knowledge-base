@@ -12,12 +12,17 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from arduino_component_kb.api.catalog import DraftRequest, UpdateRequest, editor
+from arduino_component_kb.api.catalog import DraftRequest, UpdateRequest, _commit, editor
 from arduino_component_kb.auth.domain import Principal, Role
+from arduino_component_kb.auth.models import AuditEvent
 from arduino_component_kb.catalog.domain import (
+    COMPONENT_CHANGE_SUMMARIES,
     EDITABLE_COMPONENT_STATUSES,
     LIFECYCLE_TRANSITION_SOURCES,
+    CatalogCard,
     CatalogValidationError,
+    ComponentChangeAction,
+    ComponentNotFoundError,
     ComponentStatus,
     Difficulty,
     RevisionConflictError,
@@ -231,6 +236,85 @@ async def test_direct_draft_publication_and_locked_review_edit_are_rejected() ->
     with pytest.raises(CatalogValidationError) as edit:
         service._require_editable(component)
     assert edit.value.code == "component_edit_locked"
+
+
+async def test_history_is_owner_scoped_and_contains_only_safe_change_metadata() -> None:
+    component_id = uuid4()
+    owner_id = uuid4()
+    component = Component(id=component_id, created_by=owner_id)
+    revision = ComponentRevision(
+        id=uuid4(),
+        component_id=component_id,
+        revision=2,
+        status=ComponentStatus.IN_REVIEW.value,
+        previous_status=ComponentStatus.DRAFT.value,
+        action=ComponentChangeAction.SUBMITTED_FOR_REVIEW.value,
+        change_summary=COMPONENT_CHANGE_SUMMARIES[ComponentChangeAction.SUBMITTED_FOR_REVIEW],
+        content_json={"teacher_notes": "must not be returned by history"},
+        actor_id=owner_id,
+        created_at=datetime.now(UTC),
+    )
+    result = Mock()
+    result.all.return_value = [(revision, "Редактор")]
+    session = Mock(spec=AsyncSession)
+    session.get = AsyncMock(return_value=component)
+    session.execute = AsyncMock(return_value=result)
+    service = CatalogService(cast(AsyncSession, session))
+
+    history = await service.history(component_id, owner_id, can_view_all=False)
+
+    assert len(history) == 1
+    assert history[0].previous_status is ComponentStatus.DRAFT
+    assert history[0].status is ComponentStatus.IN_REVIEW
+    assert history[0].actor_display_name == "Редактор"
+    assert history[0].summary == "Карточка отправлена на проверку"
+    assert not hasattr(history[0], "content_json")
+
+    with pytest.raises(ComponentNotFoundError):
+        await service.history(component_id, uuid4(), can_view_all=False)
+    assert await service.history(component_id, uuid4(), can_view_all=True) == history
+
+
+async def test_component_audit_uses_the_same_revision_history_metadata() -> None:
+    component_id = uuid4()
+    actor = principal(Role.ADMINISTRATOR)
+    revision = ComponentRevision(
+        id=uuid4(),
+        component_id=component_id,
+        revision=4,
+        status=ComponentStatus.APPROVED.value,
+        previous_status=ComponentStatus.IN_REVIEW.value,
+        action=ComponentChangeAction.APPROVED.value,
+        change_summary=COMPONENT_CHANGE_SUMMARIES[ComponentChangeAction.APPROVED],
+        content_json={},
+        actor_id=actor.user_id,
+        created_at=datetime.now(UTC),
+    )
+    card = Mock(spec=CatalogCard)
+    card.id = component_id
+    card.revision = 4
+    card.status = ComponentStatus.APPROVED
+    session = Mock(spec=AsyncSession)
+    session.flush = AsyncMock()
+    session.scalar = AsyncMock(return_value=revision)
+    session.commit = AsyncMock()
+
+    await _commit(
+        cast(AsyncSession, session),
+        ComponentChangeAction.APPROVED.value,
+        actor,
+        card,
+    )
+
+    event = cast(AuditEvent, session.add.call_args.args[0])
+    assert event.action == ComponentChangeAction.APPROVED.value
+    assert event.details_safe_json == {
+        "revision": 4,
+        "previous_status": ComponentStatus.IN_REVIEW.value,
+        "status": ComponentStatus.APPROVED.value,
+        "summary": "Карточка одобрена",
+    }
+    session.commit.assert_awaited_once()
 
 
 async def test_orm_difficulty_is_restored_to_domain_enum_before_publish() -> None:

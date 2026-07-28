@@ -93,6 +93,9 @@ pytest -m integration --strict-markers
   -> published -> hidden -> published -> archived -> restored`, запрет недопустимых переходов,
   editor publish/review и физического delete, а также сохранение старого published snapshot
   после редактирования;
+- immutable card history с actor/time, previous/new status и safe summary, совпадение metadata
+  с audit event, owner-only доступ editor, полный scope administrator, сохранение истории после
+  disable пользователя и отсутствие snapshot/teacher-only данных в history response;
 - evidence-first review revision locking, immutable snapshots and append-only action audit;
 - frontend unit tests и Chromium Playwright flow.
 

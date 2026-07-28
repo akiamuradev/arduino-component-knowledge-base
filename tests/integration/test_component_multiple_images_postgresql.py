@@ -16,6 +16,7 @@ from arduino_component_kb.auth.models import User
 from arduino_component_kb.auth.repository import AuthRepository
 from arduino_component_kb.catalog.domain import (
     CatalogValidationError,
+    ComponentChangeAction,
     ComponentMediaNotFoundError,
     ComponentNotFoundError,
     ComponentStatus,
@@ -330,6 +331,24 @@ async def test_image_aggregate_order_primary_publish_and_snapshot(
             )
             assert restored.status is ComponentStatus.PUBLISHED
             assert restored.archived_from_status is None
+            history = await catalog.history(card.id, user_id, can_view_all=False)
+            assert history[0].revision == restored.revision
+            assert history[0].action is ComponentChangeAction.RESTORED
+            assert history[0].previous_status is ComponentStatus.ARCHIVED
+            assert history[0].status is ComponentStatus.PUBLISHED
+            assert history[0].actor_display_name == "Multiple image reviewer"
+            assert history[-1].action is ComponentChangeAction.CREATED
+            assert history[-1].previous_status is None
+            assert history[-1].status is ComponentStatus.DRAFT
+            with pytest.raises(ComponentNotFoundError):
+                await catalog.history(card.id, uuid4(), can_view_all=False)
+            assert await catalog.history(card.id, uuid4(), can_view_all=True) == history
+
+            user = await session.get(User, user_id)
+            assert user is not None
+            user.status = "disabled"
+            await session.flush()
+            assert await catalog.history(card.id, user_id, can_view_all=False) == history
 
             changed_draft = await catalog.mutate_images(
                 card.id,

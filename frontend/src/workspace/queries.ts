@@ -8,6 +8,8 @@ export const workspaceKeys = {
   componentLists: ["workspace", "components"] as const,
   components: (status?: ComponentStatus) => ["workspace", "components", status ?? "all"] as const,
   component: (componentId: string) => ["workspace", "component", componentId] as const,
+  componentHistory: (componentId: string) =>
+    ["workspace", "component", componentId, "history"] as const,
   categories: ["workspace", "categories"] as const,
 };
 

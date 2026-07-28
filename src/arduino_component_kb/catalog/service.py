@@ -15,7 +15,9 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
+from arduino_component_kb.auth.models import User
 from arduino_component_kb.catalog.domain import (
+    COMPONENT_CHANGE_SUMMARIES,
     EDITABLE_COMPONENT_STATUSES,
     LIFECYCLE_TRANSITION_SOURCES,
     CatalogCard,
@@ -24,6 +26,8 @@ from arduino_component_kb.catalog.domain import (
     CodeExample,
     CodeExampleVisibility,
     CompatibilityItem,
+    ComponentChangeAction,
+    ComponentHistoryEntry,
     ComponentMediaNotFoundError,
     ComponentNotFoundError,
     ComponentStatus,
@@ -228,6 +232,39 @@ class CatalogService:
             raise ComponentNotFoundError
         return await self._card(row)
 
+    async def history(
+        self,
+        component_id: UUID,
+        actor_id: UUID,
+        *,
+        can_view_all: bool,
+    ) -> tuple[ComponentHistoryEntry, ...]:
+        row = await self.session.get(Component, component_id)
+        if row is None or (not can_view_all and row.created_by != actor_id):
+            raise ComponentNotFoundError
+        records = await self.session.execute(
+            select(ComponentRevision, User.display_name)
+            .join(User, User.id == ComponentRevision.actor_id)
+            .where(ComponentRevision.component_id == component_id)
+            .order_by(ComponentRevision.revision.desc())
+        )
+        return tuple(
+            ComponentHistoryEntry(
+                revision=revision.revision,
+                previous_status=(
+                    ComponentStatus(revision.previous_status)
+                    if revision.previous_status is not None
+                    else None
+                ),
+                status=ComponentStatus(revision.status),
+                action=ComponentChangeAction(revision.action),
+                summary=revision.change_summary,
+                actor_display_name=actor_display_name,
+                occurred_at=revision.created_at,
+            )
+            for revision, actor_display_name in records.all()
+        )
+
     async def create(self, data: DraftData, actor_id: UUID) -> CatalogCard:
         await self._validate(data)
         now = datetime.now(UTC)
@@ -247,7 +284,14 @@ class CatalogService:
         await self._replace_lists(row.id, data)
         await self._replace_technical(row.id, data)
         await self._replace_learning(row.id, data, actor_id, now)
-        await self._snapshot(row, data, actor_id, now)
+        await self._snapshot(
+            row,
+            data,
+            actor_id,
+            now,
+            action=ComponentChangeAction.CREATED,
+            previous_status=None,
+        )
         return await self._card(row)
 
     async def update(
@@ -257,6 +301,7 @@ class CatalogService:
         if row.revision != expected_revision:
             raise RevisionConflictError
         self._require_editable(row)
+        previous_status = ComponentStatus(row.status)
         if row.published_at is not None and data.slug != row.slug:
             raise CatalogValidationError
         await self._validate(data)
@@ -271,7 +316,14 @@ class CatalogService:
         await self._replace_lists(row.id, data)
         await self._replace_technical(row.id, data)
         await self._replace_learning(row.id, data, actor_id, now)
-        await self._snapshot(row, data, actor_id, now)
+        await self._snapshot(
+            row,
+            data,
+            actor_id,
+            now,
+            action=ComponentChangeAction.UPDATED,
+            previous_status=previous_status,
+        )
         return await self._card(row)
 
     async def touch_media_attachment(
@@ -286,6 +338,7 @@ class CatalogService:
         if row.revision != expected_revision:
             raise RevisionConflictError
         self._require_editable(row)
+        previous_status = ComponentStatus(row.status)
         row.status = ComponentStatus.DRAFT.value
         row.archived_from_status = None
         row.revision += 1
@@ -293,7 +346,14 @@ class CatalogService:
         row.updated_at = now
         data = await self._data(row)
         await self.session.flush()
-        await self._snapshot(row, data, actor_id, now)
+        await self._snapshot(
+            row,
+            data,
+            actor_id,
+            now,
+            action=ComponentChangeAction.MEDIA_ATTACHED,
+            previous_status=previous_status,
+        )
         return await self._card(row)
 
     async def mutate_images(
@@ -309,6 +369,7 @@ class CatalogService:
         if row.revision != expected_revision:
             raise RevisionConflictError
         self._require_editable(row)
+        previous_status = ComponentStatus(row.status)
         if len(images) > 12 or len({item.asset_id for item in images}) != len(images):
             raise CatalogValidationError("component_images_invalid")
         assets = await MediaRepository(self.session).component_assets(
@@ -378,7 +439,14 @@ class CatalogService:
         row.updated_at = now
         data = await self._data(row)
         await self.session.flush()
-        await self._snapshot(row, data, actor_id, now)
+        await self._snapshot(
+            row,
+            data,
+            actor_id,
+            now,
+            action=ComponentChangeAction.IMAGES_UPDATED,
+            previous_status=previous_status,
+        )
         return await self._card(row)
 
     async def transition(
@@ -405,7 +473,22 @@ class CatalogService:
         if target is ComponentStatus.PUBLISHED:
             row.published_at = now
         data = await self._data(row)
-        await self._snapshot(row, data, actor_id, now)
+        actions = {
+            ComponentStatus.IN_REVIEW: ComponentChangeAction.SUBMITTED_FOR_REVIEW,
+            ComponentStatus.CHANGES_REQUESTED: ComponentChangeAction.CHANGES_REQUESTED,
+            ComponentStatus.APPROVED: ComponentChangeAction.APPROVED,
+            ComponentStatus.PUBLISHED: ComponentChangeAction.PUBLISHED,
+            ComponentStatus.HIDDEN: ComponentChangeAction.HIDDEN,
+            ComponentStatus.ARCHIVED: ComponentChangeAction.ARCHIVED,
+        }
+        await self._snapshot(
+            row,
+            data,
+            actor_id,
+            now,
+            action=actions[target],
+            previous_status=source,
+        )
         if target is ComponentStatus.PUBLISHED:
             await self._upsert_search_document(row, data, now)
         elif target in {ComponentStatus.HIDDEN, ComponentStatus.ARCHIVED}:
@@ -435,7 +518,14 @@ class CatalogService:
         row.updated_by = actor_id
         row.updated_at = now
         data = await self._data(row)
-        await self._snapshot(row, data, actor_id, now)
+        await self._snapshot(
+            row,
+            data,
+            actor_id,
+            now,
+            action=ComponentChangeAction.SHOWN,
+            previous_status=ComponentStatus.HIDDEN,
+        )
         await self._upsert_search_document(row, data, row.published_at)
         await self.session.flush()
         return await self._card(row)
@@ -465,7 +555,14 @@ class CatalogService:
         row.updated_by = actor_id
         row.updated_at = now
         data = await self._data(row)
-        await self._snapshot(row, data, actor_id, now)
+        await self._snapshot(
+            row,
+            data,
+            actor_id,
+            now,
+            action=ComponentChangeAction.RESTORED,
+            previous_status=ComponentStatus.ARCHIVED,
+        )
         if target is ComponentStatus.HIDDEN:
             await self.session.execute(
                 delete(PublishedSearchDocument).where(
@@ -540,6 +637,8 @@ class CatalogService:
             raise CatalogValidationError
         survivor = by_id[survivor_component_id]
         loser = right if survivor is left else left
+        survivor_previous_status = ComponentStatus(survivor.status)
+        loser_previous_status = ComponentStatus(loser.status)
         before_left = await self._card(left)
         before_right = await self._card(right)
         survivor_data = await self._data(survivor)
@@ -625,8 +724,22 @@ class CatalogService:
         await self.session.execute(
             delete(PublishedSearchDocument).where(PublishedSearchDocument.component_id == loser.id)
         )
-        await self._snapshot(survivor, survivor_data, actor_id, now)
-        await self._snapshot(loser, await self._data(loser), actor_id, now)
+        await self._snapshot(
+            survivor,
+            survivor_data,
+            actor_id,
+            now,
+            action=ComponentChangeAction.MERGED,
+            previous_status=survivor_previous_status,
+        )
+        await self._snapshot(
+            loser,
+            await self._data(loser),
+            actor_id,
+            now,
+            action=ComponentChangeAction.ARCHIVED_BY_MERGE,
+            previous_status=loser_previous_status,
+        )
         await self.session.flush()
         return before_left, before_right, await self._card(survivor)
 
@@ -1062,7 +1175,14 @@ class CatalogService:
         )
 
     async def _snapshot(
-        self, row: Component, data: DraftData, actor_id: UUID, now: datetime
+        self,
+        row: Component,
+        data: DraftData,
+        actor_id: UUID,
+        now: datetime,
+        *,
+        action: ComponentChangeAction,
+        previous_status: ComponentStatus | None,
     ) -> None:
         content = {
             key: value for key, value in self._columns(data).items() if not isinstance(value, UUID)
@@ -1124,6 +1244,9 @@ class CatalogService:
                 component_id=row.id,
                 revision=row.revision,
                 status=row.status,
+                previous_status=(previous_status.value if previous_status is not None else None),
+                action=action.value,
+                change_summary=COMPONENT_CHANGE_SUMMARIES[action],
                 content_json=content,
                 actor_id=actor_id,
                 created_at=now,

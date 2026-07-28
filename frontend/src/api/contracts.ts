@@ -347,6 +347,20 @@ export interface ComponentCard extends ComponentSummary {
   media?: ComponentMedia[];
 }
 
+export interface ComponentHistoryEntry {
+  revision: number;
+  previous_status: ComponentStatus | null;
+  status: ComponentStatus;
+  summary: string;
+  actor_display_name: string;
+  occurred_at: string;
+}
+
+export interface ComponentHistoryResponse {
+  items: ComponentHistoryEntry[];
+  total: number;
+}
+
 export interface ComponentDraftInput {
   slug: string;
   title: string;

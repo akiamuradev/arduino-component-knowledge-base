@@ -44,6 +44,7 @@ explicit publication.
 - Argon2id passwords, opaque server-side sessions, CSRF protection, RBAC, audit events and
   brute-force throttling;
 - immutable published revisions and optimistic conflict handling;
+- immutable card history with authorship, state transitions and owner-scoped editor access;
 - private MinIO image/video storage with presigned uploads and PostgreSQL metadata;
 - MIME/magic-byte validation, Pillow image variants, SHA-256/pHash and FFmpeg H.264/AAC
   renditions with posters;
@@ -285,6 +286,8 @@ Arduino Component Knowledge Base — самостоятельная образо
 - FastAPI application factory, async SQLAlchemy/asyncpg и PostgreSQL readiness;
 - Argon2id, opaque server-side sessions, CSRF, backend RBAC, audit и brute-force protection;
 - неизменяемые опубликованные revisions и optimistic conflict handling;
+- неизменяемая история карточек с авторами, переходами состояний и доступом редактора только
+  к своим карточкам;
 - private MinIO для изображений и видео, presigned upload и metadata в PostgreSQL;
 - MIME/magic bytes, Pillow variants, SHA-256/pHash, FFmpeg H.264/AAC rendition и poster;
 - Redis + Dramatiq с durable status/progress, retry/backoff и idempotency;

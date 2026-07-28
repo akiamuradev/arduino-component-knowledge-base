@@ -167,6 +167,9 @@ ROUTE_PERMISSIONS: dict[tuple[str, str], frozenset[Permission]] = {
     ("GET", "/api/v1/workspace/categories"): frozenset({Permission.COMPONENTS_EDIT}),
     ("GET", "/api/v1/workspace/components"): frozenset({Permission.COMPONENTS_EDIT}),
     ("GET", "/api/v1/workspace/components/{component_id}"): frozenset({Permission.COMPONENTS_EDIT}),
+    ("GET", "/api/v1/workspace/components/{component_id}/history"): frozenset(
+        {Permission.COMPONENTS_EDIT}
+    ),
     ("POST", "/api/v1/workspace/components"): frozenset({Permission.COMPONENTS_CREATE}),
     ("PUT", "/api/v1/workspace/components/{component_id}"): frozenset({Permission.COMPONENTS_EDIT}),
     ("PUT", "/api/v1/workspace/components/{component_id}/images"): frozenset(
@@ -266,6 +269,9 @@ def test_every_protected_route_has_exact_server_permission_contract() -> None:
 
 def test_unimplemented_destructive_actions_are_not_exposed_by_partial_routes() -> None:
     app = create_app(settings(), FakeDatabase())
+    routes = {
+        (method, path) for methods, path, _ in _effective_api_routes(app) for method in methods
+    }
     used_permissions = {
         permission
         for _, _, dependant in _effective_api_routes(app)
@@ -273,6 +279,7 @@ def test_unimplemented_destructive_actions_are_not_exposed_by_partial_routes() -
     }
     assert Permission.COMPONENTS_DELETE not in used_permissions
     assert Permission.IMPORTS_CANCEL not in used_permissions
+    assert ("DELETE", "/api/v1/admin/users/{user_id}") not in routes
 
 
 def test_repository_import_workflow_requires_import_create_permission() -> None:

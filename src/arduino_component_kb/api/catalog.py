@@ -26,6 +26,7 @@ from arduino_component_kb.catalog.domain import (
     CodeExample,
     CodeExampleVisibility,
     CompatibilityItem,
+    ComponentHistoryEntry,
     ComponentMediaNotFoundError,
     ComponentNotFoundError,
     ComponentStatus,
@@ -35,6 +36,7 @@ from arduino_component_kb.catalog.domain import (
     SourceSnapshot,
     TechnicalSpecification,
 )
+from arduino_component_kb.catalog.models import ComponentRevision
 from arduino_component_kb.catalog.service import CatalogService
 from arduino_component_kb.config import Settings
 from arduino_component_kb.imports.models import Source
@@ -324,6 +326,20 @@ class ComponentResponse(BaseModel):
     media: list[ComponentMediaResponse]
 
 
+class ComponentHistoryEntryResponse(BaseModel):
+    revision: int
+    previous_status: ComponentStatus | None
+    status: ComponentStatus
+    summary: str
+    actor_display_name: str
+    occurred_at: datetime
+
+
+class ComponentHistoryResponse(BaseModel):
+    items: list[ComponentHistoryEntryResponse]
+    total: int
+
+
 class ComponentListResponse(BaseModel):
     items: list[ComponentResponse]
     total: int
@@ -455,6 +471,17 @@ def response(card: CatalogCard) -> ComponentResponse:
                 "manual_original",
             )
         },
+    )
+
+
+def history_response(item: ComponentHistoryEntry) -> ComponentHistoryEntryResponse:
+    return ComponentHistoryEntryResponse(
+        revision=item.revision,
+        previous_status=item.previous_status,
+        status=item.status,
+        summary=item.summary,
+        actor_display_name=item.actor_display_name,
+        occurred_at=item.occurred_at,
     )
 
 
@@ -635,6 +662,15 @@ async def public_component(
 
 
 async def _commit(session: AsyncSession, action: str, actor: Principal, card: CatalogCard) -> None:
+    await session.flush()
+    revision = await session.scalar(
+        select(ComponentRevision).where(
+            ComponentRevision.component_id == card.id,
+            ComponentRevision.revision == card.revision,
+        )
+    )
+    if revision is None or revision.action != action:
+        raise RuntimeError("component revision history is inconsistent with audit action")
     await AuthRepository(session).audit(
         now=datetime.now(UTC),
         actor_user_id=actor.user_id,
@@ -645,7 +681,9 @@ async def _commit(session: AsyncSession, action: str, actor: Principal, card: Ca
         outcome="success",
         details={
             "revision": card.revision,
-            "status": card.status.value,
+            "previous_status": revision.previous_status,
+            "status": revision.status,
+            "summary": revision.change_summary,
         },
     )
     await session.commit()
@@ -740,6 +778,27 @@ async def get_component(
 ) -> ComponentResponse:
     try:
         return response(await CatalogService(session).get_card(component_id))
+    except CatalogError as error:
+        raise HTTPException(404, detail={"code": "component_not_found"}) from error
+
+
+@router.get(
+    "/components/{component_id}/history",
+    response_model=ComponentHistoryResponse,
+)
+async def component_history(
+    component_id: UUID,
+    actor: Annotated[Principal, Depends(editor)],
+    session: Annotated[AsyncSession, Depends(database_session)],
+) -> ComponentHistoryResponse:
+    try:
+        items = await CatalogService(session).history(
+            component_id,
+            actor.user_id,
+            can_view_all=Permission.AUDIT_VIEW in actor.permissions,
+        )
+        responses = [history_response(item) for item in items]
+        return ComponentHistoryResponse(items=responses, total=len(responses))
     except CatalogError as error:
         raise HTTPException(404, detail={"code": "component_not_found"}) from error
 
