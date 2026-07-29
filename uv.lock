@@ -54,7 +54,7 @@ wheels = [
 
 [[package]]
 name = "arduino-component-knowledge-base"
-version = "0.21.0"
+version = "1.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
