@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -26,6 +27,63 @@ def test_production_compose_enables_https_without_publishing_data_services() -> 
     assert "6379:6379" not in compose
     assert "9000:9000" not in compose
     assert compose.count(":ro") >= 6
+
+
+def test_production_compose_uses_dedicated_runtime_credentials() -> None:
+    compose = (ROOT / "compose.production.yaml").read_text(encoding="utf-8")
+    env_example = (ROOT / ".env.production.example").read_text(encoding="utf-8")
+    for setting in (
+        "ACKB_POSTGRES_RUNTIME_USER",
+        "ACKB_POSTGRES_RUNTIME_PASSWORD",
+        "ACKB_REDIS_PASSWORD",
+        "ACKB_MINIO_ACCESS_KEY",
+        "ACKB_MINIO_SECRET_KEY",
+    ):
+        assert setting in compose
+        assert setting in env_example
+    assert "database-permissions:" in compose
+    assert "minio-identity-init:" in compose
+    assert "--requirepass" in compose
+    assert "ACKB_TRUSTED_HOSTS" in compose
+    assert 'ACKB_LEGACY_KICAD_CARD_IMPORT_ENABLED: "false"' in compose
+
+
+def test_runtime_database_role_has_no_ddl_or_administration_grants() -> None:
+    grants = (ROOT / "deploy" / "postgres" / "runtime-grants.sql").read_text(encoding="utf-8")
+    assert "NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS" in grants
+    assert "REVOKE CREATE ON SCHEMA public" in grants
+    assert "SELECT, INSERT, UPDATE, DELETE" in grants
+    assert "GRANT CREATE" not in grants
+    assert "GRANT ALL" not in grants
+
+
+def test_runtime_minio_policy_is_limited_to_private_media_buckets() -> None:
+    policy = json.loads(
+        (ROOT / "deploy" / "minio" / "ackb-media-policy.json").read_text(encoding="utf-8")
+    )
+    rendered = json.dumps(policy, sort_keys=True)
+    assert "ackb-media-quarantine" in rendered
+    assert "ackb-media-variants" in rendered
+    assert '"Resource": "*"' not in rendered
+    assert "s3:*" not in rendered
+    assert "admin:" not in rendered
+
+
+def test_production_application_and_edge_containers_are_hardened() -> None:
+    compose = (ROOT / "compose.production.yaml").read_text(encoding="utf-8")
+    for service, next_service in (
+        ("migrate", "database-permissions"),
+        ("database-permissions", "minio-identity-init"),
+        ("minio-identity-init", "media-init"),
+        ("media-init", "backend"),
+        ("backend", "worker"),
+        ("parser-worker", "media-retention"),
+        ("frontend", "reverse-proxy"),
+    ):
+        block = compose.split(f"  {service}:", 1)[1].split(f"\n  {next_service}:", 1)[0]
+        assert "read_only: true" in block
+        assert "no-new-privileges:true" in block
+        assert "cap_drop:" in block
 
 
 def test_internal_nginx_requires_tls_and_exact_redirect_hostname() -> None:
@@ -57,6 +115,10 @@ def test_production_templates_contain_no_private_material_or_insecure_smoke_flag
     assert "--add-host backend:127.0.0.1" in contract_smoke
     assert "--add-host frontend:127.0.0.1" in contract_smoke
     assert "--add-host minio:127.0.0.1" in contract_smoke
+    identity_smoke = (ROOT / "scripts/production_identity_smoke.sh").read_text(encoding="utf-8")
+    assert "has_schema_privilege" in identity_smoke
+    assert "redis-cli ping" in identity_smoke
+    assert "mc admin info" in identity_smoke
 
 
 @pytest.mark.parametrize(

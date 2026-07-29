@@ -76,7 +76,10 @@ def create_app(
     app.state.import_queue = resolved_import_queue
     app.add_exception_handler(HTTPException, http_exception_handler)
     app.add_exception_handler(RequestValidationError, validation_exception_handler)
-    app.add_middleware(BrowserSecurityMiddleware)
+    app.add_middleware(
+        BrowserSecurityMiddleware,
+        allowed_hosts=resolved_settings.trusted_host_values,
+    )
     app.add_middleware(RequestContextMiddleware)
     app.include_router(health_router)
     app.include_router(auth_router)

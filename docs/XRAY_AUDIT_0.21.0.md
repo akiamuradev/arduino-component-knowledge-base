@@ -24,19 +24,22 @@ Release gates added by this audit:
 
 ## Open findings
 
+### Closed after the audit
+
+- Stage 16 added separate PostgreSQL migration/runtime identities, repeatable no-DDL runtime
+  grants, a bucket-scoped MinIO application identity, Redis authentication, exact trusted Host,
+  production fail-closed validation and read-only/drop-capability profiles for application/init
+  and edge containers. Backup identity remains part of the backup finding and Stage 17.
+
 ### High
 
-1. PostgreSQL and MinIO least privilege is not implemented in the default Compose topology.
-   Backend/workers use the PostgreSQL bootstrap owner and MinIO root credentials. Before a
-   production rollout, provision separate migration, runtime, media and backup identities, revoke
-   runtime DDL/admin rights, rotate the bootstrap credentials and test those grants.
-2. Queue publication happens after the database commit without a transactional outbox or a
+1. Queue publication happens after the database commit without a transactional outbox or a
    reconciler. A broker outage can leave a durable `queued` import/media job unpublished until an
    operator/client retries it. Add an outbox dispatcher or a periodic queued-job reconciler.
-3. The repository contains a backup policy but no automated PostgreSQL/MinIO backup, consistency
+2. The repository contains a backup policy but no automated PostgreSQL/MinIO backup, consistency
    orchestration, encryption/retention implementation or proven restore drill. Production rollout
    remains blocked until the operator supplies and tests these controls.
-4. Parser egress is constrained by application allowlists and SSRF validation, but the Compose
+3. Parser egress is constrained by application allowlists and SSRF validation, but the Compose
    `parser-egress` network does not itself enforce DNS/HTTPS-only destinations. A host firewall or
    network policy is still required as an independent containment layer.
 
@@ -51,15 +54,12 @@ Release gates added by this audit:
 3. Container vulnerability scanning, SBOM/provenance generation and signed image publication are
    not part of CI. Base images are digest-pinned, which limits drift but does not detect newly
    disclosed CVEs.
-4. Only media workers/retention have the full read-only filesystem, dropped capabilities and
-   resource-limit profile. Apply and validate equivalent hardening for backend, parser worker,
-   migration/init services and both nginx containers.
-5. Backend line coverage measured 70%. Important orchestration paths remain weakly exercised:
+4. Backend line coverage measured 70%. Important orchestration paths remain weakly exercised:
    import processor 16%, image processor 18%, video processor 24%, catalog service 41%, and
    several API/repository modules around 36-57%. Frontend coverage is not enforced in CI.
-6. External edge rate limiting, centralized monitoring/alerting, audit/session retention periods
+5. External edge rate limiting, centralized monitoring/alerting, audit/session retention periods
    and capacity budgets still depend on deployment decisions.
-7. Media retention examines a bounded prefix per run. At inventories above the scan limit, a
+6. Media retention examines a bounded prefix per run. At inventories above the scan limit, a
    continuation cursor or rotating scan strategy is needed to prevent long-lived orphan starvation.
 
 ### Low / maintainability

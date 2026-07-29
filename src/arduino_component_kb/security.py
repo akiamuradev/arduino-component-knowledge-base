@@ -69,11 +69,26 @@ def is_same_origin(origin: str, scheme: str, host: str) -> bool:
     )
 
 
+def is_trusted_host(host: str, allowed_hosts: frozenset[str]) -> bool:
+    """Match the HTTP Host hostname exactly, while allowing its explicit port."""
+    if not host or len(host) > 512:
+        return False
+    try:
+        parsed = urlsplit(f"//{host}")
+        _ = parsed.port
+    except ValueError:
+        return False
+    if parsed.username is not None or parsed.password is not None or parsed.path:
+        return False
+    return parsed.hostname is not None and parsed.hostname.casefold().rstrip(".") in allowed_hosts
+
+
 class BrowserSecurityMiddleware:
     """Deny cross-origin browser requests and attach defense-in-depth headers."""
 
-    def __init__(self, app: ASGIApp) -> None:
+    def __init__(self, app: ASGIApp, allowed_hosts: tuple[str, ...]) -> None:
         self.app = app
+        self.allowed_hosts = frozenset(host.casefold().rstrip(".") for host in allowed_hosts)
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
@@ -83,6 +98,20 @@ class BrowserSecurityMiddleware:
         origin = request_headers.get("origin")
         scheme = request_headers.get("x-forwarded-proto", scope.get("scheme", "http"))
         host = request_headers.get("host", "")
+        if not is_trusted_host(host, self.allowed_hosts):
+            state = scope.get("state", {})
+            request_id = state.get("request_id") if isinstance(state, dict) else None
+            response = JSONResponse(
+                public_error_payload(
+                    status_code=400,
+                    code="untrusted_host",
+                    request_id=request_id if isinstance(request_id, str) else None,
+                ),
+                status_code=400,
+                headers=SECURITY_HEADERS,
+            )
+            await response(scope, receive, send)
+            return
         if origin is not None and not is_same_origin(origin, scheme, host):
             state = scope.get("state", {})
             request_id = state.get("request_id") if isinstance(state, dict) else None

@@ -22,6 +22,15 @@ read_setting() {
   printf '%s' "$value"
 }
 
+require_secret() {
+  local name="$1"
+  local value
+  value="$(read_setting "$name")"
+  [[ ${#value} -ge 32 ]] || fail "$name must contain at least 32 characters"
+  [[ "$value" =~ ^[A-Za-z0-9._~-]+$ ]] \
+    || fail "$name must use URL-safe characters: letters, digits, dot, underscore, tilde or hyphen"
+}
+
 verify_certificate() {
   local certificate="$1"
   local expected_host="$2"
@@ -51,6 +60,8 @@ done
 source /etc/os-release
 [[ "${ID:-}" == "ubuntu" ]] || fail "corporate deployment baseline requires Ubuntu Server"
 [[ -f "$ENV_FILE" ]] || fail "production environment file not found: $ENV_FILE"
+[[ "$(stat -c '%a' "$ENV_FILE")" =~ ^[46]00$ ]] \
+  || fail "production environment file mode must be 400 or 600"
 grep -q 'replace-with' "$ENV_FILE" && fail "$ENV_FILE still contains placeholder values"
 docker compose version >/dev/null 2>&1 || fail "Docker Compose plugin is unavailable"
 docker info >/dev/null 2>&1 || fail "Docker daemon is unavailable or permission is denied"
@@ -62,6 +73,37 @@ edge_certificate="$(read_setting ACKB_EDGE_TLS_CERT_FILE)"
 edge_key="$(read_setting ACKB_EDGE_TLS_KEY_FILE)"
 minio_certificate="$(read_setting ACKB_MINIO_TLS_CERT_FILE)"
 minio_key="$(read_setting ACKB_MINIO_TLS_KEY_FILE)"
+postgres_owner="$(read_setting ACKB_POSTGRES_USER)"
+postgres_runtime="$(read_setting ACKB_POSTGRES_RUNTIME_USER)"
+minio_root="$(read_setting ACKB_MINIO_ROOT_USER)"
+minio_runtime="$(read_setting ACKB_MINIO_ACCESS_KEY)"
+commit_sha="$(read_setting ACKB_COMMIT_SHA)"
+build_date="$(read_setting ACKB_BUILD_DATE)"
+
+for secret_name in \
+  ACKB_POSTGRES_PASSWORD \
+  ACKB_POSTGRES_RUNTIME_PASSWORD \
+  ACKB_MINIO_ROOT_PASSWORD \
+  ACKB_MINIO_SECRET_KEY \
+  ACKB_REDIS_PASSWORD \
+  ACKB_AUTH_THROTTLE_PEPPER; do
+  require_secret "$secret_name"
+done
+
+[[ "$postgres_runtime" =~ ^[a-z_][a-z0-9_]{2,62}$ ]] \
+  || fail "ACKB_POSTGRES_RUNTIME_USER must be a simple lowercase PostgreSQL role"
+[[ "$postgres_runtime" != "$postgres_owner" ]] \
+  || fail "runtime PostgreSQL role must differ from bootstrap owner"
+[[ ! "$postgres_runtime" =~ ^(postgres|root|admin|administrator|demo|test|ackb)$ ]] \
+  || fail "ACKB_POSTGRES_RUNTIME_USER is not a dedicated runtime role"
+[[ "$minio_runtime" != "$minio_root" ]] \
+  || fail "runtime MinIO access key must differ from root access key"
+[[ ! "$minio_runtime" =~ ^(minioadmin|root|admin|administrator|demo|test)$ ]] \
+  || fail "ACKB_MINIO_ACCESS_KEY is not a dedicated runtime identity"
+[[ "$commit_sha" =~ ^[0-9a-f]{40}$ ]] \
+  || fail "ACKB_COMMIT_SHA must be the full lowercase deployed commit SHA"
+[[ "$build_date" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]] \
+  || fail "ACKB_BUILD_DATE must use UTC ISO-8601 form YYYY-MM-DDTHH:MM:SSZ"
 
 [[ "$internal_hostname" =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$ ]] \
   || fail "ACKB_INTERNAL_HOSTNAME is not a valid DNS hostname"

@@ -305,14 +305,17 @@ backend и media worker остаются в internal container networks без �
 и backend repository boundary подключены к отдельной egress network для allowlisted HTTPS fetch.
 Эта Docker network не является destination firewall: independent host/network egress rules,
 internal TLS, backups, monitoring и restore drill обязательны перед production. Credentials
-поступают через secrets/environment mechanism и не хранятся в Git; default Compose ещё не
-разделяет PostgreSQL owner и MinIO root на отдельные runtime identities.
+поступают через ignored production environment mechanism и не хранятся в Git. Production overlay
+разделяет PostgreSQL migration owner и DML-only runtime role, включает password-authenticated
+Redis и выдаёт приложению отдельную bucket-scoped MinIO policy вместо root credentials.
+Одноразовые `database-permissions` и `minio-identity-init` завершаются до запуска backend/workers.
+Exact trusted Host и same-origin middleware сохраняют внешний DNS hostname как browser boundary.
 
 ## Решения, отложенные до следующих этапов
 
 Локальные opaque server-side sessions утверждены как MVP baseline. Возможная интеграция с
 колледжным SSO не должна менять backend RBAC, отзыв сессий и audit invariants. Outbox
-implementation, production credential provisioning, backup tooling и orchestrator остаются
+implementation, backup identity/tooling и orchestrator остаются
 отложенными. Merge/review UI уже реализован.
 
 ## Поиск опубликованного каталога
