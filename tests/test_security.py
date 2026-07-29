@@ -179,6 +179,13 @@ ROUTE_PERMISSIONS: dict[tuple[str, str], frozenset[Permission]] = {
     ("GET", "/api/v1/workspace/components/{component_id}/history"): frozenset(
         {Permission.COMPONENTS_EDIT}
     ),
+    ("GET", "/api/v1/workspace/components/{component_id}/correction-proposals"): frozenset(
+        {Permission.COMPONENTS_EDIT}
+    ),
+    (
+        "POST",
+        "/api/v1/workspace/components/{component_id}/correction-proposals/{proposal_id}/resolve",
+    ): frozenset({Permission.COMPONENTS_EDIT}),
     ("POST", "/api/v1/workspace/components"): frozenset({Permission.COMPONENTS_CREATE}),
     ("PUT", "/api/v1/workspace/components/{component_id}"): frozenset({Permission.COMPONENTS_EDIT}),
     ("PUT", "/api/v1/workspace/components/{component_id}/images"): frozenset(
@@ -218,6 +225,10 @@ ROUTE_PERMISSIONS: dict[tuple[str, str], frozenset[Permission]] = {
     ("GET", "/api/v1/catalog/sources"): frozenset({Permission.COMPONENTS_VIEW}),
     ("GET", "/api/v1/catalog/components"): frozenset({Permission.COMPONENTS_VIEW}),
     ("GET", "/api/v1/catalog/components/{slug}"): frozenset({Permission.COMPONENTS_VIEW}),
+    (
+        "POST",
+        "/api/v1/catalog/components/{component_id}/correction-proposals",
+    ): frozenset({Permission.COMPONENTS_PROPOSE_CORRECTION}),
     ("GET", "/api/v1/admin/duplicates"): frozenset({Permission.COMPONENTS_REVIEW}),
     ("GET", "/api/v1/admin/duplicates/{candidate_id}"): frozenset({Permission.COMPONENTS_REVIEW}),
     ("POST", "/api/v1/admin/duplicates/{candidate_id}/decision"): frozenset(

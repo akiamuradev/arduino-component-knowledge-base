@@ -22,7 +22,9 @@ PostgreSQL, Redis и MinIO доступны только внутри deployment
   карточку без published snapshot либо после archive; frontend route guard не заменяет эту проверку.
 - технические поля student API восстанавливаются из published snapshot, а не из редактируемого
   draft head; текст значений выводится React text nodes без raw HTML execution.
-- Student и teacher имеют только `components.view`. Временный editor может создавать,
+- Student имеет только `components.view`. Teacher дополнительно может отправить bounded plain-text
+  предложение исправления опубликованной карточки через `components.propose_correction`, но не
+  меняет карточку и не получает workspace. Временный editor может создавать,
   изменять и архивировать draft, запускать imports и отправлять карточку на проверку,
   но не публиковать её. Только administrator управляет ролями/source policy, проверяет
   и публикует карточки и подтверждает duplicate merge.
@@ -60,16 +62,17 @@ PostgreSQL, Redis и MinIO доступны только внутри deployment
   workspace, media, import и admin routes, включая lazily included FastAPI routers, а каждая
   authenticated mutation содержит CSRF. Contract фиксирует точное разрешение каждого HTTP
   method/path и не допускает «любую подходящую dependency».
-- Прямые API-запросы без нужного разрешения получают только
-  `403 {"detail":{"code":"permission_denied"}}`; отсутствие session даёт безопасный `401`,
-  invalid CSRF — безопасный `403`. Foreign media/import identifiers, включая retry чужого
-  import job, не подтверждают существование объекта и дают одинаковый `404`.
+- Прямые API-запросы без нужного разрешения получают `403` с безопасным
+  `error.code=permission_denied`; отсутствие session даёт безопасный `401`, invalid CSRF —
+  безопасный `403`. Foreign media/import identifiers, включая retry чужого import job, не
+  подтверждают существование объекта и дают одинаковый `404`.
 
 ### Серверная матрица действий
 
 | Действие | Серверное разрешение | Дополнительная граница |
 |---|---|---|
 | Published catalog и источники | `components.view` | Только published snapshot |
+| Предложение исправления | `components.propose_correction` | Только published projection; 10–4000 символов; CSRF; без изменения карточки |
 | Draft list/detail/update и media upload/status | `components.edit` | Media только владельца; administrator diagnostics видит все |
 | Создание draft | `components.create` | Серверная валидация карточки |
 | Отправка на проверку | `components.submit_for_review` | Только `draft`/`changes_requested`, row lock и optimistic revision |
@@ -77,6 +80,7 @@ PostgreSQL, Redis и MinIO доступны только внутри deployment
 | Публикация, hide и show | `components.publish` | Только administrator; source/license/media и revision validation |
 | Архивирование и restore | `components.archive` | Без физического удаления; восстанавливается предыдущий статус |
 | История карточки | `components.edit` | Editor — только `created_by`; administrator — все карточки; без snapshot payload |
+| Просмотр и решение по предложениям | `components.edit` | Editor — только `created_by`; administrator — все; повторное решение запрещено |
 | Создание repository/URL import | `imports.create` | Allowlist и source policy |
 | Просмотр import job | `imports.view` | Только собственный job либо administrator |
 | Retry import job | `imports.retry` | Editor — только собственный job; administrator — любой |
@@ -311,14 +315,15 @@ Editor polling для failed import заменяет внутренний `error
 описание и допустимое действие.
 
 Audit обязателен для входа и выхода, bounded login failures, создания/блокировки пользователя,
-назначения/отзыва/изменения срока роли, card mutations и lifecycle, import/upload/retry,
-publication/archive, retention cleanup, category settings, duplicate decision и merge.
+назначения/отзыва/изменения срока роли, card mutations и lifecycle, предложения исправлений,
+import/upload/retry, publication/archive, retention cleanup, category settings, duplicate
+decision и merge.
 Обычный HTTP-контур append-only: существует только защищённый `GET`, операций записи,
 изменения или удаления журнала в UI/API нет. Запись выполняется внутри серверных mutation
 transactions. Retention/backup выполняются отдельным эксплуатационным контуром. PostgreSQL
 manifest содержит только counts и идентификаторные fingerprints: login, password hash и
-содержимое карточек в него не экспортируются. Сам dump остаётся конфиденциальным production
-артефактом и должен храниться зашифрованно вне VM.
+содержимое карточек или предложений в него не экспортируются. Сам dump остаётся
+конфиденциальным production артефактом и должен храниться зашифрованно вне VM.
 
 `GET /api/v1/admin/audit-events` требует backend permission `audit.view`, возвращает только
 время, безопасную identity субъекта, действие, объект и исход и устанавливает
@@ -367,7 +372,8 @@ Seed/demo accounts и автоматическое создание пользо
 ## Security acceptance cases
 
 1. Student получает `403` на draft, parser, upload, publish, audit и merge endpoints.
-2. Teacher получает `403` на duplicate merge, role change и source policy change.
+2. Teacher может создать correction proposal, но получает `403` на прямое редактирование,
+   duplicate merge, role change и source policy change.
 3. Parser result остаётся draft при любом confidence.
 4. Redirect на private/loopback/link-local IP блокируется до connection.
 5. Поддельные MIME, oversized/decompression-bomb image и over-duration video rejected.

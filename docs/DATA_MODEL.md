@@ -79,6 +79,17 @@ Unique `(component_id, revision)`. `action` ограничен серверны�
 получают точное действие в одной транзакции с изменением карточки. History API возвращает только
 revision/status/summary/author/time и никогда не отдаёт `content_json`.
 
+### `component_correction_proposals`
+
+`id`, `component_id`, `author_id`, `message`, `status(open|applied|dismissed)`, `created_at`,
+`resolved_by?`, `resolved_at?`.
+
+Teacher создаёт предложение только для существующей published projection. Текст хранится отдельно
+от mutable head и immutable revisions, поэтому отправка не меняет опубликованную карточку.
+Для `open` поля решения пусты; для терминальных статусов обязательны reviewer и UTC-время.
+Индекс `(component_id, status, created_at)` обслуживает вкладку редактора. FK автора и reviewer
+имеют `RESTRICT`, чтобы история не исчезала вместе с учётной записью.
+
 ### `component_aliases`
 
 `id`, `component_id`, `alias`, `normalized_alias`, `position`.

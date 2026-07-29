@@ -1,6 +1,7 @@
 export type Role = "student" | "teacher" | "editor" | "administrator";
 export type Permission =
   | "components.view"
+  | "components.propose_correction"
   | "components.create"
   | "components.edit"
   | "components.archive"
@@ -409,6 +410,23 @@ export interface ComponentHistoryEntry {
 
 export interface ComponentHistoryResponse {
   items: ComponentHistoryEntry[];
+  total: number;
+}
+
+export type CorrectionProposalStatus = "open" | "applied" | "dismissed";
+
+export interface CorrectionProposal {
+  id: string;
+  component_id: string;
+  author_display_name: string;
+  message: string;
+  status: CorrectionProposalStatus;
+  created_at: string;
+  resolved_at: string | null;
+}
+
+export interface CorrectionProposalListResponse {
+  items: CorrectionProposal[];
   total: number;
 }
 

@@ -294,6 +294,38 @@ describe("component editor", () => {
     expect(JSON.stringify(history)).not.toContain("teacher_notes");
   });
 
+  it("shows teacher correction proposals in a separate review tab", async () => {
+    const proposals = {
+      items: [
+        {
+          id: "00000000-0000-0000-0000-000000000099",
+          component_id: card.id,
+          author_display_name: "Преподаватель",
+          message: "Уточнить максимально допустимое напряжение питания.",
+          status: "open",
+          created_at: "2026-07-29T12:00:00Z",
+          resolved_at: null,
+        },
+      ],
+      total: 1,
+    };
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse(proposals));
+    vi.stubGlobal("fetch", fetchMock);
+    renderEditor();
+
+    await userEvent.click(screen.getByRole("tab", { name: "Предложения" }));
+
+    const region = await screen.findByRole("region", {
+      name: "Предложения исправлений",
+    });
+    expect(within(region).getByText("Преподаватель")).toBeVisible();
+    expect(
+      within(region).getByText("Уточнить максимально допустимое напряжение питания."),
+    ).toBeVisible();
+    expect(within(region).getByRole("button", { name: "Отметить учтённым" })).toBeVisible();
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
   it("keeps local edits and stops a blind overwrite on revision conflict", async () => {
     document.cookie = "ackb_csrf=csrf-value; Path=/";
     vi.stubGlobal(

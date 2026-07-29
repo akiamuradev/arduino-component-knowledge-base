@@ -10,6 +10,8 @@ export const workspaceKeys = {
   component: (componentId: string) => ["workspace", "component", componentId] as const,
   componentHistory: (componentId: string) =>
     ["workspace", "component", componentId, "history"] as const,
+  correctionProposals: (componentId: string) =>
+    ["workspace", "component", componentId, "correction-proposals"] as const,
   categories: ["workspace", "categories"] as const,
 };
 

@@ -2,15 +2,30 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { CatalogComponent, CatalogMedia, Category } from "../api/contracts";
+import type { CatalogComponent, CatalogMedia, Category, User } from "../api/contracts";
+import { currentUserQueryKey } from "../auth/queries";
 import { catalogKeys } from "../catalog/queries";
 import { createQueryClient } from "../app/query-client";
 import { CatalogComponentPage } from "./CatalogComponentPage";
 import { CatalogPage } from "./CatalogPage";
 
 const category: Category = { id: "00000000-0000-0000-0000-000000000020", slug: "sensors", name: "Датчики" };
+const student: User = {
+  id: "00000000-0000-0000-0000-000000000001",
+  login: "student",
+  display_name: "Ученик",
+  roles: ["student"],
+  permissions: ["components.view"],
+};
+const teacher: User = {
+  id: "00000000-0000-0000-0000-000000000002",
+  login: "teacher",
+  display_name: "Преподаватель",
+  roles: ["teacher"],
+  permissions: ["components.view", "components.propose_correction"],
+};
 const media: CatalogMedia[] = [
   {
     asset_id: "10000000-0000-4000-8000-000000000001",
@@ -70,13 +85,23 @@ const card: CatalogComponent = {
   }],
 };
 
-function renderCatalog(path = "/", component: CatalogComponent = card) {
+function renderCatalog(
+  path = "/",
+  component: CatalogComponent = card,
+  user: User = student,
+) {
   const client = createQueryClient();
+  client.setQueryData(currentUserQueryKey, user);
   client.setQueryData(catalogKeys.categories, [category]);
   client.setQueryData(catalogKeys.list({ query: "", categoryId: "", difficulty: "" }), { items: [component], total: 1 });
   client.setQueryData(catalogKeys.detail(component.slug), component);
   return render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[path]}><Routes><Route path="/" element={<CatalogPage />} /><Route path="/components/:slug" element={<CatalogComponentPage />} /></Routes></MemoryRouter></QueryClientProvider>);
 }
+
+afterEach(() => {
+  document.cookie = "ackb_csrf=; Max-Age=0; Path=/";
+  vi.unstubAllGlobals();
+});
 
 describe("student catalog", () => {
   it("renders published cards and accessible filters", async () => {
@@ -123,5 +148,52 @@ describe("student catalog", () => {
     expect(screen.getByRole("img", {
       name: "Изображение для Датчик температуры пока не добавлено",
     })).toBeVisible();
+  });
+
+  it("lets a teacher propose a correction without exposing direct editing", async () => {
+    document.cookie = "ackb_csrf=teacher-csrf; Path=/";
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation((_input, options) =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify(options?.method === "POST"
+            ? {
+                id: "00000000-0000-0000-0000-000000000030",
+                component_id: card.id,
+                author_display_name: "Преподаватель",
+                message: "Уточнить допустимое напряжение питания.",
+                status: "open",
+                created_at: "2026-07-29T12:00:00Z",
+                resolved_at: null,
+              }
+            : card),
+          {
+            status: options?.method === "POST" ? 201 : 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+      ));
+    vi.stubGlobal("fetch", fetchMock);
+    renderCatalog("/components/temperature-sensor", card, teacher);
+
+    const input = screen.getByLabelText("Предложение исправления");
+    await userEvent.type(input, "Уточнить допустимое напряжение питания.");
+    await userEvent.click(screen.getByRole("button", { name: "Предложить исправление" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Предложение отправлено редактору.",
+    );
+    const proposalCall = fetchMock.mock.calls.find(([, options]) => options?.method === "POST");
+    expect(proposalCall).toBeDefined();
+    const [url, options] = proposalCall ?? [];
+    expect(url).toBe(`/api/v1/catalog/components/${card.id}/correction-proposals`);
+    expect(options?.method).toBe("POST");
+    expect(new Headers(options?.headers).get("X-CSRF-Token")).toBe("teacher-csrf");
+    expect(screen.queryByRole("link", { name: /Редакция/ })).not.toBeInTheDocument();
+  });
+
+  it("does not show the correction form to a student", () => {
+    renderCatalog("/components/temperature-sensor");
+
+    expect(screen.queryByLabelText("Предложение исправления")).not.toBeInTheDocument();
   });
 });

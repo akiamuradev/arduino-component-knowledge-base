@@ -219,7 +219,7 @@ def test_existing_users_receive_only_safe_missing_role_backfill(
         asyncio.run(_seed_revision_20_users(database_url))
 
         _upgrade(database_url, "head", monkeypatch)
-        assert asyncio.run(_revision(database_url)) == "20260729_26"
+        assert asyncio.run(_revision(database_url)) == "20260729_27"
         migrated = asyncio.run(_role_state(database_url))
 
         assert migrated["administrator"] == (["administrator"], {"administrator"})

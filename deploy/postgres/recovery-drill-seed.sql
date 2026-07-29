@@ -64,11 +64,22 @@ INSERT INTO component_revisions (
     '2026-07-29T00:00:00Z'
 );
 
+INSERT INTO component_correction_proposals (
+    id, component_id, author_id, message, status, created_at
+) VALUES (
+    '10000000-0000-4000-8000-000000000005',
+    '10000000-0000-4000-8000-000000000003',
+    '10000000-0000-4000-8000-000000000001',
+    'Recovery drill correction proposal.',
+    'open',
+    '2026-07-29T00:00:00Z'
+);
+
 INSERT INTO audit_events (
     id, occurred_at, actor_user_id, actor_type, action, object_type,
     object_id, request_id, outcome, details_safe_json
 ) VALUES (
-    '10000000-0000-4000-8000-000000000005',
+    '10000000-0000-4000-8000-000000000006',
     '2026-07-29T00:00:00Z',
     '10000000-0000-4000-8000-000000000001',
     'user',

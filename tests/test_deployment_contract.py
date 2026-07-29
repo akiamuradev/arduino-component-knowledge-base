@@ -199,7 +199,7 @@ def test_clean_stack_smoke_is_isolated_and_checks_empty_application_startup() ->
     assert '--project-name "$ACKB_CLEAN_PROJECT"' in script
     assert "ACKB_HTTP_PORT=0" in script
     assert "up_arguments=(--detach --wait)" in script
-    assert "0|0|0|20260729_26" in script
+    assert "0|0|0|0|20260729_27" in script
     for endpoint in ("/health", "/ready", "/"):
         assert f"${{base_url}}{endpoint}" in script
     assert "--volumes --remove-orphans" in script

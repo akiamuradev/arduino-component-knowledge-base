@@ -33,6 +33,9 @@ const ACTION_LABELS: Readonly<Record<string, string>> = {
   "component.restored": "Карточка восстановлена",
   "component.merged": "Данные карточек объединены",
   "component.archived_by_merge": "Карточка архивирована после объединения",
+  "component.correction_proposed": "Предложено исправление карточки",
+  "component.correction_applied": "Предложение исправления учтено",
+  "component.correction_dismissed": "Предложение исправления отклонено",
   "import.job_submitted": "Запущена загрузка компонента",
   "import.job_retry_requested": "Запрошена повторная обработка компонента",
   "import.job_cancelled": "Загрузка компонента отменена",
@@ -76,6 +79,7 @@ const OBJECT_LABELS: Readonly<Record<string, string>> = {
   media_job: "Обработка файла",
   media_upload: "Загрузка файла",
   duplicate_candidate: "Проверка совпадения",
+  correction_proposal: "Предложение исправления",
 };
 
 const OUTCOME_LABELS: Readonly<Record<string, string>> = {

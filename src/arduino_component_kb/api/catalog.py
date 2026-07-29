@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Annotated, cast
+from typing import Annotated, Literal, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
@@ -30,6 +30,8 @@ from arduino_component_kb.catalog.domain import (
     ComponentMediaNotFoundError,
     ComponentNotFoundError,
     ComponentStatus,
+    CorrectionProposal,
+    CorrectionProposalStatus,
     Difficulty,
     DraftData,
     RevisionConflictError,
@@ -59,6 +61,7 @@ archiver = require_permissions(Permission.COMPONENTS_ARCHIVE)
 submitter = require_permissions(Permission.COMPONENTS_SUBMIT_FOR_REVIEW)
 reviewer = require_permissions(Permission.COMPONENTS_REVIEW)
 publisher = require_permissions(Permission.COMPONENTS_PUBLISH)
+correction_proposer = require_permissions(Permission.COMPONENTS_PROPOSE_CORRECTION)
 administrator = require_permissions(Permission.SYSTEM_SETTINGS)
 
 
@@ -218,6 +221,22 @@ class LifecycleRequest(BaseModel):
     revision: int = Field(ge=1)
 
 
+class CorrectionProposalRequest(BaseModel):
+    message: str = Field(min_length=10, max_length=4000)
+
+    @field_validator("message")
+    @classmethod
+    def normalize_message(cls, value: str) -> str:
+        normalized = value.strip()
+        if len(normalized) < 10:
+            raise ValueError("correction proposal is too short")
+        return normalized
+
+
+class CorrectionProposalDecisionRequest(BaseModel):
+    decision: Literal["applied", "dismissed"]
+
+
 class ComponentImageMutationRequest(BaseModel):
     asset_id: UUID
     purpose: str = Field(min_length=1, max_length=40)
@@ -337,6 +356,21 @@ class ComponentHistoryEntryResponse(BaseModel):
 
 class ComponentHistoryResponse(BaseModel):
     items: list[ComponentHistoryEntryResponse]
+    total: int
+
+
+class CorrectionProposalResponse(BaseModel):
+    id: str
+    component_id: str
+    author_display_name: str
+    message: str
+    status: CorrectionProposalStatus
+    created_at: datetime
+    resolved_at: datetime | None
+
+
+class CorrectionProposalListResponse(BaseModel):
+    items: list[CorrectionProposalResponse]
     total: int
 
 
@@ -482,6 +516,18 @@ def history_response(item: ComponentHistoryEntry) -> ComponentHistoryEntryRespon
         summary=item.summary,
         actor_display_name=item.actor_display_name,
         occurred_at=item.occurred_at,
+    )
+
+
+def correction_proposal_response(item: CorrectionProposal) -> CorrectionProposalResponse:
+    return CorrectionProposalResponse(
+        id=str(item.id),
+        component_id=str(item.component_id),
+        author_display_name=item.author_display_name,
+        message=item.message,
+        status=item.status,
+        created_at=item.created_at,
+        resolved_at=item.resolved_at,
     )
 
 
@@ -661,6 +707,41 @@ async def public_component(
         raise HTTPException(404, detail={"code": "component_not_found"}) from error
 
 
+@public_router.post(
+    "/components/{component_id}/correction-proposals",
+    response_model=CorrectionProposalResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def propose_component_correction(
+    component_id: UUID,
+    payload: CorrectionProposalRequest,
+    actor: Annotated[Principal, Depends(correction_proposer)],
+    _: Annotated[Principal, Depends(csrf_principal)],
+    session: Annotated[AsyncSession, Depends(database_session)],
+) -> CorrectionProposalResponse:
+    try:
+        proposal = await CatalogService(session).propose_correction(
+            component_id,
+            payload.message,
+            actor.user_id,
+        )
+        await AuthRepository(session).audit(
+            now=datetime.now(UTC),
+            actor_user_id=actor.user_id,
+            action="component.correction_proposed",
+            object_type="correction_proposal",
+            object_id=proposal.id,
+            request_id=current_request_id(),
+            outcome="success",
+            details={"component_id": str(component_id)},
+        )
+        await session.commit()
+        return correction_proposal_response(proposal)
+    except (CatalogError, IntegrityError) as error:
+        await session.rollback()
+        raise _error(error) from error
+
+
 async def _commit(session: AsyncSession, action: str, actor: Principal, card: CatalogCard) -> None:
     await session.flush()
     revision = await session.scalar(
@@ -801,6 +882,65 @@ async def component_history(
         return ComponentHistoryResponse(items=responses, total=len(responses))
     except CatalogError as error:
         raise HTTPException(404, detail={"code": "component_not_found"}) from error
+
+
+@router.get(
+    "/components/{component_id}/correction-proposals",
+    response_model=CorrectionProposalListResponse,
+)
+async def component_correction_proposals(
+    component_id: UUID,
+    actor: Annotated[Principal, Depends(editor)],
+    session: Annotated[AsyncSession, Depends(database_session)],
+) -> CorrectionProposalListResponse:
+    try:
+        items = await CatalogService(session).correction_proposals(
+            component_id,
+            actor.user_id,
+            can_view_all=Permission.AUDIT_VIEW in actor.permissions,
+        )
+        responses = [correction_proposal_response(item) for item in items]
+        return CorrectionProposalListResponse(items=responses, total=len(responses))
+    except CatalogError as error:
+        raise HTTPException(404, detail={"code": "component_not_found"}) from error
+
+
+@router.post(
+    "/components/{component_id}/correction-proposals/{proposal_id}/resolve",
+    response_model=CorrectionProposalResponse,
+)
+async def resolve_component_correction_proposal(
+    component_id: UUID,
+    proposal_id: UUID,
+    payload: CorrectionProposalDecisionRequest,
+    actor: Annotated[Principal, Depends(editor)],
+    _: Annotated[Principal, Depends(csrf_principal)],
+    session: Annotated[AsyncSession, Depends(database_session)],
+) -> CorrectionProposalResponse:
+    try:
+        decision = CorrectionProposalStatus(payload.decision)
+        proposal = await CatalogService(session).resolve_correction_proposal(
+            component_id,
+            proposal_id,
+            decision,
+            actor.user_id,
+            can_resolve_all=Permission.AUDIT_VIEW in actor.permissions,
+        )
+        await AuthRepository(session).audit(
+            now=datetime.now(UTC),
+            actor_user_id=actor.user_id,
+            action=f"component.correction_{decision.value}",
+            object_type="correction_proposal",
+            object_id=proposal.id,
+            request_id=current_request_id(),
+            outcome="success",
+            details={"component_id": str(component_id), "status": decision.value},
+        )
+        await session.commit()
+        return correction_proposal_response(proposal)
+    except (CatalogError, IntegrityError) as error:
+        await session.rollback()
+        raise _error(error) from error
 
 
 @router.post("/components", response_model=ComponentResponse, status_code=status.HTTP_201_CREATED)

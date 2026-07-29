@@ -49,7 +49,12 @@ EDITOR_PERMISSIONS = frozenset(
 )
 ROLE_MATRIX = {
     Role.STUDENT: frozenset({Permission.COMPONENTS_VIEW}),
-    Role.TEACHER: frozenset({Permission.COMPONENTS_VIEW}),
+    Role.TEACHER: frozenset(
+        {
+            Permission.COMPONENTS_VIEW,
+            Permission.COMPONENTS_PROPOSE_CORRECTION,
+        }
+    ),
     Role.EDITOR: EDITOR_PERMISSIONS,
     Role.ADMINISTRATOR: frozenset(Permission),
 }
@@ -105,7 +110,9 @@ async def test_permission_dependency_requires_every_declared_capability() -> Non
 
 
 def test_multiple_roles_receive_only_the_union_of_server_mapping() -> None:
-    assert permissions_for_roles(frozenset({Role.TEACHER, Role.EDITOR})) == EDITOR_PERMISSIONS
+    assert permissions_for_roles(frozenset({Role.TEACHER, Role.EDITOR})) == (
+        EDITOR_PERMISSIONS | frozenset({Permission.COMPONENTS_PROPOSE_CORRECTION})
+    )
 
 
 async def test_csrf_is_bound_to_session_and_double_submit() -> None:

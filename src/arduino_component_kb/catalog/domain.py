@@ -96,6 +96,23 @@ class CodeExampleVisibility(StrEnum):
     TEACHER = "teacher"
 
 
+class CorrectionProposalStatus(StrEnum):
+    OPEN = "open"
+    APPLIED = "applied"
+    DISMISSED = "dismissed"
+
+
+@dataclass(frozen=True, slots=True)
+class CorrectionProposal:
+    id: UUID
+    component_id: UUID
+    author_display_name: str
+    message: str
+    status: CorrectionProposalStatus
+    created_at: datetime
+    resolved_at: datetime | None
+
+
 @dataclass(frozen=True, slots=True)
 class CategoryItem:
     id: UUID

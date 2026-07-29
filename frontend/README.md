@@ -42,12 +42,17 @@ optional typed contracts `CatalogMedia`, `SourceAttribution` и `ContentProvenan
 ## Editorial workspace contract
 
 Маршруты `/admin`, `/admin/components`, `/admin/components/new` и
-`/admin/components/:id/edit` доступны teacher/administrator как UX. Frontend ожидает:
+`/admin/components/:id/edit` доступны editor/administrator по серверным permissions. Teacher
+остаётся в опубликованном каталоге и может отправить отдельное предложение исправления. Frontend
+ожидает:
 
 - `GET /api/v1/workspace/components`;
 - `GET /api/v1/workspace/categories`;
 - `GET|PUT /api/v1/workspace/components/{id}`;
+- `GET /api/v1/workspace/components/{id}/correction-proposals`;
 - `POST /api/v1/workspace/components`;
+- `POST /api/v1/catalog/components/{id}/correction-proposals`;
+- `POST /api/v1/workspace/components/{id}/correction-proposals/{proposal_id}/resolve`;
 - `POST /api/v1/workspace/components/{id}/publish`;
 - `POST /api/v1/workspace/components/{id}/archive`.
 

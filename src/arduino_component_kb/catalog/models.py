@@ -84,6 +84,49 @@ class ComponentRevision(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+class ComponentCorrectionProposal(Base):
+    __tablename__ = "component_correction_proposals"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('open','applied','dismissed')",
+            name="ck_component_correction_proposals_status",
+        ),
+        CheckConstraint(
+            "char_length(message) BETWEEN 10 AND 4000",
+            name="ck_component_correction_proposals_message",
+        ),
+        CheckConstraint(
+            "(status = 'open' AND resolved_by IS NULL AND resolved_at IS NULL) OR "
+            "(status IN ('applied','dismissed') AND resolved_by IS NOT NULL "
+            "AND resolved_at IS NOT NULL)",
+            name="ck_component_correction_proposals_resolution",
+        ),
+        Index(
+            "ix_component_correction_proposals_component_status_created",
+            "component_id",
+            "status",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    component_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("components.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    author_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    resolved_by: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT")
+    )
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class ComponentAlias(Base):
     __tablename__ = "component_aliases"
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)

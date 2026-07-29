@@ -45,6 +45,7 @@ explicit publication.
   brute-force throttling;
 - immutable published revisions and optimistic conflict handling;
 - immutable card history with authorship, state transitions and owner-scoped editor access;
+- teacher correction proposals that never mutate a published card directly;
 - private MinIO image/video storage with presigned uploads and PostgreSQL metadata;
 - MIME/magic-byte validation, Pillow image variants, SHA-256/pHash and FFmpeg H.264/AAC
   renditions with posters;
@@ -86,6 +87,7 @@ separate administrator decision.
 | Action | Student | Teacher | Editor | Administrator |
 |---|:---:|:---:|:---:|:---:|
 | Browse published cards | Yes | Yes | Yes | Yes |
+| Propose a correction | No | Yes | No | Yes |
 | Create, edit and archive drafts | No | No | Yes | Yes |
 | Submit a draft for review | No | No | Yes | Yes |
 | Request changes or approve | No | No | No | Yes |
@@ -226,7 +228,7 @@ PostgreSQL/MinIO integration tests and container contract/build jobs on every pu
 | `/health`, `/ready` | Process liveness and bounded PostgreSQL readiness |
 | `/api/v1/auth/*` | Login, current backend-resolved principal and logout |
 | `/api/v1/catalog/*` | Published student catalogue and source registry |
-| `/api/v1/workspace/*` | Teacher/administrator card and category workspace |
+| `/api/v1/workspace/*` | Editor/administrator card and category workspace |
 | `/api/v1/media/*` | Private upload reservation, completion and processing status |
 | `/api/v1/import-jobs*` | Ownership-scoped component uploads, preview, retry and cancellation |
 | `/api/v1/admin/*` | Users, technical diagnostics and duplicate decisions |
@@ -244,6 +246,7 @@ enable it merely to bypass production access controls.
 - [Security controls](docs/SECURITY.md)
 - [Threat model](docs/THREAT_MODEL.md)
 - [Testing](docs/TESTING.md)
+- [Manual acceptance for 1.0.0](docs/RELEASE_1.0.0_MANUAL_ACCEPTANCE.md)
 - [Data licensing](docs/DATA_LICENSING.md)
 - [Third-party notices](THIRD_PARTY_NOTICES.md)
 - [Corporate Ubuntu deployment](docs/DEPLOYMENT.md)
@@ -270,8 +273,9 @@ under PolyForm by inclusion in this application.
 
 Arduino Component Knowledge Base — самостоятельная образовательная web-платформа для ведения
 проверенного каталога Arduino-совместимых плат, датчиков, исполнительных устройств, дисплеев и
-других компонентов. Студенты читают опубликованные материалы, преподаватели готовят черновики,
-администраторы управляют пользователями, решениями по дубликатам и фоновыми задачами.
+других компонентов. Студенты читают опубликованные материалы, преподаватели предлагают
+исправления, временные редакторы готовят черновики, а администраторы управляют пользователями,
+решениями по дубликатам и фоновыми задачами.
 
 Текущая версия — **0.21.0**. Backend, frontend, workers, миграции, media storage и reverse proxy
 собираются в единый рабочий Docker Compose-контур. Новая база намеренно содержит категории и
@@ -290,6 +294,7 @@ Arduino Component Knowledge Base — самостоятельная образо
 - неизменяемые опубликованные revisions и optimistic conflict handling;
 - неизменяемая история карточек с авторами, переходами состояний и доступом редактора только
   к своим карточкам;
+- предложения исправлений от преподавателей без прямого изменения опубликованной карточки;
 - private MinIO для изображений и видео, presigned upload и metadata в PostgreSQL;
 - MIME/magic bytes, Pillow variants, SHA-256/pHash, FFmpeg H.264/AAC rendition и poster;
 - Redis + Dramatiq с durable status/progress, retry/backoff и idempotency;
@@ -329,6 +334,7 @@ Parser не может публиковать карточку, а duplicate mer
 | Действие | Student | Teacher | Editor | Administrator |
 |---|:---:|:---:|:---:|:---:|
 | Просмотр опубликованных карточек | Да | Да | Да | Да |
+| Предложение исправления | Нет | Да | Нет | Да |
 | Создание, изменение и архивирование draft | Нет | Нет | Да | Да |
 | Отправка draft на проверку | Нет | Нет | Да | Да |
 | Возврат на доработку и approval | Нет | Нет | Нет | Да |
@@ -484,6 +490,7 @@ Interactive API documentation по умолчанию выключена. Лок
 - [Контроли безопасности](docs/SECURITY.md)
 - [Модель угроз](docs/THREAT_MODEL.md)
 - [Тестирование](docs/TESTING.md)
+- [Ручная приёмка 1.0.0](docs/RELEASE_1.0.0_MANUAL_ACCEPTANCE.md)
 - [Лицензирование данных](docs/DATA_LICENSING.md)
 - [Уведомления о сторонних материалах](THIRD_PARTY_NOTICES.md)
 - [Развёртывание в Ubuntu](docs/DEPLOYMENT.md)

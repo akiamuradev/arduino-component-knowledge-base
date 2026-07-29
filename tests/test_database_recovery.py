@@ -20,11 +20,13 @@ def test_backup_is_private_validated_and_has_a_data_manifest() -> None:
         "'roles'",
         "'components'",
         "'component_revisions'",
+        "'component_correction_proposals'",
         "'audit_events'",
     ):
         assert protected_data in manifest
     assert "password_hash" not in manifest
     assert "login" not in manifest
+    assert "message" not in manifest
 
 
 def test_restore_refuses_a_production_target_and_verifies_critical_data() -> None:
@@ -35,13 +37,14 @@ def test_restore_refuses_a_production_target_and_verifies_critical_data() -> Non
     assert "cmp --silent" in restore
     assert "database-restore-migrate" in restore
     assert "database-permissions" in restore
+    assert "revision/correction history" in restore
     assert "production database was not changed" in restore
 
 
 def test_recovery_drill_covers_clean_install_previous_head_and_restore() -> None:
     drill = (ROOT / "scripts" / "database_restore_smoke.sh").read_text(encoding="utf-8")
     assert "20260729_25" in drill
-    assert "20260729_26 (head)" in drill
+    assert "20260729_27 (head)" in drill
     assert "database_backup.sh" in drill
     assert "database_restore.sh" in drill
     assert "recovery-drill-seed.sql" in drill

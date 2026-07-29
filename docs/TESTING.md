@@ -155,7 +155,8 @@ production Compose и выполняет `nginx -t` с одноразовым т
 Compose project он применяет всю Alembic chain на чистую базу, отдельно обновляет предыдущий
 head `20260729_25` до текущего, создаёт PostgreSQL dump и восстанавливает его в
 `ackb_restore_drill`. Manifest доказывает сохранность тестовых пользователя, роли, карточки,
-revision history и audit event. Скрипт удаляет тестовые базы, volumes и временные credentials.
+revision history, предложения исправления и audit event. Скрипт удаляет тестовые базы, volumes
+и временные credentials.
 
 Этап 20 добавляет `scripts/clean_stack_smoke.sh`: отдельный Compose project запускает всё
 приложение на чистых volumes, подтверждает пустые business tables, Alembic head и HTTP readiness,
@@ -163,3 +164,8 @@ revision history и audit event. Скрипт удаляет тестовые б
 завершения всех пяти jobs и не принимает skipped/cancelled как зелёный результат. Полная матрица,
 ручные проверки и известные ограничения зафиксированы в
 [`RELEASE_1.0.0_QUALITY_REPORT.md`](RELEASE_1.0.0_QUALITY_REPORT.md).
+
+Этап 21 дополняет автоматическую матрицу исполняемым сценарием
+[`RELEASE_1.0.0_MANUAL_ACCEPTANCE.md`](RELEASE_1.0.0_MANUAL_ACCEPTANCE.md): отдельные сессии
+student/teacher/editor/administrator, teacher correction proposal без прямого edit, lifecycle
+карточки, темы, 320 px, защищённые API и обязательная проверка editor grant до и после истечения.

@@ -75,6 +75,7 @@ warning и failure содержат безопасный code без raw documen
 | Действие | `student` | `teacher` | `editor` | `administrator` |
 |---|:---:|:---:|:---:|:---:|
 | Читать опубликованный каталог и разрешённые медиа | Да | Да | Да | Да |
+| Предлагать исправление опубликованной карточки | Нет | Да | Нет | Да |
 | Читать draft и историю своего импорта | Нет | Нет | Да | Да |
 | Создавать и редактировать draft вручную | Нет | Нет | Да | Да |
 | Запускать parser для allowlisted источника | Нет | Нет | Да | Да |
@@ -86,7 +87,8 @@ warning и failure содержат безопасный code без raw documen
 | Управлять пользователями, ролями, источниками и категориями | Нет | Нет | Нет | Да |
 | Читать security audit и диагностику | Нет | Нет | Нет | Да |
 
-Permissions задаются единым backend enum: `components.view`, `components.create`,
+Permissions задаются единым backend enum: `components.view`,
+`components.propose_correction`, `components.create`,
 `components.edit`, `components.archive`, `components.delete`,
 `components.submit_for_review`, `components.review`, `components.publish`,
 `imports.view`, `imports.create`, `imports.retry`, `imports.cancel`, `users.view`,
@@ -130,10 +132,17 @@ REQ-AUTH-009. Русский экран `/admin/audit` и `GET /api/v1/admin/aud
 внутренние details. Фильтры по точному пользователю, действию и полуинтервалу дат выполняются
 на backend; выдача ограничена и отсортирована от новых событий к старым.
 
+REQ-AUTH-010. Teacher имеет отдельное разрешение `components.propose_correction`: bounded
+plain-text предложение длиной 10–4000 символов принимается только для published projection,
+требует CSRF и хранится отдельно от содержимого карточки. Student не создаёт предложение,
+teacher не получает `components.edit`. Автор карточки с editor grant либо administrator может
+однократно отметить предложение `applied` или `dismissed`; создание и решение журналируются.
+
 Журнал покрывает вход, выход и ограниченные rate-limit политикой неудачные входы; создание и
 блокировку пользователя; назначение, отзыв и изменение срока роли; создание, изменение,
-переход состояния, публикацию и архивирование карточки; физическую retention-очистку; загрузку
-компонента и файлов; повторную обработку; изменение категорий как системных настроек. Пароли,
+переход состояния, публикацию и архивирование карточки; предложение исправления и решение по
+нему; физическую retention-очистку; загрузку компонента и файлов; повторную обработку; изменение
+категорий как системных настроек. Пароли,
 cookies, raw tokens, throttle keys, client address, presigned URL и содержимое документов не
 сохраняются.
 

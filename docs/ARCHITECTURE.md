@@ -162,6 +162,17 @@ fallback scraper нет.
    administrator — все.
 9. Parser по-прежнему может создать только draft; UI не содержит автоматического merge.
 
+### Предложение исправления
+
+1. Teacher читает immutable published projection и отправляет plain-text замечание длиной
+   10–4000 символов. Endpoint требует отдельное `components.propose_correction` и CSRF.
+2. PostgreSQL сохраняет замечание отдельно от карточки со статусом `open`; опубликованная и
+   рабочая revisions не изменяются.
+3. Автор карточки с `components.edit` либо administrator видит предложение во вкладке
+   «Предложения» и однократно переводит его в `applied` или `dismissed`.
+4. Создание и решение фиксируются в audit; student не видит форму, teacher не получает
+   workspace, а прямой вызов editor API остаётся `403`.
+
 ### Импорт URL
 
 1. Editor или administrator вызывает `POST /api/v1/import-jobs` с одним URL и idempotency key.
@@ -256,7 +267,7 @@ published snapshot. На publication backend копирует source/license dat
 
 ### Upload и обработка медиа
 
-1. Teacher создаёт upload session; backend проверяет quota и возвращает generated object key.
+1. Editor создаёт upload session; backend проверяет quota и возвращает generated object key.
 2. Client загружает original в private quarantine через короткий presigned PUT. Backend
    преобразует внутренний MinIO URL в same-origin `/media-storage/...`; reverse proxy удаляет
    этот prefix, восстанавливает подписанный `Host: minio:9000` и передаёт запрос в private
