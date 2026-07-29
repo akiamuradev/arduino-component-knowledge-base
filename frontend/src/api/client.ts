@@ -8,7 +8,7 @@ import type {
   CatalogComponentListResponse,
   Category,
   ComponentCard,
-  ComponentDraftInput,
+  ComponentCreateInput,
   ComponentHistoryResponse,
   CorrectionProposal,
   CorrectionProposalListResponse,
@@ -347,7 +347,7 @@ export const api = {
         csrf: true,
       },
     ),
-  createComponentDraft: (input: ComponentDraftInput): Promise<ComponentCard> =>
+  createComponentDraft: (input: ComponentCreateInput): Promise<ComponentCard> =>
     apiRequest<ComponentCard>("/workspace/components", {
       method: "POST",
       body: JSON.stringify(input),

@@ -128,7 +128,7 @@ current_revision="$(
   ACKB_RESTORE_DATABASE="$UPGRADE_DATABASE" docker compose "${COMPOSE_ARGUMENTS[@]}" run \
     --quiet-pull --rm --no-deps database-restore-migrate alembic current
 )"
-grep -q '20260729_27 (head)' <<<"$current_revision"
+grep -q '20260729_28 (head)' <<<"$current_revision"
 database_psql "$UPGRADE_DATABASE" \
   --file /dev/stdin \
   <"$ROOT_DIR/deploy/postgres/upgrade-drill-signature.sql" >"$POST_UPGRADE_SIGNATURE"

@@ -46,6 +46,11 @@ interface TestMedia {
   }[];
 }
 
+interface CreatePayload {
+  images: Pick<TestMedia, "asset_id" | "purpose" | "alt_text" | "caption">[];
+  primary_asset_id: string | null;
+}
+
 test("multiple-image draft, upload, publication and immutable public snapshot", async ({
   context,
   page,
@@ -61,6 +66,8 @@ test("multiple-image draft, upload, publication and immutable public snapshot", 
   let liveMedia: TestMedia[] = [];
   let publishedMedia: TestMedia[] = [];
   let publicPayload = "";
+  let draftCreated = false;
+  let createPayload: CreatePayload | null = null;
 
   const workspaceCard = () => ({
     id: componentId,
@@ -94,7 +101,7 @@ test("multiple-image draft, upload, publication and immutable public snapshot", 
   const mediaAsset = (item: TestMedia) => ({
     id: item.asset_id,
     kind: item.kind,
-    component_id: componentId,
+    component_id: draftCreated ? componentId : null,
     purpose: item.purpose,
     alt_text: item.alt_text,
     caption: item.caption,
@@ -194,6 +201,8 @@ test("multiple-image draft, upload, publication and immutable public snapshot", 
     if (path === "/api/v1/workspace/categories") return json(route, [category]);
     if (path === "/api/v1/catalog/categories") return json(route, [category]);
     if (path === "/api/v1/workspace/components" && request.method() === "POST") {
+      createPayload = request.postDataJSON() as CreatePayload;
+      draftCreated = true;
       revision = 1;
       status = "draft";
       return json(route, workspaceCard(), 201);
@@ -205,6 +214,8 @@ test("multiple-image draft, upload, publication and immutable public snapshot", 
       const payload = request.postDataJSON() as {
         alt_text: string;
         purpose: string;
+        component_id: string | null;
+        component_revision: number | null;
       };
       const assetId = assetIds[liveMedia.length];
       liveMedia.push({
@@ -220,13 +231,14 @@ test("multiple-image draft, upload, publication and immutable public snapshot", 
         height: null,
         variants: [],
       });
-      revision += 1;
+      const attached = payload.component_id !== null;
+      if (attached) revision += 1;
       return json(route, {
         asset_id: assetId,
         upload_url: `/media-storage/quarantine/${assetId}?signed=upload`,
         upload_headers: { "Content-Type": "image/png" },
         expires_at: "2026-07-27T14:00:00Z",
-        component_revision: revision,
+        component_revision: attached ? revision : null,
       }, 201);
     }
     const complete = /^\/api\/v1\/media\/images\/([^/]+)\/complete$/.exec(path);
@@ -311,6 +323,14 @@ test("multiple-image draft, upload, publication and immutable public snapshot", 
   });
 
   await page.goto("/admin/components/new");
+  await page.getByLabel("Добавить изображения").setInputFiles([
+    { name: "front.png", mimeType: "image/png", buffer: Buffer.from("front") },
+    { name: "back.png", mimeType: "image/png", buffer: Buffer.from("back") },
+  ]);
+  await expect(page.getByText("2 / 12")).toBeVisible();
+  await expect(page.getByText("Готово")).toHaveCount(2);
+  await expect(page.getByText(/Фото уже загружены/)).toBeVisible();
+
   await page.getByLabel("Название", { exact: true }).fill("Датчик с двумя изображениями");
   await page.getByLabel("Адрес страницы").fill("multi-image-sensor");
   await page.getByLabel("Аннотация").fill(
@@ -321,15 +341,11 @@ test("multiple-image draft, upload, publication and immutable public snapshot", 
   );
   await page.getByRole("button", { name: "Сохранить черновик" }).click();
   await expect(page).toHaveURL(new RegExp(`/admin/components/${componentId}/edit$`));
-  await expect(page.getByText("Изображений пока нет. Это не мешает сохранять черновик."))
-    .toBeVisible();
-
-  await page.getByLabel("Добавить изображения").setInputFiles([
-    { name: "front.png", mimeType: "image/png", buffer: Buffer.from("front") },
-    { name: "back.png", mimeType: "image/png", buffer: Buffer.from("back") },
-  ]);
-  await expect(page.getByText("2 / 12")).toBeVisible();
-  await expect(page.getByText("Готово")).toHaveCount(2);
+  const submittedCreatePayload = createPayload as CreatePayload | null;
+  expect(submittedCreatePayload).not.toBeNull();
+  if (submittedCreatePayload === null) throw new Error("Draft creation was not requested");
+  expect(submittedCreatePayload.images.map((item) => item.asset_id)).toEqual(assetIds);
+  expect(submittedCreatePayload.primary_asset_id).toBe(assetIds[0]);
   await page.getByLabel("Альтернативный текст изображения 1").fill("Вид спереди");
   await page.getByLabel("Подпись изображения 1").fill("Передняя сторона");
   await page.getByLabel("Альтернативный текст изображения 2").fill("Вид сзади");
@@ -337,13 +353,13 @@ test("multiple-image draft, upload, publication and immutable public snapshot", 
   await page.getByLabel("Основное изображение 2").check();
   await page.getByRole("button", { name: "Переместить изображение 2 выше" }).click();
   await page.getByRole("button", { name: "Сохранить изображения" }).click();
-  await expect(page.getByText("Версия 4")).toBeVisible();
+  await expect(page.getByText("Версия 2")).toBeVisible();
   await page.getByRole("button", { name: "Отправить на проверку" }).click();
-  await expect(page.getByText("Версия 5")).toBeVisible();
+  await expect(page.getByText("Версия 3")).toBeVisible();
   await page.getByRole("button", { name: "Одобрить" }).click();
-  await expect(page.getByText("Версия 6")).toBeVisible();
+  await expect(page.getByText("Версия 4")).toBeVisible();
   await page.getByRole("button", { name: "Опубликовать" }).click();
-  await expect(page.getByText("Версия 7")).toBeVisible();
+  await expect(page.getByText("Версия 5")).toBeVisible();
 
   await page.goto("/components/multi-image-sensor");
   await expect(page.getByRole("img", { name: "Вид сзади" })).toBeVisible();
@@ -356,7 +372,7 @@ test("multiple-image draft, upload, publication and immutable public snapshot", 
   await page.goto(`/admin/components/${componentId}/edit`);
   await page.getByRole("button", { name: "Переместить изображение 2 выше" }).click();
   await page.getByRole("button", { name: "Сохранить изображения" }).click();
-  await expect(page.getByText("Версия 8")).toBeVisible();
+  await expect(page.getByText("Версия 6")).toBeVisible();
   expect(liveMedia.map((item) => item.asset_id)).not.toEqual(publishedOrder);
 
   await page.goto("/components/multi-image-sensor");

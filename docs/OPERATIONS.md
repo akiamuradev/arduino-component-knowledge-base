@@ -118,7 +118,7 @@ $compose run --rm --no-deps database-permissions
 $compose run --rm --no-deps migrate alembic current
 ```
 
-Для ACKB 1.0.0 ожидается единственный `20260729_27 (head)`. `Exited (0)` у одноразовых
+Для ACKB 1.0.0 ожидается единственный `20260729_28 (head)`. `Exited (0)` у одноразовых
 `migrate`, `database-permissions`, `minio-identity-init` и `media-init` означает успех.
 
 Не запускайте ORM `create_all`, не меняйте таблицы вручную и не отмечайте Alembic revision через

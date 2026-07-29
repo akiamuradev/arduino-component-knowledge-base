@@ -12,7 +12,13 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from arduino_component_kb.api.catalog import DraftRequest, UpdateRequest, _commit, editor
+from arduino_component_kb.api.catalog import (
+    CreateDraftRequest,
+    DraftRequest,
+    UpdateRequest,
+    _commit,
+    editor,
+)
 from arduino_component_kb.auth.domain import Principal, Role
 from arduino_component_kb.auth.models import AuditEvent
 from arduino_component_kb.catalog.domain import (
@@ -55,6 +61,33 @@ def test_draft_rejects_raw_html() -> None:
             difficulty="beginner",
             manual_original=True,
         )
+
+
+def test_create_request_accepts_incomplete_manual_draft_and_staged_images() -> None:
+    asset_id = uuid4()
+    payload = CreateDraftRequest(
+        primary_category_id=uuid4(),
+        title="",
+        summary="",
+        description="",
+        difficulty="beginner",
+        manual_original=True,
+        images=[
+            {
+                "asset_id": asset_id,
+                "purpose": "product",
+                "alt_text": "Фото компонента",
+            }
+        ],
+        primary_asset_id=asset_id,
+    )
+
+    draft = payload.domain()
+    assert draft.slug == ""
+    assert draft.title == ""
+    assert draft.summary == ""
+    assert draft.description == ""
+    assert payload.images[0].domain().asset_id == asset_id
 
 
 def test_update_revision_is_not_part_of_draft_content() -> None:

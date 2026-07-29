@@ -24,12 +24,12 @@ from arduino_component_kb.catalog.domain import (
     DraftData,
     RevisionConflictError,
 )
-from arduino_component_kb.catalog.models import Category, ComponentRevision
+from arduino_component_kb.catalog.models import Category, Component, ComponentRevision
 from arduino_component_kb.catalog.service import CatalogService
 from arduino_component_kb.config import Settings
 from arduino_component_kb.db import Database
 from arduino_component_kb.media.domain import ComponentImageMutation, MediaKind
-from arduino_component_kb.media.models import MediaVariant
+from arduino_component_kb.media.models import MediaAsset, MediaVariant
 from arduino_component_kb.media.repository import MediaRepository
 from arduino_component_kb.media.service import MediaService
 from arduino_component_kb.media.storage import MediaStorage
@@ -65,6 +65,125 @@ def _actor(user_id: UUID) -> Principal:
         csrf_hash="integration",
         expires_at=datetime.max.replace(tzinfo=UTC),
     )
+
+
+async def test_incomplete_draft_atomically_attaches_preuploaded_image(
+    integration_settings: Settings,
+) -> None:
+    database = Database(integration_settings)
+    try:
+        async with database.sessions() as session:
+            transaction = await session.begin()
+            now = datetime.now(UTC)
+            user_id = uuid4()
+            category_id = uuid4()
+            suffix = uuid4().hex
+            session.add_all(
+                (
+                    User(
+                        id=user_id,
+                        login=f"staged-image-{suffix}",
+                        display_name="Staged image editor",
+                        password_hash=f"integration-{suffix}",
+                        status="active",
+                        created_at=now,
+                        updated_at=now,
+                        last_login_at=None,
+                    ),
+                    Category(
+                        id=category_id,
+                        key=f"staged-image-{suffix}",
+                        name="Staged images",
+                        description=None,
+                        parent_id=None,
+                        position=8999,
+                        is_active=True,
+                    ),
+                )
+            )
+            await session.flush()
+
+            storage = Mock(spec=MediaStorage)
+            storage.presigned_put = AsyncMock(return_value="https://storage.invalid/staged")
+            media = MediaService(
+                MediaRepository(session),
+                AuthRepository(session),
+                storage,
+                integration_settings,
+            )
+            reservation = await media.reserve_upload(
+                actor=_actor(user_id),
+                kind=MediaKind.IMAGE,
+                component_id=None,
+                component_revision=None,
+                purpose="product",
+                alt_text="Component reference photo",
+                attribution=None,
+                declared_mime="image/png",
+                declared_size_bytes=100,
+                request_id=f"staged-image-{suffix}",
+            )
+            assert reservation.component_revision is None
+            asset_id = reservation.reservation.asset_id
+            staged = await session.get(MediaAsset, asset_id)
+            assert staged is not None
+            assert staged.component_id is None
+
+            catalog = CatalogService(session)
+            card = await catalog.create(
+                DraftData(
+                    slug="",
+                    title="",
+                    aliases=(),
+                    manufacturer=None,
+                    model=None,
+                    primary_category_id=category_id,
+                    tags=(),
+                    summary="",
+                    description="",
+                    purpose=None,
+                    usage_notes=None,
+                    safety_notes=None,
+                    difficulty=Difficulty.BEGINNER,
+                    teacher_notes=None,
+                    manual_original=True,
+                ),
+                user_id,
+                staged_images=(
+                    ComponentImageMutation(
+                        asset_id,
+                        "product",
+                        "Component reference photo",
+                        "Photo uploaded before the draft existed",
+                    ),
+                ),
+                primary_asset_id=asset_id,
+            )
+
+            assert card.data.slug == f"draft-{card.id.hex}"
+            assert card.data.title == ""
+            assert card.data.summary == ""
+            assert card.data.description == ""
+            assert card.revision == 1
+            assert [item.asset_id for item in card.media] == [asset_id]
+            assert card.media[0].is_primary is True
+            assert staged.component_id == card.id
+            assert staged.caption == "Photo uploaded before the draft existed"
+            component = await session.get(Component, card.id)
+            assert component is not None
+            with pytest.raises(CatalogValidationError) as incomplete:
+                await catalog.transition(
+                    card.id,
+                    card.revision,
+                    ComponentStatus.IN_REVIEW,
+                    user_id,
+                )
+            assert incomplete.value.code == "component_content_incomplete"
+            assert component.status == ComponentStatus.DRAFT.value
+
+            await transaction.rollback()
+    finally:
+        await database.dispose()
 
 
 async def test_image_aggregate_order_primary_publish_and_snapshot(

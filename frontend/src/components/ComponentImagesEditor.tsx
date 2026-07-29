@@ -52,6 +52,28 @@ function mutationPayload(images: ComponentMedia[]) {
   };
 }
 
+function stagedImage(asset: MediaAsset, position: number): ComponentMedia {
+  return {
+    asset_id: asset.id,
+    kind: asset.kind,
+    purpose: asset.purpose,
+    alt_text: asset.alt_text,
+    caption: asset.caption,
+    display_order: position,
+    is_primary: position === 0,
+    status: asset.status,
+    width: asset.width,
+    height: asset.height,
+    variants: asset.variants.map((variant) => ({
+      name: variant.name,
+      mime: variant.mime,
+      width: variant.width,
+      height: variant.height,
+      sha256: variant.sha256,
+    })),
+  };
+}
+
 function fallbackAlt(file: File): string {
   const withoutExtension = file.name.replace(/\.[^.]+$/, "");
   const normalized = withoutExtension.replace(/[_-]+/g, " ").trim();
@@ -203,10 +225,10 @@ export function ComponentImagesEditor({
 
   const upload = useMutation({
     mutationFn: async (files: File[]) => {
-      if (card === undefined) throw new Error("Сохраните черновик перед загрузкой изображений");
       let activeCard = card;
+      let stagedImages = orderedImages;
       try {
-        if (dirty) {
+        if (activeCard !== undefined && dirty) {
           const payload = mutationPayload(orderedImages);
           activeCard = await api.updateComponentImages(activeCard.id, {
             revision: activeCard.revision,
@@ -214,17 +236,17 @@ export function ComponentImagesEditor({
           });
         }
         for (const file of files) {
-          const currentCount = activeCard.media?.length ?? 0;
+          const currentCount = activeCard?.media?.length ?? stagedImages.length;
           const reservation = await api.reserveComponentImage({
-            component_id: activeCard.id,
-            component_revision: activeCard.revision,
+            component_id: activeCard?.id ?? null,
+            component_revision: activeCard?.revision ?? null,
             purpose: currentCount === 0 ? "product" : "detail",
             alt_text: fallbackAlt(file),
             attribution: null,
             declared_mime: file.type,
             declared_size_bytes: file.size,
           });
-          if (reservation.component_revision === null) {
+          if (activeCard !== undefined && reservation.component_revision === null) {
             throw new Error("Не удалось подтвердить актуальную версию карточки");
           }
           if (typeof URL.createObjectURL === "function") {
@@ -237,19 +259,32 @@ export function ComponentImagesEditor({
           }
           await uploadReservedFile(reservation, file);
           await api.completeComponentImage(reservation.asset_id);
-          activeCard = await api.getWorkspaceComponent(activeCard.id);
+          if (activeCard === undefined) {
+            const uploaded = await api.getComponentImage(reservation.asset_id);
+            stagedImages = normalizeImages([
+              ...stagedImages,
+              stagedImage(uploaded, stagedImages.length),
+            ]);
+            onChange(stagedImages);
+          } else {
+            activeCard = await api.getWorkspaceComponent(activeCard.id);
+          }
         }
         return activeCard;
       } catch (error) {
-        try {
-          onSaved(await api.getWorkspaceComponent(activeCard.id));
-        } catch {
-          // Keep the original typed upload error and let explicit reload recover.
+        if (activeCard !== undefined) {
+          try {
+            onSaved(await api.getWorkspaceComponent(activeCard.id));
+          } catch {
+            // Keep the original typed upload error and let explicit reload recover.
+          }
         }
         throw error;
       }
     },
-    onSuccess: onSaved,
+    onSuccess: (saved) => {
+      if (saved !== undefined) onSaved(saved);
+    },
   });
 
   const mutationError = persist.error ?? upload.error;
@@ -270,7 +305,7 @@ export function ComponentImagesEditor({
   const drop = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     setDragging(false);
-    if (!busy && !atLimit && card !== undefined) {
+    if (!busy && !atLimit) {
       chooseFiles(Array.from(event.dataTransfer.files));
     }
   };
@@ -311,52 +346,47 @@ export function ComponentImagesEditor({
         <span>{String(orderedImages.length)} / {String(MAX_COMPONENT_IMAGES)}</span>
       </div>
 
-      {card === undefined ? (
-        <div className="images-editor__locked">
-          <strong>Сначала сохраните черновик</strong>
-          <span>Карточку можно сохранить без изображений, а затем добавить файлы.</span>
-        </div>
-      ) : (
-        <div
-          className={`image-dropzone${dragging ? " image-dropzone--active" : ""}`}
-          onDragEnter={(event) => {
-            event.preventDefault();
-            if (!busy && !atLimit) setDragging(true);
-          }}
-          onDragLeave={() => { setDragging(false); }}
-          onDragOver={(event) => { event.preventDefault(); }}
-          onDrop={drop}
-        >
-          <input
-            accept="image/jpeg,image/png,image/webp"
-            aria-label="Добавить изображения"
-            className="sr-only"
-            disabled={busy || atLimit}
-            id="component-image-upload"
-            multiple
-            onChange={fileChange}
-            ref={inputRef}
-            type="file"
-          />
-          <span aria-hidden="true" className="image-dropzone__icon">＋</span>
-          <div>
-            <strong>{upload.isPending ? "Загружаем изображения…" : "Перетащите изображения сюда"}</strong>
-            <span>
-              {atLimit
-                ? "Достигнут лимит 12 изображений"
+      <div
+        className={`image-dropzone${dragging ? " image-dropzone--active" : ""}`}
+        onDragEnter={(event) => {
+          event.preventDefault();
+          if (!busy && !atLimit) setDragging(true);
+        }}
+        onDragLeave={() => { setDragging(false); }}
+        onDragOver={(event) => { event.preventDefault(); }}
+        onDrop={drop}
+      >
+        <input
+          accept="image/jpeg,image/png,image/webp"
+          aria-label="Добавить изображения"
+          className="sr-only"
+          disabled={busy || atLimit}
+          id="component-image-upload"
+          multiple
+          onChange={fileChange}
+          ref={inputRef}
+          type="file"
+        />
+        <span aria-hidden="true" className="image-dropzone__icon">＋</span>
+        <div>
+          <strong>{upload.isPending ? "Загружаем изображения…" : "Перетащите изображения сюда"}</strong>
+          <span>
+            {atLimit
+              ? "Достигнут лимит 12 изображений"
+              : card === undefined
+                ? "Фото можно загрузить до заполнения и сохранения черновика"
                 : "Зона загрузки остаётся доступной после добавления файлов"}
-            </span>
-          </div>
-          <button
-            className="button button--quiet"
-            disabled={busy || atLimit}
-            onClick={() => { inputRef.current?.click(); }}
-            type="button"
-          >
-            Добавить изображения
-          </button>
+          </span>
         </div>
-      )}
+        <button
+          className="button button--quiet"
+          disabled={busy || atLimit}
+          onClick={() => { inputRef.current?.click(); }}
+          type="button"
+        >
+          Добавить изображения
+        </button>
+      </div>
 
       {validationError === undefined
         ? null
@@ -488,7 +518,15 @@ export function ComponentImagesEditor({
         <option value="other">Другое</option>
       </datalist>
 
-      {card === undefined ? null : (
+      {card === undefined ? (
+        orderedImages.length === 0 ? null : (
+          <div className="images-editor__footer">
+            <span>
+              Фото уже загружены. Они прикрепятся автоматически при сохранении черновика.
+            </span>
+          </div>
+        )
+      ) : (
         <div className="images-editor__footer">
           <button
             className="button button--primary"

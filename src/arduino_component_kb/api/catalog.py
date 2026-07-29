@@ -171,13 +171,13 @@ class CodeExampleResponse(BaseModel):
 
 class DraftRequest(BaseModel):
     slug: str = Field(min_length=1, max_length=160)
-    title: str = Field(min_length=2, max_length=160)
+    title: str = Field(max_length=160)
     aliases: list[str] = Field(default_factory=list, max_length=20)
     manufacturer: str | None = Field(default=None, max_length=120)
     model: str | None = Field(default=None, max_length=120)
     primary_category_id: UUID
     tags: list[str] = Field(default_factory=list, max_length=20)
-    summary: str = Field(min_length=20, max_length=500)
+    summary: str = Field(max_length=500)
     description: str = Field(max_length=30000)
     purpose: str | None = Field(default=None, max_length=2000)
     usage_notes: str | None = Field(default=None, max_length=5000)
@@ -199,7 +199,14 @@ class DraftRequest(BaseModel):
     def domain(self) -> DraftData:
         return DraftData(
             **self.model_dump(
-                exclude={"revision", "specifications", "compatibility", "code_examples"}
+                exclude={
+                    "revision",
+                    "images",
+                    "primary_asset_id",
+                    "specifications",
+                    "compatibility",
+                    "code_examples",
+                }
             ),
             specifications=tuple(
                 item.domain(position) for position, item in enumerate(self.specifications)
@@ -255,6 +262,12 @@ class ComponentImageMutationRequest(BaseModel):
 class ComponentImagesUpdateRequest(BaseModel):
     revision: int = Field(ge=1)
     images: list[ComponentImageMutationRequest] = Field(max_length=12)
+    primary_asset_id: UUID | None = None
+
+
+class CreateDraftRequest(DraftRequest):
+    slug: str = Field(default="", max_length=160)
+    images: list[ComponentImageMutationRequest] = Field(default_factory=list, max_length=12)
     primary_asset_id: UUID | None = None
 
 
@@ -945,15 +958,23 @@ async def resolve_component_correction_proposal(
 
 @router.post("/components", response_model=ComponentResponse, status_code=status.HTTP_201_CREATED)
 async def create_component(
-    payload: DraftRequest,
+    payload: CreateDraftRequest,
     actor: Annotated[Principal, Depends(creator)],
     _: Annotated[Principal, Depends(csrf_principal)],
     session: Annotated[AsyncSession, Depends(database_session)],
 ) -> ComponentResponse:
     try:
-        card = await CatalogService(session).create(payload.domain(), actor.user_id)
+        card = await CatalogService(session).create(
+            payload.domain(),
+            actor.user_id,
+            staged_images=tuple(item.domain() for item in payload.images),
+            primary_asset_id=payload.primary_asset_id,
+        )
         await _commit(session, "component.created", actor, card)
         return response(card)
+    except ComponentMediaNotFoundError as error:
+        await session.rollback()
+        raise HTTPException(404, detail={"code": "media_not_found"}) from error
     except (CatalogError, IntegrityError) as error:
         await session.rollback()
         raise _error(error) from error

@@ -13,6 +13,7 @@ import type {
   CodeExampleVisibility,
   ComponentCompatibilityInput,
   ComponentCard,
+  ComponentCreateInput,
   ComponentDraftInput,
   ComponentHistoryEntry,
   ComponentMedia,
@@ -199,6 +200,23 @@ function toDraftInput(state: EditorState): ComponentDraftInput {
   };
 }
 
+function toCreateInput(state: EditorState): ComponentCreateInput {
+  const input = toDraftInput(state);
+  const images = [...state.images].sort(
+    (left, right) => left.display_order - right.display_order,
+  );
+  return {
+    ...input,
+    images: images.map((image) => ({
+      asset_id: image.asset_id,
+      purpose: image.purpose.trim(),
+      alt_text: image.alt_text.trim(),
+      caption: image.caption?.trim() === "" ? null : (image.caption?.trim() ?? null),
+    })),
+    primary_asset_id: images.find((image) => image.is_primary)?.asset_id ?? null,
+  };
+}
+
 function publicationProblems(state: EditorState): string[] {
   const problems: string[] = [];
   if (state.title.trim().length < 2) problems.push("название от 2 символов");
@@ -293,8 +311,8 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
 
   const save = useMutation({
     mutationFn: async () => {
+      if (mode === "new") return api.createComponentDraft(toCreateInput(state));
       const input = toDraftInput(state);
-      if (mode === "new") return api.createComponentDraft(input);
       if (workingCard === undefined) throw new Error("Для редактирования требуется загруженная карточка");
       return api.updateComponentDraft(workingCard.id, {
         ...input,
@@ -302,7 +320,7 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
       });
     },
     onSuccess: (saved) => {
-      acceptSaved(saved);
+      acceptSaved(saved, mode === "new");
       if (mode === "new") void navigate(`/admin/components/${saved.id}/edit`, { replace: true });
     },
   });
@@ -350,6 +368,7 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
     component_image_required: "добавьте хотя бы одно готовое изображение",
     component_image_not_ready: "дождитесь обработки всех изображений",
     component_primary_image_required: "выберите одно основное изображение",
+    component_content_incomplete: "заполните название, аннотацию и описание",
     lifecycle_transition_denied: "этот переход недоступен из текущего состояния",
     component_edit_locked: "карточка заблокирована на этапе проверки",
   };
@@ -475,8 +494,8 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
         ) : (
           <form className="editor-form" onSubmit={submit}>
           <fieldset><legend>Идентификация</legend><div className="form-grid">
-            <EditorField label="Название" value={state.title} maxLength={160} required onChange={(value) => { update("title", value); }} />
-            <EditorField label="Адрес страницы" value={state.slug} maxLength={160} required onChange={(value) => { update("slug", value); }} />
+            <EditorField label="Название" value={state.title} maxLength={160} onChange={(value) => { update("title", value); }} />
+            <EditorField label="Адрес страницы (создаётся автоматически)" value={state.slug} maxLength={160} onChange={(value) => { update("slug", value); }} />
             <EditorField label="Производитель" value={state.manufacturer} maxLength={120} onChange={(value) => { update("manufacturer", value); }} />
             <EditorField label="Модель" value={state.model} maxLength={120} onChange={(value) => { update("model", value); }} />
             <label>Категория<select value={state.primaryCategoryId} onChange={(event) => { update("primaryCategoryId", event.target.value); }}>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
@@ -496,8 +515,9 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
             onSaved={(saved) => { acceptSaved(saved, true); }}
           />
           <fieldset><legend>Учебное содержание</legend>
-            <EditorTextArea label="Аннотация" value={state.summary} maxLength={500} required onChange={(value) => { update("summary", value); }} />
-            <EditorTextArea label="Описание (Markdown без необработанного HTML)" value={state.description} maxLength={30000} required rows={10} onChange={(value) => { update("description", value); }} />
+            <p className="field-help">Аннотацию и описание можно оставить пустыми, пока карточка остаётся черновиком.</p>
+            <EditorTextArea label="Аннотация (необязательно для черновика)" value={state.summary} maxLength={500} onChange={(value) => { update("summary", value); }} />
+            <EditorTextArea label="Описание (Markdown без необработанного HTML)" value={state.description} maxLength={30000} rows={10} onChange={(value) => { update("description", value); }} />
             <EditorTextArea label="Назначение" value={state.purpose} maxLength={2000} onChange={(value) => { update("purpose", value); }} />
             <EditorTextArea label="Рекомендации" value={state.usageNotes} maxLength={5000} onChange={(value) => { update("usageNotes", value); }} />
             <EditorTextArea label="Безопасность" value={state.safetyNotes} maxLength={5000} onChange={(value) => { update("safetyNotes", value); }} />
@@ -558,7 +578,7 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
             {archiveConfirmation ? <><span>Архивировать карточку? Действие можно отменить.</span><button className="button button--danger" type="button" onClick={() => { lifecycle.mutate("archive"); }}>Подтвердить</button><button className="button button--quiet" type="button" onClick={() => { setArchiveConfirmation(false); }}>Отмена</button></> : null}
           </div>
           {!editable ? <p className="validation-note">Содержимое заблокировано в состоянии «{COMPONENT_STATUS_LABELS[workingCard.status]}». Используйте доступное действие.</p> : null}
-          {workingCard !== undefined && ["draft", "changes_requested", "approved"].includes(workingCard.status) && problems.length > 0 ? <p className="validation-note">Для проверки и публикации заполните: {problems.join(", ")}.</p> : null}
+          {["draft", "changes_requested", "approved"].includes(workingCard?.status ?? "draft") && problems.length > 0 ? <p className="validation-note">Черновик уже можно сохранить. Для проверки и публикации позднее заполните: {problems.join(", ")}.</p> : null}
           {workingCard !== undefined && ["draft", "changes_requested", "approved"].includes(workingCard.status) && imagesDirty ? <p className="validation-note">Перед переходом сохраните изменения изображений.</p> : null}
           </form>
         )}

@@ -54,7 +54,7 @@ database_contract="$(docker compose "${COMPOSE_ARGUMENTS[@]}" exec --no-TTY post
        (SELECT count(*) FROM component_correction_proposals),
        (SELECT version_num FROM alembic_version);"
 ')"
-if [[ "$database_contract" != "0|0|0|0|20260729_27" ]]; then
+if [[ "$database_contract" != "0|0|0|0|20260729_28" ]]; then
   printf 'ERROR: clean database contract failed: %q\n' "$database_contract" >&2
   exit 1
 fi

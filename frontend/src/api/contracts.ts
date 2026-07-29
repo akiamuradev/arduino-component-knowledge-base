@@ -168,8 +168,8 @@ export interface ComponentImagesUpdateInput {
 }
 
 export interface ImageUploadReservationInput {
-  component_id: string;
-  component_revision: number;
+  component_id: string | null;
+  component_revision: number | null;
   purpose: string;
   alt_text: string;
   attribution: string | null;
@@ -449,6 +449,11 @@ export interface ComponentDraftInput {
   specifications: TechnicalSpecificationInput[];
   compatibility: ComponentCompatibilityInput[];
   code_examples: CodeExampleInput[];
+}
+
+export interface ComponentCreateInput extends ComponentDraftInput {
+  images: ComponentImageMutationInput[];
+  primary_asset_id: string | null;
 }
 
 export interface ComponentUpdateInput extends ComponentDraftInput {

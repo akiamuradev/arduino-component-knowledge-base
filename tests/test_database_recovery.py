@@ -44,7 +44,7 @@ def test_restore_refuses_a_production_target_and_verifies_critical_data() -> Non
 def test_recovery_drill_covers_clean_install_previous_head_and_restore() -> None:
     drill = (ROOT / "scripts" / "database_restore_smoke.sh").read_text(encoding="utf-8")
     assert "20260721_16" in drill
-    assert "20260729_27 (head)" in drill
+    assert "20260729_28 (head)" in drill
     assert "database_backup.sh" in drill
     assert "database_restore.sh" in drill
     assert "recovery-drill-seed.sql" in drill
