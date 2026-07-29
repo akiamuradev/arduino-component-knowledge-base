@@ -2,6 +2,59 @@
 
 All notable changes to this project are documented here. Versions follow semantic versioning.
 
+## [1.0.0] - Unreleased
+
+### Added
+
+- Centralized server-side permissions for students, teachers, database editors and
+  administrators, with persisted role grants and expiring editor access.
+- Administrator workflows for creating and blocking users, assigning or revoking temporary
+  editor access and protecting the last active administrator account.
+- A card lifecycle covering drafts, review, requested changes, approval, publication, hiding,
+  reversible archival and restoration, with optimistic revision checks.
+- Authorship and revision history, immutable published snapshots and teacher correction
+  proposals that editors or administrators resolve separately from published content.
+- A protected, filterable action journal for authentication, role, card, import and upload
+  events, without exposing sensitive event payloads in the user interface.
+- An editor import workspace with bounded previews, source-policy validation, ownership checks
+  and explicit retry or cancellation actions.
+- Production operations documentation and repeatable PostgreSQL backup, verification, restore
+  and migration-upgrade recovery drills.
+
+### Changed
+
+- Authentication and navigation now derive the current user's roles and permissions from the
+  server; the sign-in form no longer offers a client-side role selector.
+- User-facing navigation, forms, statuses, errors and empty states are in Russian, while
+  administrative sections and actions are hidden when the server denies their permissions.
+- The theme control is an accessible menu with light, dark and system modes that persists the
+  user's choice and responds to system theme changes.
+- Production Compose configuration now uses fail-closed secret and origin validation,
+  restricted service exposure, dedicated runtime database privileges and explicit deployment
+  preflight checks.
+- The release quality gate now requires backend, frontend, integration, browser and container
+  checks, including clean installation, database upgrade and restore scenarios.
+
+### Fixed
+
+- Background-job dispatch is persisted and reconciled after broker failures so accepted work is
+  not silently lost; safe dispatch health metrics are available to administrators.
+- Uploads enforce file signatures, type and size limits, per-user and global quotas, ownership
+  boundaries and deterministic cleanup of rejected or stale objects.
+- API failures use a consistent Russian error envelope and do not return tracebacks, internal
+  service addresses or raw parser exceptions to ordinary users.
+- Catalog cards keep long titles, descriptions, tags, model values and source labels within
+  their boundaries on desktop and narrow viewports.
+
+### Security
+
+- Server endpoints enforce the permission matrix independently of the client, including
+  resource ownership, lifecycle transitions, imports, audit access and user administration.
+- Session revocation follows security-sensitive user and role changes; expired editor grants no
+  longer authorize editor actions while preserving authorship and audit history.
+- Production startup rejects placeholder credentials and unsafe deployment settings before
+  serving traffic.
+
 ## [0.21.0] - 2026-07-21
 
 ### Added
