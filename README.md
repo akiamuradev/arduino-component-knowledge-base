@@ -250,6 +250,7 @@ enable it merely to bypass production access controls.
 - [Data licensing](docs/DATA_LICENSING.md)
 - [Third-party notices](THIRD_PARTY_NOTICES.md)
 - [Corporate Ubuntu deployment](docs/DEPLOYMENT.md)
+- [Operations guide for 1.0.0](docs/OPERATIONS.md)
 - [Frontend guide](frontend/README.md)
 
 ### License
@@ -494,6 +495,7 @@ Interactive API documentation по умолчанию выключена. Лок
 - [Лицензирование данных](docs/DATA_LICENSING.md)
 - [Уведомления о сторонних материалах](THIRD_PARTY_NOTICES.md)
 - [Развёртывание в Ubuntu](docs/DEPLOYMENT.md)
+- [Эксплуатация ACKB 1.0.0](docs/OPERATIONS.md)
 - [Frontend](frontend/README.md)
 
 ### Лицензия

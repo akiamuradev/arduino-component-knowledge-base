@@ -169,3 +169,8 @@ revision history, предложения исправления и audit event. 
 [`RELEASE_1.0.0_MANUAL_ACCEPTANCE.md`](RELEASE_1.0.0_MANUAL_ACCEPTANCE.md): отдельные сессии
 student/teacher/editor/administrator, teacher correction proposal без прямого edit, lifecycle
 карточки, темы, 320 px, защищённые API и обязательная проверка editor grant до и после истечения.
+
+Этап 22 добавляет пять статических контрактов для
+[`OPERATIONS.md`](OPERATIONS.md). Они фиксируют все 13 эксплуатационных сценариев, реальные
+Compose/CLI/UI interfaces, согласованный PostgreSQL + MinIO recovery boundary, запрет опасных
+shortcut-команд и включение руководства в README/package.
