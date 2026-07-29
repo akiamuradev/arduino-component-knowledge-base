@@ -17,6 +17,10 @@ x-app-environment: &app-environment
   ACKB_FFMPEG_THREADS: ${ACKB_FFMPEG_THREADS:-2}
   ACKB_MEDIA_JOB_MAX_ATTEMPTS: ${ACKB_MEDIA_JOB_MAX_ATTEMPTS:-4}
   ACKB_MEDIA_JOB_LEASE_SECONDS: ${ACKB_MEDIA_JOB_LEASE_SECONDS:-1800}
+  ACKB_JOB_DISPATCH_BATCH_SIZE: ${ACKB_JOB_DISPATCH_BATCH_SIZE:-100}
+  ACKB_JOB_DISPATCH_INTERVAL_SECONDS: ${ACKB_JOB_DISPATCH_INTERVAL_SECONDS:-5}
+  ACKB_JOB_DISPATCH_CLAIM_LEASE_SECONDS: ${ACKB_JOB_DISPATCH_CLAIM_LEASE_SECONDS:-60}
+  ACKB_JOB_DISPATCH_STALE_SECONDS: ${ACKB_JOB_DISPATCH_STALE_SECONDS:-60}
   ACKB_MEDIA_PENDING_UPLOAD_LIMIT: ${ACKB_MEDIA_PENDING_UPLOAD_LIMIT:-5}
   ACKB_MEDIA_GLOBAL_PENDING_UPLOAD_LIMIT: ${ACKB_MEDIA_GLOBAL_PENDING_UPLOAD_LIMIT:-100}
   ACKB_MEDIA_UPLOAD_RATE_LIMIT: ${ACKB_MEDIA_UPLOAD_RATE_LIMIT:-20}
@@ -213,6 +217,32 @@ services:
     networks:
       - data
       - parser-egress
+
+  job-reconciler:
+    <<: *app-image
+    command: ["ackb-reconcile-jobs", "--loop"]
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 256m
+    cpus: "0.5"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os; os.kill(1, 0)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
   frontend:
     build:

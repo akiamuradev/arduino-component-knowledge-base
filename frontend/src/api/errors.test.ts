@@ -32,4 +32,13 @@ describe("safe user errors", () => {
       "Не удалось завершить обработку.",
     );
   });
+
+  it("explains exhausted delivery without exposing infrastructure", () => {
+    expect(processingFailureMessage("import_dispatch_exhausted")).toBe(
+      "Импорт не удалось запустить. Его можно повторить.",
+    );
+    expect(processingFailureMessage("media_dispatch_exhausted")).toBe(
+      "Обработку файла не удалось запустить. Её можно повторить.",
+    );
+  });
 });

@@ -108,6 +108,8 @@ pytest -m integration --strict-markers
   import job, без изменения job и без постановки в очередь;
 - terminal cancellation import job: worker не начинает отменённую операцию и не заменяет
   `cancelled` на `failed`;
+- transactional import/media dispatch, безопасный Redis failure, bounded delivery attempts,
+  восстановление потерянного queued message и redelivery после перезапуска worker с истёкшей lease;
 - early rejection traversal/control-character paths и неподдерживаемых repository extensions;
 - PostgreSQL-serialized active/rate quotas для import и media reservation, включая
   идемпотентный replay без повторного расходования лимита;
@@ -143,6 +145,6 @@ production Compose и выполняет `nginx -t` с одноразовым т
 
 Этап 17 добавляет `scripts/database_restore_smoke.sh`. В полностью disposable production-like
 Compose project он применяет всю Alembic chain на чистую базу, отдельно обновляет предыдущий
-head `20260728_24` до текущего, создаёт PostgreSQL dump и восстанавливает его в
+head `20260729_25` до текущего, создаёт PostgreSQL dump и восстанавливает его в
 `ackb_restore_drill`. Manifest доказывает сохранность тестовых пользователя, роли, карточки,
 revision history и audit event. Скрипт удаляет тестовые базы, volumes и временные credentials.

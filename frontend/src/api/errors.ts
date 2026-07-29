@@ -17,8 +17,10 @@ const ERROR_MESSAGES: Readonly<Record<string, string>> = {
 const PROCESSING_FAILURE_MESSAGES: Readonly<Record<string, string>> = {
   catalog_conflict: "Карточка конфликтует с уже сохранёнными данными.",
   image_magic_invalid: "Содержимое файла не соответствует формату изображения.",
+  import_dispatch_exhausted: "Импорт не удалось запустить. Его можно повторить.",
   import_processing_failed: "Не удалось обработать данные компонента.",
   media_attempts_exhausted: "Не удалось обработать файл после нескольких попыток.",
+  media_dispatch_exhausted: "Обработку файла не удалось запустить. Её можно повторить.",
   media_storage_failed: "Не удалось прочитать или сохранить файл.",
   media_storage_transient: "Хранилище файлов временно недоступно.",
   media_validation_failed: "Файл не прошёл проверку.",

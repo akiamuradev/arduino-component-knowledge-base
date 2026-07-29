@@ -31,7 +31,6 @@ from arduino_component_kb.auth.domain import Permission, Principal, Role
 from arduino_component_kb.auth.service import token_hash
 from arduino_component_kb.config import Settings
 from arduino_component_kb.imports.models import ImportJob
-from arduino_component_kb.imports.queue import ImportQueue
 from arduino_component_kb.main import create_app
 from arduino_component_kb.security import (
     CONTENT_SECURITY_POLICY,
@@ -509,7 +508,6 @@ async def test_import_retry_id_does_not_bypass_owner_check() -> None:
             actor,
             actor,
             cast(AsyncSession, session),
-            cast(ImportQueue, Mock()),
         )
     assert captured.value.status_code == 404
     assert cast(object, captured.value.detail) == {"code": "job_not_found"}

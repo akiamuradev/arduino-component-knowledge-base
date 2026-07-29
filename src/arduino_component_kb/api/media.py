@@ -30,7 +30,7 @@ from arduino_component_kb.media.domain import (
     MediaValidationError,
 )
 from arduino_component_kb.media.repository import MediaRepository
-from arduino_component_kb.media.service import MediaQueue, MediaService
+from arduino_component_kb.media.service import MediaService
 from arduino_component_kb.media.storage import MediaStorage
 
 router = APIRouter(prefix="/api/v1/media", tags=["media"])
@@ -123,10 +123,6 @@ def media_service_from_request(
         cast(MediaStorage, request.app.state.media_storage),
         cast(Settings, request.app.state.settings),
     )
-
-
-def media_queue_from_request(request: Request) -> MediaQueue:
-    return cast(MediaQueue, request.app.state.media_queue)
 
 
 async def _audit_upload_rejection(
@@ -240,7 +236,6 @@ async def confirm_upload(
     _: Annotated[Principal, Depends(csrf_principal)],
     service: Annotated[MediaService, Depends(media_service_from_request)],
     session: Annotated[AsyncSession, Depends(database_session)],
-    queue: Annotated[MediaQueue, Depends(media_queue_from_request)],
 ) -> UploadConfirmationResponse:
     error: Exception | None = None
     job_id: UUID | None = None
@@ -260,12 +255,6 @@ async def confirm_upload(
         raise HTTPException(422, detail={"code": error.code})
     if job_id is None:
         raise HTTPException(500, detail={"code": "media_job_missing"})
-    try:
-        queue.enqueue(job_id, MediaKind.IMAGE)
-    except Exception as error:
-        raise HTTPException(503, detail={"code": "media_enqueue_failed"}) from error
-    await service.repository.mark_enqueued(job_id, datetime.now(UTC))
-    await session.commit()
     response.headers["Cache-Control"] = "no-store"
     return UploadConfirmationResponse(asset_id=asset_id, job_id=job_id, status="queued")
 
@@ -425,7 +414,6 @@ async def confirm_video_upload(
     _: Annotated[Principal, Depends(csrf_principal)],
     service: Annotated[MediaService, Depends(media_service_from_request)],
     session: Annotated[AsyncSession, Depends(database_session)],
-    queue: Annotated[MediaQueue, Depends(media_queue_from_request)],
 ) -> UploadConfirmationResponse:
     error: Exception | None = None
     job_id: UUID | None = None
@@ -445,12 +433,6 @@ async def confirm_video_upload(
         raise HTTPException(422, detail={"code": error.code})
     if job_id is None:
         raise HTTPException(500, detail={"code": "media_job_missing"})
-    try:
-        queue.enqueue(job_id, MediaKind.VIDEO)
-    except Exception as queue_error:
-        raise HTTPException(503, detail={"code": "media_enqueue_failed"}) from queue_error
-    await service.repository.mark_enqueued(job_id, datetime.now(UTC))
-    await session.commit()
     response.headers["Cache-Control"] = "no-store"
     return UploadConfirmationResponse(asset_id=asset_id, job_id=job_id, status="queued")
 

@@ -336,6 +336,12 @@ correlation/request ID только в раскрываемой диагност
 6. Редакторские import/upload endpoints привязаны к `teacher`, а не к целевым permissions.
 7. Состояния и ошибки заданий показываются пользователю техническими кодами.
 
+Статус этапа 18: пункты 1–5 закрыты таблицей `job_dispatches` в той же transaction, что
+import/media job, и отдельным bounded reconciler. Очистка Redis, broker failure и истёкшая worker
+lease покрыты автоматическими тестами; duplicate delivery безопасна благодаря job UUID, row lock
+и durable state recheck. Исчерпание delivery attempts становится `failed`, а повтор требует
+явного RBAC/CSRF/audit действия.
+
 Основные файлы:
 
 - `src/arduino_component_kb/api/imports.py`

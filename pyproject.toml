@@ -35,6 +35,7 @@ ackb-validate-repository-jobs = "arduino_component_kb.imports.job_validation:mai
 ackb-shadow-import-batch = "arduino_component_kb.imports.shadow_dry_run:main"
 ackb-build-kicad-index = "arduino_component_kb.imports.pipeline.enrichment.kicad_distribution:main"
 ackb-review-metrics = "arduino_component_kb.imports.review_metrics:main"
+ackb-reconcile-jobs = "arduino_component_kb.dispatch.reconciler:main"
 
 [project.optional-dependencies]
 dev = [

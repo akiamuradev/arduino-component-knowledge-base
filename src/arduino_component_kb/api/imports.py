@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from datetime import UTC, datetime, timedelta
 from pathlib import PurePosixPath
 from typing import Annotated, Literal, cast
@@ -24,6 +23,7 @@ from arduino_component_kb.auth.models import User
 from arduino_component_kb.auth.repository import AuthRepository
 from arduino_component_kb.catalog.models import Component
 from arduino_component_kb.config import Settings
+from arduino_component_kb.dispatch.repository import DispatchRepository
 from arduino_component_kb.imports.acquisition import (
     AcquisitionPolicy,
     RepositoryAcquirer,
@@ -34,7 +34,6 @@ from arduino_component_kb.imports.adapters.repository import RepositorySourceAda
 from arduino_component_kb.imports.adapters.seeed_wiki import SeeedWikiAdapter
 from arduino_component_kb.imports.domain import SourcePolicyError
 from arduino_component_kb.imports.models import ImportJob, Source
-from arduino_component_kb.imports.queue import ImportQueue
 from arduino_component_kb.imports.repository import ImportRepository
 from arduino_component_kb.imports.repository_domain import (
     ParsedRepositoryComponent,
@@ -45,7 +44,6 @@ from arduino_component_kb.imports.urls import approve_source_url
 from arduino_component_kb.logging import current_request_id
 
 router = APIRouter(prefix="/api/v1/import-jobs", tags=["imports"])
-logger = logging.getLogger("arduino_component_kb.imports.api")
 editor = require_permissions(Permission.IMPORTS_CREATE)
 import_viewer = require_permissions(Permission.IMPORTS_VIEW)
 import_retry = require_permissions(Permission.IMPORTS_RETRY)
@@ -256,10 +254,6 @@ def _list_item(
     )
 
 
-def queue_from_request(request: Request) -> ImportQueue:
-    return cast(ImportQueue, request.app.state.import_queue)
-
-
 def _acquirer(settings: Settings) -> RepositoryAcquirer:
     return RepositoryAcquirer(
         policy=AcquisitionPolicy(
@@ -379,35 +373,6 @@ async def _audit_import_created(
     )
 
 
-async def _enqueue_import(
-    queue: ImportQueue,
-    session: AsyncSession,
-    actor: Principal,
-    job: ImportJob,
-) -> None:
-    if job.status not in {"queued", "retrying"}:
-        return
-    try:
-        queue.enqueue(job.id)
-    except Exception as error:
-        logger.exception(
-            "import_enqueue_failed",
-            extra={"import_job_id": str(job.id), "error_type": type(error).__name__},
-        )
-        await AuthRepository(session).audit(
-            now=datetime.now(UTC),
-            actor_user_id=actor.user_id,
-            action="import.job_enqueue_failed",
-            object_type="import_job",
-            object_id=job.id,
-            request_id=current_request_id(),
-            outcome="error",
-            details={"code": "import_enqueue_failed"},
-        )
-        await session.commit()
-        raise HTTPException(503, detail={"code": "import_enqueue_failed"}) from error
-
-
 def _preview_response(
     parsed: ParsedRepositoryComponent, requested_revision: str
 ) -> RepositoryPreviewResponse:
@@ -447,7 +412,6 @@ async def create_import(
     actor: Annotated[Principal, Depends(editor)],
     _: Annotated[Principal, Depends(csrf_principal)],
     session: Annotated[AsyncSession, Depends(database_session)],
-    queue: Annotated[ImportQueue, Depends(queue_from_request)],
     idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=1, max_length=160)],
 ) -> ImportJobResponse:
     try:
@@ -482,7 +446,6 @@ async def create_import(
     if created:
         await _audit_import_created(session, actor, job, kind="url")
     await session.commit()
-    await _enqueue_import(queue, session, actor, job)
     response.headers["Cache-Control"] = "no-store"
     return _response(
         job,
@@ -624,7 +587,6 @@ async def create_repository_import(
     actor: Annotated[Principal, Depends(editor)],
     _: Annotated[Principal, Depends(csrf_principal)],
     session: Annotated[AsyncSession, Depends(database_session)],
-    queue: Annotated[ImportQueue, Depends(queue_from_request)],
     idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=1, max_length=160)],
 ) -> ImportJobResponse:
     entry = _validated_entry(payload)
@@ -675,7 +637,6 @@ async def create_repository_import(
     if created:
         await _audit_import_created(session, actor, job, kind="repository")
     await session.commit()
-    await _enqueue_import(queue, session, actor, job)
     response.headers["Cache-Control"] = "no-store"
     return _response(
         job,
@@ -753,7 +714,6 @@ async def retry_import(
     actor: Annotated[Principal, Depends(import_retry)],
     _: Annotated[Principal, Depends(csrf_principal)],
     session: Annotated[AsyncSession, Depends(database_session)],
-    queue: Annotated[ImportQueue, Depends(queue_from_request)],
 ) -> ImportActionResponse:
     repository = ImportRepository(session)
     job = await _owned_job(job_id, actor, repository)
@@ -763,6 +723,13 @@ async def retry_import(
         reset = repository.prepare_manual_retry(job, now, settings.import_lock_ttl_seconds)
     except ValueError as error:
         raise HTTPException(409, detail={"code": "import_not_retryable"}) from error
+    await DispatchRepository(session).reset(
+        job_type="import",
+        job_id=job.id,
+        queue_name="imports",
+        max_attempts=job.max_attempts,
+        now=now,
+    )
     await AuthRepository(session).audit(
         now=now,
         actor_user_id=actor.user_id,
@@ -774,19 +741,6 @@ async def retry_import(
         details={"reset": reset},
     )
     await session.commit()
-    try:
-        queue.enqueue(job.id)
-    except Exception as error:
-        failure_time = datetime.now(UTC)
-        failed = await repository.get_job(job.id, lock=True)
-        if failed is not None:
-            failed.status = "failed"
-            failed.error_code = "import_enqueue_failed"
-            failed.finished_at = failure_time
-            failed.updated_at = failure_time
-            failed.heartbeat_at = failure_time
-        await session.commit()
-        raise HTTPException(503, detail={"code": "import_enqueue_failed"}) from error
     return ImportActionResponse(id=job.id, status="queued")
 
 

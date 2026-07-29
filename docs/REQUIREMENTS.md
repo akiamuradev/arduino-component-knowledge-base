@@ -279,7 +279,8 @@ reservation, подтверждение и безопасный код откл�
 1. Administrator выбирает registered source, revision и discovered file/entry. Исторический
    URL endpoint остаётся только для совместимости и отклоняет все inactive/denied sources.
 2. Backend проверяет роль и source/license policy, разрешает revision в полный commit,
-   создаёт durable import job в PostgreSQL и публикует identifier в Dramatiq через Redis.
+   создаёт durable import job и dispatch intent в одной PostgreSQL transaction. Отдельный
+   reconciler публикует identifier в Dramatiq через Redis.
 3. Worker повторно проверяет source status, repository identity и immutable revision, запускает
    ровно один repository adapter и не выполняет MDX, JavaScript, Git hooks или KiCad commands.
 4. Результат сохраняется как draft, source relation, provenance и license snapshot. Remote
@@ -299,7 +300,7 @@ REQ-IMPORT-002. Создание import job требует `imports.create`, CSR
 
 REQ-IMPORT-003. Отмена и повтор требуют отдельных `imports.cancel`/`imports.retry`; editor
 действует только над собственным job, administrator — над любым. Worker проверяет terminal
-`cancelled` перед сохранением результата. Создание, отклонение, отмена, retry и ошибка enqueue
+`cancelled` перед сохранением результата. Создание, отклонение, отмена, retry и исчерпание dispatch
 журналируются безопасными кодами без URL, path, содержимого или внутренних исключений.
 
 REQ-DEDUP-001. Exact keys: `(source_id, source_item_id)`, canonical source URL, media SHA-256
@@ -344,6 +345,12 @@ REQ-JOB-004. Обычная страница «Загрузка компонен
 REQ-JOB-005. Retry требует `imports.retry`, cancel — `imports.cancel`; обе операции повторно
 проверяют владельца на backend. Cancel разрешён только для `queued`, `running`, `retrying`,
 сохраняется как терминальный `cancelled` и не может быть перезаписан worker.
+
+REQ-JOB-006. PostgreSQL transactional dispatch хранит намерение доставки отдельно от Redis.
+Reconciler ограничивает batch, delivery lease, exponential backoff и число попыток; восстанавливает
+потерянный `queued`, due `retrying` и `running` с истёкшим heartbeat. После исчерпания задача
+становится `failed` и возобновляется только явным RBAC/CSRF/audit retry. API создания задачи не
+возвращает пользователю адрес broker, исключение Redis или технический dispatch status.
 
 ## Пользовательский интерфейс
 

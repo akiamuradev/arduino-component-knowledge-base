@@ -18,14 +18,13 @@ from arduino_component_kb.api.dependencies import (
 from arduino_component_kb.auth.domain import Permission, Principal
 from arduino_component_kb.auth.repository import AuthRepository
 from arduino_component_kb.config import Settings
+from arduino_component_kb.dispatch.repository import DispatchRepository
 from arduino_component_kb.imports.models import ImportJob
-from arduino_component_kb.imports.queue import ImportQueue
 from arduino_component_kb.imports.repository import ImportRepository
 from arduino_component_kb.logging import current_request_id
 from arduino_component_kb.media.domain import MediaJobStatus, MediaKind
 from arduino_component_kb.media.models import MediaAsset, MediaJob
 from arduino_component_kb.media.repository import MediaRepository
-from arduino_component_kb.media.service import MediaQueue
 
 router = APIRouter(prefix="/api/v1/admin/jobs", tags=["background-jobs"])
 administrator = require_permissions(Permission.SYSTEM_DIAGNOSTICS)
@@ -119,14 +118,6 @@ def job_response(job: MediaJob, asset: MediaAsset) -> JobResponse:
     )
 
 
-def queue_from_request(request: Request) -> MediaQueue:
-    return cast(MediaQueue, request.app.state.media_queue)
-
-
-def import_queue_from_request(request: Request) -> ImportQueue:
-    return cast(ImportQueue, request.app.state.import_queue)
-
-
 def import_job_response(
     job: ImportJob, now: datetime, lease_seconds: int
 ) -> ImportJobMonitorResponse:
@@ -210,7 +201,6 @@ async def retry_import_job(
     actor: Annotated[Principal, Depends(import_retry)],
     _: Annotated[Principal, Depends(csrf_principal)],
     session: Annotated[AsyncSession, Depends(database_session)],
-    queue: Annotated[ImportQueue, Depends(import_queue_from_request)],
 ) -> JobMutationResponse:
     repository = ImportRepository(session)
     audit = AuthRepository(session)
@@ -225,6 +215,13 @@ async def retry_import_job(
         reset = repository.prepare_manual_retry(job, now, settings.import_lock_ttl_seconds)
     except ValueError as error:
         raise HTTPException(409, detail={"code": "job_not_retryable"}) from error
+    await DispatchRepository(session).reset(
+        job_type="import",
+        job_id=job.id,
+        queue_name="imports",
+        max_attempts=job.max_attempts,
+        now=now,
+    )
     await audit.audit(
         now=now,
         actor_user_id=actor.user_id,
@@ -236,29 +233,6 @@ async def retry_import_job(
         details={"reset": reset},
     )
     await session.commit()
-    try:
-        queue.enqueue(job.id)
-    except Exception as error:
-        failure_time = datetime.now(UTC)
-        failed = await repository.get_job(job.id, lock=True)
-        if failed is not None:
-            failed.status = "failed"
-            failed.error_code = "import_enqueue_failed"
-            failed.finished_at = failure_time
-            failed.updated_at = failure_time
-            failed.heartbeat_at = failure_time
-        await audit.audit(
-            now=failure_time,
-            actor_user_id=actor.user_id,
-            action="import.job_enqueue_failed",
-            object_type="import_job",
-            object_id=job.id,
-            request_id=current_request_id(),
-            outcome="error",
-            details={"code": "import_enqueue_failed"},
-        )
-        await session.commit()
-        raise HTTPException(503, detail={"code": "import_enqueue_failed"}) from error
     return JobMutationResponse(id=job.id, status="queued")
 
 
@@ -268,7 +242,6 @@ async def retry_job(
     actor: Annotated[Principal, Depends(administrator)],
     _: Annotated[Principal, Depends(csrf_principal)],
     session: Annotated[AsyncSession, Depends(database_session)],
-    queue: Annotated[MediaQueue, Depends(queue_from_request)],
 ) -> JobMutationResponse:
     repository = MediaRepository(session)
     audit = AuthRepository(session)
@@ -281,6 +254,13 @@ async def retry_job(
         reset = await repository.prepare_manual_retry(job, asset, now)
     except ValueError as error:
         raise HTTPException(409, detail={"code": "job_not_retryable"}) from error
+    await DispatchRepository(session).reset(
+        job_type="media",
+        job_id=job.id,
+        queue_name="videos" if asset.kind == "video" else "images",
+        max_attempts=job.max_attempts,
+        now=now,
+    )
     await audit.audit(
         now=now,
         actor_user_id=actor.user_id,
@@ -291,23 +271,5 @@ async def retry_job(
         outcome="success",
         details={"reset": reset},
     )
-    await session.commit()
-    try:
-        queue.enqueue(job.id, MediaKind(asset.kind))
-    except Exception as error:
-        failure_time = datetime.now(UTC)
-        await audit.audit(
-            now=failure_time,
-            actor_user_id=actor.user_id,
-            action="media.job_enqueue_failed",
-            object_type="media_job",
-            object_id=job.id,
-            request_id=current_request_id(),
-            outcome="error",
-            details={"code": "media_enqueue_failed"},
-        )
-        await session.commit()
-        raise HTTPException(503, detail={"code": "media_enqueue_failed"}) from error
-    await repository.mark_enqueued(job.id, datetime.now(UTC))
     await session.commit()
     return JobMutationResponse(id=job.id, status=MediaJobStatus.QUEUED.value)

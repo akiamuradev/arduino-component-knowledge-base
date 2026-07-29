@@ -34,17 +34,17 @@ Release gates added by this audit:
   checksum/data manifest, isolated fail-closed restore and an automated clean-install,
   previous-head upgrade and restore drill. The remaining availability finding is MinIO binary
   backup and cross-store consistency, not PostgreSQL recovery.
+- Stage 18 replaced post-commit broker publication with transactional `job_dispatches` and a
+  bounded PostgreSQL reconciler. Redis loss and expired worker leases are redelivered
+  idempotently; delivery exhaustion becomes an explicit safe failure instead of an endless retry.
 
 ### High
 
-1. Queue publication happens after the database commit without a transactional outbox or a
-   reconciler. A broker outage can leave a durable `queued` import/media job unpublished until an
-   operator/client retries it. Add an outbox dispatcher or a periodic queued-job reconciler.
-2. PostgreSQL backup and restore are automated and proven, but MinIO object backup,
+1. PostgreSQL backup and restore are automated and proven, but MinIO object backup,
    PostgreSQL/MinIO consistency orchestration and deployment-specific encrypted off-host storage
    remain open. Production rollout remains blocked until the operator supplies and tests the
    complete cross-store recovery control.
-3. Parser egress is constrained by application allowlists and SSRF validation, but the Compose
+2. Parser egress is constrained by application allowlists and SSRF validation, but the Compose
    `parser-egress` network does not itself enforce DNS/HTTPS-only destinations. A host firewall or
    network policy is still required as an independent containment layer.
 
