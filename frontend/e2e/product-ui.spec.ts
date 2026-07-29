@@ -101,7 +101,7 @@ const component = {
   }],
 };
 
-async function mockCatalog(page: Page, currentUser = student) {
+async function mockCatalog(page: Page, currentUser = student, items = [component]) {
   await page.route("**/media-storage/**", async (route) => {
     await route.fulfill({
       status: 200,
@@ -120,7 +120,7 @@ async function mockCatalog(page: Page, currentUser = student) {
       return;
     }
     if (path === "/api/v1/catalog/components") {
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: [component], total: 1 }) });
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items, total: items.length }) });
       return;
     }
     if (path === "/api/v1/catalog/components/dht22") {
@@ -145,6 +145,39 @@ async function selectTheme(page: Page, label: "Светлое" | "Тёмное" 
   await page.getByRole("button", { name: /^Оформление:/ }).click();
   await page.getByRole("menuitemradio", { name: label }).click();
 }
+
+test("catalog card content stays inside narrow cards", async ({ page }) => {
+  const longCard = {
+    ...component,
+    id: "30000000-0000-4000-8000-000000000002",
+    slug: "long-card",
+    title: "Grove-TemperatureSensor-with-a-very-long-name",
+    summary: "Precision Thermocouple Amplifiers with Cold Junction Compensation and an exceptionallylongunbrokenidentifier.",
+    model: "AD8494-MSOP-8-exceptionallylongunbrokenidentifier",
+    tags: ["kicad-symbols-exceptionallylongunbrokenidentifier"],
+    sources: [{
+      ...component.sources[0],
+      license_spdx: "CERN-OHL-W-2.0-exceptionallylongunbrokenidentifier",
+    }],
+  };
+  await mockCatalog(page, student, [component, longCard, { ...longCard, id: "30000000-0000-4000-8000-000000000003", slug: "long-card-copy" }]);
+
+  for (const width of [1024, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/");
+    await expect(page.locator(".catalog-card")).toHaveCount(3);
+    const overflowing = await page.locator(".catalog-card").evaluateAll((cards) =>
+      cards.flatMap((card, cardIndex) =>
+        [...card.querySelectorAll<HTMLElement>(
+          ".catalog-card__body, .catalog-card__top, h2, p, .tag-list, .tag-list span, .catalog-card__facts, .catalog-card__facts div, dt, dd, footer, footer small",
+        )]
+          .filter((element) => element.scrollWidth > element.clientWidth + 1)
+          .map((element) => `card ${String(cardIndex + 1)}: ${element.tagName.toLowerCase()}.${element.className}`),
+      ),
+    );
+    expect(overflowing, `card content overflow at ${String(width)}px`).toEqual([]);
+  }
+});
 
 test("student browses the catalog, switches theme and opens sourced learning content", async ({ page }) => {
   const consoleErrors: string[] = [];
