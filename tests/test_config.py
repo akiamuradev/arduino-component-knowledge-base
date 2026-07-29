@@ -10,6 +10,29 @@ from arduino_component_kb.config import Settings
 from arduino_component_kb.imports.adapters.kicad_symbols import KicadSymbolsAdapter
 
 
+def production_settings(**overrides: object) -> Settings:
+    values: dict[str, object] = {
+        "environment": "production",
+        "database_echo": False,
+        "docs_enabled": False,
+        "log_level": "INFO",
+        "database_url": (
+            "postgresql+asyncpg://ackb_runtime:runtime-password-0000000000000000@postgres:5432/ackb"
+        ),
+        "auth_throttle_pepper": "production-pepper-000000000000000000",
+        "redis_url": "redis://:redis-password-000000000000000000@redis:6379/0",
+        "minio_endpoint": "minio:9000",
+        "minio_access_key": "ackb-media-runtime",
+        "minio_secret_key": "minio-password-000000000000000000",
+        "minio_secure": True,
+        "session_cookie_secure": True,
+        "trusted_hosts": "components.college.internal",
+        "legacy_kicad_card_import_enabled": False,
+    }
+    values.update(overrides)
+    return Settings.model_validate(values)
+
+
 def test_settings_require_database_url() -> None:
     with pytest.raises(ValidationError, match="database_url"):
         Settings(_env_file=None)
@@ -113,6 +136,54 @@ def test_production_requires_tls_for_minio() -> None:
             database_url="postgresql+asyncpg://ackb:placeholder@localhost/ackb",
             session_cookie_secure=True,
             minio_secure=False,
+        )
+
+
+def test_secure_production_settings_are_accepted() -> None:
+    configured = production_settings()
+    assert configured.trusted_host_values == ("components.college.internal",)
+    assert configured.docs_enabled is False
+    assert configured.database_echo is False
+
+
+@pytest.mark.parametrize(
+    ("override", "message"),
+    [
+        ({"database_echo": True}, "database_echo"),
+        ({"docs_enabled": True}, "docs_enabled"),
+        ({"log_level": "DEBUG"}, "log_level"),
+        ({"legacy_kicad_card_import_enabled": True}, "legacy_kicad"),
+        ({"session_ttl_minutes": 481}, "session_ttl_minutes"),
+        ({"trusted_hosts": "localhost"}, "internal DNS trusted host"),
+        ({"trusted_hosts": "192.0.2.10"}, "internal DNS trusted host"),
+        (
+            {"database_url": "postgresql+asyncpg://ackb:password@postgres:5432/ackb"},
+            "dedicated runtime role",
+        ),
+        (
+            {"database_url": "postgresql+asyncpg://ackb_runtime:short@postgres:5432/ackb"},
+            "non-placeholder password",
+        ),
+        ({"redis_url": "redis://redis:6379/0"}, "redis_url needs a non-placeholder password"),
+        ({"minio_access_key": "minioadmin"}, "runtime identity"),
+        ({"minio_secret_key": "too-short"}, "at least 32"),
+    ],
+)
+def test_production_rejects_development_or_privileged_settings(
+    override: dict[str, object], message: str
+) -> None:
+    with pytest.raises(ValidationError, match=message):
+        production_settings(**override)
+
+
+@pytest.mark.parametrize("value", ("*", "safe.example,*", "bad host", ""))
+def test_trusted_hosts_reject_wildcards_and_malformed_values(value: str) -> None:
+    with pytest.raises(ValidationError, match="trusted_hosts"):
+        Settings(
+            _env_file=None,
+            environment="test",
+            database_url="postgresql+asyncpg://ackb:placeholder@localhost/ackb",
+            trusted_hosts=value,
         )
 
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from ipaddress import ip_address
 from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit
@@ -58,6 +59,7 @@ class Settings(DatabaseSettings):
     database_connect_timeout_seconds: float = Field(default=5.0, gt=0, le=30)
     log_level: LogLevel = "INFO"
     docs_enabled: bool = False
+    trusted_hosts: str = "localhost,127.0.0.1,testserver"
     auth_throttle_pepper: SecretStr = Field(repr=False, min_length=32)
     session_ttl_minutes: int = Field(default=480, ge=15, le=1440)
     session_cookie_secure: bool = True
@@ -123,6 +125,20 @@ class Settings(DatabaseSettings):
         if parsed.scheme not in {"redis", "rediss"} or parsed.hostname is None:
             raise ValueError("redis_url must use redis or rediss and include a host")
         return value
+
+    @field_validator("trusted_hosts")
+    @classmethod
+    def require_trusted_hosts(cls, value: str) -> str:
+        hosts = tuple(part.strip().casefold().rstrip(".") for part in value.split(","))
+        if (
+            not hosts
+            or any(not host or host == "*" or len(host) > 253 for host in hosts)
+            or any(
+                re.fullmatch(r"[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?", host) is None for host in hosts
+            )
+        ):
+            raise ValueError("trusted_hosts must contain explicit DNS hostnames or IP literals")
+        return ",".join(dict.fromkeys(hosts))
 
     @field_validator("minio_endpoint")
     @classmethod
@@ -211,13 +227,79 @@ class Settings(DatabaseSettings):
     def import_pipeline_shadow_enabled(self) -> bool:
         return self.import_pipeline_mode == "shadow"
 
+    @property
+    def trusted_host_values(self) -> tuple[str, ...]:
+        return tuple(self.trusted_hosts.split(","))
+
     @model_validator(mode="after")
-    def require_secure_production_cookie(self) -> Settings:
-        """Never permit plaintext transport for production session cookies."""
-        if self.environment == "production" and not self.session_cookie_secure:
-            raise ValueError("session_cookie_secure must be true in production")
-        if self.environment == "production" and not self.minio_secure:
-            raise ValueError("minio_secure must be true in production")
+    def require_secure_production_settings(self) -> Settings:
+        """Fail closed when a development or bootstrap setting reaches production."""
+        if self.environment == "production":
+            if not self.session_cookie_secure:
+                raise ValueError("session_cookie_secure must be true in production")
+            if not self.minio_secure:
+                raise ValueError("minio_secure must be true in production")
+            if self.database_echo:
+                raise ValueError("database_echo must be false in production")
+            if self.docs_enabled:
+                raise ValueError("docs_enabled must be false in production")
+            if self.log_level == "DEBUG":
+                raise ValueError("log_level must not be DEBUG in production")
+            if self.legacy_kicad_card_import_enabled:
+                raise ValueError("legacy_kicad_card_import_enabled must be false in production")
+            if self.session_ttl_minutes > 480:
+                raise ValueError("session_ttl_minutes must not exceed 480 in production")
+            production_host = self.trusted_host_values[0] if self.trusted_host_values else ""
+            try:
+                ip_address(production_host)
+            except ValueError:
+                host_is_ip = False
+            else:
+                host_is_ip = True
+            if (
+                len(self.trusted_host_values) != 1
+                or production_host
+                in {
+                    "localhost",
+                    "testserver",
+                }
+                or host_is_ip
+            ):
+                raise ValueError("production requires one explicit internal DNS trusted host")
+
+            database = make_url(self.database_url)
+            if (database.username or "").casefold() in {"", "postgres", "root", "ackb"}:
+                raise ValueError("production database_url must use a dedicated runtime role")
+            database_password = database.password or ""
+            if len(database_password) < 32 or "replace-with" in database_password.casefold():
+                raise ValueError(
+                    "production database_url needs a non-placeholder password (32+ chars)"
+                )
+
+            redis = urlsplit(self.redis_url)
+            if (
+                redis.password is None
+                or len(redis.password) < 32
+                or "replace-with" in redis.password.casefold()
+            ):
+                raise ValueError(
+                    "production redis_url needs a non-placeholder password (32+ chars)"
+                )
+
+            pepper = self.auth_throttle_pepper.get_secret_value()
+            minio_key = self.minio_access_key.get_secret_value()
+            minio_secret = self.minio_secret_key.get_secret_value()
+            if "replace-with" in pepper.casefold():
+                raise ValueError("production auth_throttle_pepper contains a placeholder")
+            if "replace-with" in minio_key.casefold() or minio_key.casefold() in {
+                "minioadmin",
+                "root",
+            }:
+                raise ValueError("production MinIO access key must be a dedicated runtime identity")
+            if len(minio_secret) < 32 or "replace-with" in minio_secret.casefold():
+                raise ValueError(
+                    "production MinIO secret must contain at least 32 non-placeholder chars"
+                )
         if self.minio_quarantine_bucket == self.minio_variants_bucket:
             raise ValueError("quarantine and variants buckets must be different")
         if self.import_pipeline_shadow_enabled and (

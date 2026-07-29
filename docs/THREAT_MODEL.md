@@ -28,12 +28,14 @@ hosts, проверяет все DNS answers и каждый redirect.
 |---|---|---|
 | Повышение роли или IDOR | backend default-deny RBAC; ownership/object visibility; чужой object возвращается как not found | route-role matrix, media/import foreign-ID tests |
 | CSRF и cross-origin API | session `SameSite=Strict`; session-bound double-submit CSRF; exact same-origin middleware; permissive CORS отсутствует | mutation dependency audit, Origin/preflight tests |
+| Host header injection | production принимает один exact internal DNS hostname; wildcard/default host запрещён при startup | trusted Host unit/config tests |
 | XSS/clickjacking | React text rendering; raw HTML запрещён; CSP, `nosniff`, `frame-ancestors 'none'`, `X-Frame-Options: DENY` | response/proxy header tests |
 | Parser SSRF | inactive website policy before fetch; repository URL is registered, never user supplied; VM acquisition retains HTTPS/DNS/size limits | source-policy, repository identity and acquisition validation tests |
 | Malicious Git content | full commit, bounded path/file snapshot, no hooks/submodules/builds, MDX non-execution, bounded S-expression reader | fixtures with JSX, code, traversal, broken frontmatter/S-expression and unknown types |
 | Malicious upload | private quarantine; server key; declared/actual size; magic/container/decode/dimension/frame checks; metadata-free re-encode; bounded FFmpeg without shell and with `file,pipe` protocol allowlist | polyglot/trailing-data, MIME, animation, dimension, video command tests |
 | Media processor lateral movement | media worker подключён только к internal `data`; parser egress находится в отдельном worker | Compose network contract test |
 | Draft/teacher data disclosure | published snapshots and search allowlist; teacher examples filtered before response | catalog/search regression tests |
+| Компрометация runtime credential | PostgreSQL role не имеет DDL/admin rights; MinIO policy ограничена двумя private buckets; Redis требует пароль; data ports не опубликованы | grants/policy/production Compose contracts |
 
 ## Остаточные риски и assumptions
 

@@ -267,20 +267,26 @@ worker. Durable imports still execute only in the parser worker; media workers h
   documentation. `.env.example` содержит только placeholders.
 - Local Compose читает PostgreSQL/MinIO credentials и auth pepper только из ignored `.env`;
   data services не публикуют host ports. Placeholder values непригодны для production.
-- Default Compose пока переиспользует PostgreSQL bootstrap owner и MinIO root в runtime services.
-  Отдельные least-privilege identities для migration, backend/worker, media и backup обязательны
-  перед production; этот открытый finding отслеживается в `XRAY_AUDIT_0.21.0.md`.
+- Production overlay отделяет PostgreSQL bootstrap owner от `ackb_runtime`: Alembic остаётся
+  единственным DDL path, а runtime получает только CONNECT, schema USAGE, table DML и sequence
+  use. Tracked idempotent grants повторяются после каждой migration и явно снимают schema CREATE.
+- MinIO root используется только data service и одноразовым identity init. Backend/workers
+  получают отдельную policy только для list/read/write/delete объектов двух private media buckets;
+  Redis в production требует независимый пароль. Runtime credentials не дают admin API access.
 - PostgreSQL, Redis и MinIO не публикуют host ports; MinIO console доступна только admin network.
 - Reverse proxy завершает internal TLS, задаёт body/time limits и security headers.
 - Production preflight fail-closed проверяет static IP, exact internal DNS, certificate SAN,
   цепочку CA, срок действия и mode private keys, но не изменяет сеть или firewall удалённой VM.
 - HTTPS smoke не имеет insecure mode: edge hostname и CA обязательны; MinIO использует TLS и
   тот же read-only CA bundle, дополненный public roots для разрешённых внешних parser sources.
-- Application images запускаются non-root; media worker и retention дополнительно имеют read-only
-  filesystem/capability hardening. Остальные services ещё требуют такого же профиля. Python/npm
+- Application images запускаются non-root; production backend, workers, migrations/init и nginx
+  работают с read-only filesystem, bounded tmpfs, dropped capabilities и `no-new-privileges`.
+  Python/npm
   версии и container bases зафиксированы; dependency audit входит в CI, container scan — нет.
-- Alembic является единственным application DDL path, но runtime account в default Compose пока
-  остаётся owner. Запрет CREATE/ALTER/DROP должен быть подтверждён отдельными production grants.
+- Production configuration fail-closed запрещает wildcard/untrusted Host, SQL echo, docs, DEBUG,
+  insecure cookie/MinIO, legacy parser path, session TTL более восьми часов, Redis без пароля,
+  bootstrap database role и root/default MinIO identity. CORS отсутствует; Origin и CSRF
+  проверяются отдельно. Local/test defaults остаются явно непроизводственными.
 - Compose networks `edge` и `data` имеют `internal: true`; только reverse proxy дополнительно
   подключён к host-facing `ingress`, и наружу опубликован только reverse
   proxy. Media worker обслуживает только `images/videos` без external egress. Отдельный
@@ -317,6 +323,7 @@ transactions. Retention/backup выполняются отдельным экс�
 Raw password, session/CSRF token, login throttle key и client address не попадают в audit.
 Bootstrap первого administrator интерактивен, не принимает пароль через CLI и блокируется,
 как только существует активный administrator.
+Seed/demo accounts и автоматическое создание пользователя при startup отсутствуют.
 
 ## Availability и abuse controls
 

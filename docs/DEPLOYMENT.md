@@ -65,7 +65,27 @@ chmod 600 .env.production
 `ACKB_BIND_ADDRESS` — static IP VM, `ACKB_INTERNAL_HOSTNAME` — соответствующая DNS-запись.
 Все пути к сертификатам, ключам и CA bundle должны быть абсолютными. Preflight проверяет Ubuntu,
 наличие IP на interface, DNS, SAN, срок действия не менее семи дней, цепочку доверия, mode ключей
-и итоговый Compose config. Он ничего не записывает и не меняет firewall.
+и `.env.production`, длину и URL-safe формат secrets, раздельность bootstrap/runtime identities,
+полный commit SHA, UTC build date и итоговый Compose config. Он ничего не записывает и не меняет
+firewall. Значения `ACKB_POSTGRES_RUNTIME_PASSWORD`, `ACKB_REDIS_PASSWORD`,
+`ACKB_MINIO_SECRET_KEY` и `ACKB_AUTH_THROTTLE_PEPPER` должны быть независимо сгенерированы;
+не переиспользуйте пароль пользователя или TLS private key.
+
+Production overlay разделяет полномочия автоматически:
+
+- `migrate` подключается владельцем `ACKB_POSTGRES_USER`, затем одноразовый
+  `database-permissions` создаёт/обновляет `ACKB_POSTGRES_RUNTIME_USER` без DDL, role или
+  database administration rights;
+- backend и workers подключаются только runtime PostgreSQL role;
+- Redis требует отдельный пароль и остаётся без host port;
+- `minio-identity-init` создаёт private buckets и ограниченную media policy, после чего backend
+  и workers используют `ACKB_MINIO_ACCESS_KEY`, а не `ACKB_MINIO_ROOT_USER`;
+- bootstrap PostgreSQL/MinIO credentials доступны только их infrastructure/init services.
+
+В репозитории нет demo accounts и фиксированных паролей. Первый administrator создаётся только
+интерактивной `ackb-bootstrap-admin`; команда отказывается работать, если активный administrator
+уже существует. Никогда не используйте `admin/admin`, `demo`, `test` или примеры из документации
+как production credentials.
 
 Запуск и обновление состояния:
 
@@ -79,6 +99,9 @@ docker compose --env-file .env.production \
 Production override публикует только `static-ip:80` и `static-ip:443`. HTTP возвращает `308`
 на exact internal hostname. Browser traffic завершается на nginx с TLS 1.2/1.3 и HSTS;
 quarantine/variants остаются private MinIO buckets, а MinIO traffic также использует TLS.
+Backend принимает только точный `Host` из `ACKB_INTERNAL_HOSTNAME`; production запрещает wildcard,
+Swagger/docs, SQL echo, DEBUG logging, insecure cookies, legacy import path и session TTL более
+восьми часов. CORS не включён, а browser mutations сохраняют same-origin и CSRF проверки.
 
 ## 4. Host firewall
 

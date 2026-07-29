@@ -33,7 +33,12 @@ from arduino_component_kb.config import Settings
 from arduino_component_kb.imports.models import ImportJob
 from arduino_component_kb.imports.queue import ImportQueue
 from arduino_component_kb.main import create_app
-from arduino_component_kb.security import CONTENT_SECURITY_POLICY, SECURITY_HEADERS, is_same_origin
+from arduino_component_kb.security import (
+    CONTENT_SECURITY_POLICY,
+    SECURITY_HEADERS,
+    is_same_origin,
+    is_trusted_host,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -51,6 +56,7 @@ def settings() -> Settings:
         _env_file=None,
         environment="test",
         database_url="postgresql+asyncpg://ackb:placeholder@localhost/ackb",
+        trusted_hosts="testserver,kb.example",
     )
 
 
@@ -403,6 +409,30 @@ def test_same_origin_request_is_allowed_and_cross_origin_preflight_is_denied() -
     }
     assert len(denied.headers["X-Request-ID"]) == 36
     assert "access-control-allow-origin" not in denied.headers
+
+
+def test_untrusted_host_is_rejected_before_routing() -> None:
+    with TestClient(create_app(settings(), FakeDatabase())) as client:
+        response = client.get("/health", headers={"Host": "evil.invalid"})
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "untrusted_host"
+    assert "access-control-allow-origin" not in response.headers
+
+
+@pytest.mark.parametrize(
+    ("host", "expected"),
+    [
+        ("kb.example", True),
+        ("kb.example:443", True),
+        ("KB.EXAMPLE.", True),
+        ("kb.example.evil.invalid", False),
+        ("user@kb.example", False),
+        ("kb.example/path", False),
+        ("", False),
+    ],
+)
+def test_trusted_host_comparison_is_exact(host: str, expected: bool) -> None:
+    assert is_trusted_host(host, frozenset({"kb.example"})) is expected
 
 
 @pytest.mark.parametrize(

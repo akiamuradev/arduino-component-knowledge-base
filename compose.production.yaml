@@ -1,7 +1,17 @@
 x-production-environment: &production-environment
   ACKB_ENVIRONMENT: production
+  ACKB_DATABASE_ECHO: "false"
+  ACKB_DOCS_ENABLED: "false"
+  ACKB_LOG_LEVEL: ${ACKB_LOG_LEVEL:-INFO}
+  ACKB_LEGACY_KICAD_CARD_IMPORT_ENABLED: "false"
+  ACKB_SESSION_TTL_MINUTES: ${ACKB_SESSION_TTL_MINUTES:-480}
   ACKB_SESSION_COOKIE_SECURE: "true"
+  ACKB_TRUSTED_HOSTS: ${ACKB_INTERNAL_HOSTNAME:?set ACKB_INTERNAL_HOSTNAME}
+  ACKB_DATABASE_URL: postgresql+asyncpg://${ACKB_POSTGRES_RUNTIME_USER:?set ACKB_POSTGRES_RUNTIME_USER}:${ACKB_POSTGRES_RUNTIME_PASSWORD:?set ACKB_POSTGRES_RUNTIME_PASSWORD}@postgres:5432/${ACKB_POSTGRES_DB:-ackb}
+  ACKB_REDIS_URL: redis://:${ACKB_REDIS_PASSWORD:?set ACKB_REDIS_PASSWORD}@redis:6379/0
   ACKB_MINIO_ENDPOINT: minio:9000
+  ACKB_MINIO_ACCESS_KEY: ${ACKB_MINIO_ACCESS_KEY:?set ACKB_MINIO_ACCESS_KEY}
+  ACKB_MINIO_SECRET_KEY: ${ACKB_MINIO_SECRET_KEY:?set ACKB_MINIO_SECRET_KEY}
   ACKB_MINIO_SECURE: "true"
   SSL_CERT_FILE: /etc/ackb/ca/ca-bundle.crt
 
@@ -11,7 +21,20 @@ x-production-app: &production-app
     - ${ACKB_CA_BUNDLE_FILE:?set ACKB_CA_BUNDLE_FILE}:/etc/ackb/ca/ca-bundle.crt:ro
 
 services:
+  postgres:
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  redis:
+    command: ["sh", "-c", "exec redis-server --appendonly yes --requirepass \"$${ACKB_REDIS_PASSWORD}\""]
+    environment:
+      ACKB_REDIS_PASSWORD: ${ACKB_REDIS_PASSWORD:?set ACKB_REDIS_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$${ACKB_REDIS_PASSWORD}\" redis-cli ping"]
+
   minio:
+    environment:
+      SSL_CERT_FILE: /root/.minio/certs/CAs/ca-bundle.crt
     volumes:
       - minio-data:/data
       - ${ACKB_MINIO_TLS_CERT_FILE:?set ACKB_MINIO_TLS_CERT_FILE}:/root/.minio/certs/public.crt:ro
@@ -22,20 +45,139 @@ services:
 
   migrate:
     <<: *production-app
+    environment:
+      <<: *production-environment
+      ACKB_DATABASE_URL: postgresql+asyncpg://${ACKB_POSTGRES_USER:?set ACKB_POSTGRES_USER}:${ACKB_POSTGRES_PASSWORD:?set ACKB_POSTGRES_PASSWORD}@postgres:5432/${ACKB_POSTGRES_DB:-ackb}
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m,mode=1777
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+
+  database-permissions:
+    image: postgres:17-alpine@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193
+    command: ["psql", "--set", "ON_ERROR_STOP=1", "--file", "/etc/ackb/runtime-grants.sql"]
+    restart: "no"
+    environment:
+      PGHOST: postgres
+      PGDATABASE: ${ACKB_POSTGRES_DB:-ackb}
+      PGUSER: ${ACKB_POSTGRES_USER:?set ACKB_POSTGRES_USER}
+      PGPASSWORD: ${ACKB_POSTGRES_PASSWORD:?set ACKB_POSTGRES_PASSWORD}
+      POSTGRES_USER: ${ACKB_POSTGRES_USER:?set ACKB_POSTGRES_USER}
+      ACKB_POSTGRES_RUNTIME_USER: ${ACKB_POSTGRES_RUNTIME_USER:?set ACKB_POSTGRES_RUNTIME_USER}
+      ACKB_POSTGRES_RUNTIME_PASSWORD: ${ACKB_POSTGRES_RUNTIME_PASSWORD:?set ACKB_POSTGRES_RUNTIME_PASSWORD}
+    volumes:
+      - ./deploy/postgres/runtime-grants.sql:/etc/ackb/runtime-grants.sql:ro
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=16m,mode=1777
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    networks: [data]
+
+  minio-identity-init:
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z.hotfix.7aa24e772@sha256:cf3dadcfa1fb0324f43958bad1abba986d53c4ecc04d4d50b46c7dcda28bd3cd
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        mc alias set ackb-root https://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}" >/dev/null
+        mc mb --ignore-existing ackb-root/ackb-media-quarantine ackb-root/ackb-media-variants
+        mc anonymous set none ackb-root/ackb-media-quarantine
+        mc anonymous set none ackb-root/ackb-media-variants
+        mc admin user add ackb-root "$${ACKB_MINIO_ACCESS_KEY}" "$${ACKB_MINIO_SECRET_KEY}"
+        mc admin policy create ackb-root ackb-media-runtime /etc/ackb/ackb-media-policy.json
+        mc admin policy attach ackb-root ackb-media-runtime --user "$${ACKB_MINIO_ACCESS_KEY}"
+    restart: "no"
+    environment:
+      MINIO_ROOT_USER: ${ACKB_MINIO_ROOT_USER:?set ACKB_MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${ACKB_MINIO_ROOT_PASSWORD:?set ACKB_MINIO_ROOT_PASSWORD}
+      ACKB_MINIO_ACCESS_KEY: ${ACKB_MINIO_ACCESS_KEY:?set ACKB_MINIO_ACCESS_KEY}
+      ACKB_MINIO_SECRET_KEY: ${ACKB_MINIO_SECRET_KEY:?set ACKB_MINIO_SECRET_KEY}
+      SSL_CERT_FILE: /etc/ackb/ca/ca-bundle.crt
+    volumes:
+      - ./deploy/minio/ackb-media-policy.json:/etc/ackb/ackb-media-policy.json:ro
+      - ${ACKB_CA_BUNDLE_FILE:?set ACKB_CA_BUNDLE_FILE}:/etc/ackb/ca/ca-bundle.crt:ro
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=16m,mode=1777
+      - /root/.mc:rw,noexec,nosuid,nodev,size=16m,mode=0700
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks: [data]
 
   media-init:
     <<: *production-app
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m,mode=1777
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    depends_on:
+      minio-identity-init:
+        condition: service_completed_successfully
 
   backend:
     <<: *production-app
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m,mode=1777
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    depends_on:
+      database-permissions:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os, urllib.request; request=urllib.request.Request('http://localhost:8000/ready', headers={'Host': os.environ['ACKB_TRUSTED_HOSTS']}); urllib.request.urlopen(request, timeout=3).read()"]
 
   worker:
     <<: *production-app
+    depends_on:
+      database-permissions:
+        condition: service_completed_successfully
 
   parser-worker:
     <<: *production-app
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=256m,mode=1777
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    depends_on:
+      database-permissions:
+        condition: service_completed_successfully
+
+  media-retention:
+    <<: *production-app
+    depends_on:
+      database-permissions:
+        condition: service_completed_successfully
+      minio-identity-init:
+        condition: service_completed_successfully
+
+  frontend:
+    user: "101:101"
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["exec nginx -g 'daemon off;'"]
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx:rw,noexec,nosuid,nodev,size=16m,mode=1777
+      - /var/run:rw,noexec,nosuid,nodev,size=1m,mode=1777
+      - /tmp:rw,noexec,nosuid,nodev,size=16m,mode=1777
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
 
   reverse-proxy:
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        envsubst '$$ACKB_INTERNAL_HOSTNAME' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf
+        exec nginx -g 'daemon off;'
     environment:
       ACKB_INTERNAL_HOSTNAME: ${ACKB_INTERNAL_HOSTNAME:?set ACKB_INTERNAL_HOSTNAME}
     ports: !override
@@ -46,5 +188,14 @@ services:
       - ${ACKB_EDGE_TLS_CERT_FILE:?set ACKB_EDGE_TLS_CERT_FILE}:/etc/nginx/tls/tls.crt:ro
       - ${ACKB_EDGE_TLS_KEY_FILE:?set ACKB_EDGE_TLS_KEY_FILE}:/etc/nginx/tls/tls.key:ro
       - ${ACKB_CA_BUNDLE_FILE:?set ACKB_CA_BUNDLE_FILE}:/etc/nginx/ca/ca-bundle.crt:ro
+    read_only: true
+    tmpfs:
+      - /etc/nginx/conf.d:rw,noexec,nosuid,nodev,size=1m,mode=1777
+      - /var/cache/nginx:rw,noexec,nosuid,nodev,size=16m,mode=1777
+      - /var/run:rw,noexec,nosuid,nodev,size=1m,mode=1777
+      - /tmp:rw,noexec,nosuid,nodev,size=16m,mode=1777
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, SETGID, SETUID]
+    security_opt: [no-new-privileges:true]
     healthcheck:
       test: ["CMD-SHELL", "wget --quiet --tries=1 --output-document=- http://127.0.0.1:8080/container-health | grep -q ok"]
