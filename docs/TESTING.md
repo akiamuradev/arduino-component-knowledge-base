@@ -151,12 +151,14 @@ production Compose и выполняет `nginx -t` с одноразовым т
 корпоративный hostname/CA проверяются после развёртывания командой
 `python scripts/production_smoke.py`; insecure TLS fallback отсутствует.
 
-Этап 17 добавляет `scripts/database_restore_smoke.sh`. В полностью disposable production-like
-Compose project он применяет всю Alembic chain на чистую базу, отдельно обновляет предыдущий
-head `20260729_25` до текущего, создаёт PostgreSQL dump и восстанавливает его в
-`ackb_restore_drill`. Manifest доказывает сохранность тестовых пользователя, роли, карточки,
-revision history, предложения исправления и audit event. Скрипт удаляет тестовые базы, volumes
-и временные credentials.
+Этап 25 расширяет `scripts/database_restore_smoke.sh`. В полностью disposable production-like
+Compose project он применяет всю Alembic chain на чистую базу, отдельно обновляет точный head
+тега `v0.21.0` (`20260721_16`) до текущего, создаёт проверенный pre-upgrade dump, сравнивает
+сигнатуры критичных данных, выполняет downgrade и восстанавливает исходный dump. Отдельный
+integration test подтверждает вход сохранённых пользователей, временного редактора, создание
+import job и публикацию карточки после обновления. Скрипт удаляет тестовые базы, volumes и
+временные credentials. Итог зафиксирован в
+[`RELEASE_1.0.0_UPGRADE_REPORT.md`](RELEASE_1.0.0_UPGRADE_REPORT.md).
 
 Этап 20 добавляет `scripts/clean_stack_smoke.sh`: отдельный Compose project запускает всё
 приложение на чистых volumes, подтверждает пустые business tables, Alembic head и HTTP readiness,

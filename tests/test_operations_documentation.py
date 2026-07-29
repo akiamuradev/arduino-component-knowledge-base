@@ -53,7 +53,7 @@ def test_operator_commands_match_repository_interfaces() -> None:
         "ackb_restore_incident",
         "ackb-reconcile-jobs",
         "git checkout --detach",
-        "20260729_26",
+        "20260721_16",
     )
     for token in required_tokens:
         assert token in guide

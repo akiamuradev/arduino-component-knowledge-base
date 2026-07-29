@@ -52,6 +52,13 @@ backup и восстановления, обновления и rollback. Пят
 руководства и реальные Compose/CLI/UI boundaries; infrastructure snapshot MinIO остаётся ручной
 операцией целевого сервера.
 
+Этап 25 устранил ложную проверку обновления с почти текущего head `20260729_25`: release drill
+теперь стартует с точного head опубликованного тега `v0.21.0` (`20260721_16`). Он подтверждает
+pre-upgrade backup, upgrade/downgrade, отдельный restore и идентичность критичных данных.
+Integration acceptance дополнительно доказывает вход сохранённых administrator/student,
+назначение временного editor, создание import job и публикацию карточки. Полный протокол:
+[`RELEASE_1.0.0_UPGRADE_REPORT.md`](RELEASE_1.0.0_UPGRADE_REPORT.md).
+
 ## Воспроизводимый запуск на чистой базе
 
 `scripts/clean_stack_smoke.sh` создаёт отдельный Compose project и одноразовые credentials,

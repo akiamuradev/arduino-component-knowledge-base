@@ -408,16 +408,19 @@ $compose ps -a
 $compose logs --since 30m --tail 300 migrate backend worker parser-worker
 ```
 
-2. Если release notes подтверждают обратимый schema rollback, выполните downgrade кодом новой
-   версии до предыдущего ACKB 0.21.0 head:
+2. Если после обновления ещё не было business writes формата 1.0.0 и release notes подтверждают
+   обратимый schema rollback, выполните downgrade кодом новой версии до предыдущего ACKB 0.21.0
+   head:
 
 ```fish
-$compose run --rm --no-deps migrate alembic downgrade 20260729_26
+$compose run --rm --no-deps migrate alembic downgrade 20260721_16
 $compose run --rm --no-deps migrate alembic current
 ```
 
-Downgrade ACKB 1.0.0 удаляет таблицу предложений исправлений. Выполняйте его только при наличии
-проверенного pre-upgrade dump; предложения, созданные после обновления, останутся лишь в backup.
+Downgrade ACKB 1.0.0 удаляет новые 1.0.0 tables и поля, включая предложения исправлений,
+editor grant history и новые import/review данные. Не выполняйте его после открытия writers:
+перейдите сразу к восстановлению согласованной pre-upgrade пары. Даже до открытия writers
+downgrade допустим только при наличии проверенного pre-upgrade dump.
 
 3. Верните утверждённый старый checkout без переписывания истории:
 
