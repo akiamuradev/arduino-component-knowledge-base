@@ -65,3 +65,37 @@ def test_pipeline_logs_keep_correlation_and_state_but_drop_payloads() -> None:
     assert payload["kicad_index_sha256"] == "c" * 64
     assert "raw_source_payload" not in payload
     assert "secret source body" not in json.dumps(payload)
+
+
+def test_dispatch_logs_keep_only_safe_identity_and_counts() -> None:
+    record = logging.LogRecord(
+        name="arduino_component_kb.dispatch",
+        level=logging.INFO,
+        pathname=__file__,
+        lineno=70,
+        msg="job_dispatch_reconciled",
+        args=(),
+        exc_info=None,
+    )
+    record.dispatch_id = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
+    record.job_type = "import"
+    record.queue_name = "imports"
+    record.attempt = 2
+    record.recovered = 1
+    record.claimed = 1
+    record.delivered = 0
+    record.failed = 1
+    record.redis_url = "redis://user:secret@internal-host:6379/0"
+
+    payload = json.loads(JsonFormatter().format(record))
+
+    assert payload["dispatch_id"] == "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
+    assert payload["job_type"] == "import"
+    assert payload["queue_name"] == "imports"
+    assert payload["attempt"] == 2
+    assert payload["recovered"] == 1
+    assert payload["claimed"] == 1
+    assert payload["delivered"] == 0
+    assert payload["failed"] == 1
+    assert "redis_url" not in payload
+    assert "secret" not in json.dumps(payload)
