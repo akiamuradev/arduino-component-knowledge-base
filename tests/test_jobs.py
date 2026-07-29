@@ -23,7 +23,7 @@ class FakeRow:
         self.job = job
         self.asset = asset
 
-    def tuple(self) -> tuple[MediaJob, MediaAsset]:
+    def _tuple(self) -> tuple[MediaJob, MediaAsset]:
         return self.job, self.asset
 
 

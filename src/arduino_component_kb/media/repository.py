@@ -331,7 +331,7 @@ class MediaRepository:
         ).one_or_none()
         if row is None:
             return None
-        return row.tuple()
+        return row._tuple()
 
     async def list_jobs(
         self,
@@ -360,7 +360,7 @@ class MediaRepository:
             .limit(limit)
             .offset(offset)
         )
-        return tuple(row.tuple() for row in rows), int(total or 0)
+        return tuple(row._tuple() for row in rows), int(total or 0)
 
     async def mark_enqueued(self, job_id: UUID, now: datetime) -> None:
         job = await self.session.get(MediaJob, job_id)
@@ -389,7 +389,7 @@ class MediaRepository:
         ).one_or_none()
         if row is None:
             return None
-        job, asset = row.tuple()
+        job, asset = row._tuple()
         if job.status in {MediaJobStatus.SUCCEEDED.value, MediaJobStatus.FAILED.value}:
             return None
         if (

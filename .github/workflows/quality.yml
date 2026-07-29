@@ -132,9 +132,49 @@ jobs:
           bash -n scripts/production_preflight.sh scripts/production_contract_smoke.sh
           scripts/production_identity_smoke.sh scripts/database_backup.sh
           scripts/database_restore.sh scripts/database_restore_smoke.sh
+          scripts/clean_stack_smoke.sh
       - run: cp .env.example .env
       - run: docker compose config --quiet
       - run: bash scripts/production_contract_smoke.sh
       - run: docker compose build backend frontend reverse-proxy
+      - run: ACKB_CLEAN_STACK_SKIP_BUILD=true bash scripts/clean_stack_smoke.sh
       - run: bash scripts/production_identity_smoke.sh
       - run: bash scripts/database_restore_smoke.sh
+
+  release-quality-gate:
+    if: always()
+    needs:
+      - backend
+      - frontend
+      - integration
+      - e2e
+      - containers
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every release check
+        env:
+          BACKEND_RESULT: ${{ needs.backend.result }}
+          FRONTEND_RESULT: ${{ needs.frontend.result }}
+          INTEGRATION_RESULT: ${{ needs.integration.result }}
+          E2E_RESULT: ${{ needs.e2e.result }}
+          CONTAINERS_RESULT: ${{ needs.containers.result }}
+        run: |
+          failed=0
+          for check in \
+            "backend:${BACKEND_RESULT}" \
+            "frontend:${FRONTEND_RESULT}" \
+            "integration:${INTEGRATION_RESULT}" \
+            "e2e:${E2E_RESULT}" \
+            "containers:${CONTAINERS_RESULT}"; do
+            name="${check%%:*}"
+            result="${check#*:}"
+            printf '%s: %s\n' "$name" "$result"
+            if [ "$result" != "success" ]; then
+              failed=1
+            fi
+          done
+          if [ "$failed" -ne 0 ]; then
+            printf 'One or more mandatory release checks did not succeed.\n' >&2
+            exit 1
+          fi
+          printf 'All mandatory ACKB release checks succeeded.\n'

@@ -156,3 +156,10 @@ Compose project он применяет всю Alembic chain на чистую �
 head `20260729_25` до текущего, создаёт PostgreSQL dump и восстанавливает его в
 `ackb_restore_drill`. Manifest доказывает сохранность тестовых пользователя, роли, карточки,
 revision history и audit event. Скрипт удаляет тестовые базы, volumes и временные credentials.
+
+Этап 20 добавляет `scripts/clean_stack_smoke.sh`: отдельный Compose project запускает всё
+приложение на чистых volumes, подтверждает пустые business tables, Alembic head и HTTP readiness,
+после чего удаляет одноразовую инфраструктуру. Итоговый `release-quality-gate` требует успешного
+завершения всех пяти jobs и не принимает skipped/cancelled как зелёный результат. Полная матрица,
+ручные проверки и известные ограничения зафиксированы в
+[`RELEASE_1.0.0_QUALITY_REPORT.md`](RELEASE_1.0.0_QUALITY_REPORT.md).
