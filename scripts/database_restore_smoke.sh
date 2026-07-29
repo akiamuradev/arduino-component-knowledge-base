@@ -7,6 +7,11 @@ readonly ACKB_RECOVERY_PROJECT="ackb-recovery-${RANDOM}-${RANDOM}"
 readonly ENVIRONMENT_FILE="${TEMPORARY_DIR}/environment"
 readonly RESTORE_DATABASE="ackb_restore_drill"
 readonly UPGRADE_DATABASE="ackb_restore_upgrade"
+readonly ROLLBACK_DATABASE="ackb_restore_rollback"
+readonly PRE_UPGRADE_DUMP="${TEMPORARY_DIR}/ackb-0.21.0-before-upgrade.dump"
+readonly PRE_UPGRADE_SIGNATURE="${TEMPORARY_DIR}/ackb-0.21.0.signature"
+readonly POST_UPGRADE_SIGNATURE="${TEMPORARY_DIR}/ackb-1.0.0.signature"
+readonly ROLLBACK_SIGNATURE="${TEMPORARY_DIR}/ackb-rollback.signature"
 readonly -a COMPOSE_ARGUMENTS=(
   --project-name "$ACKB_RECOVERY_PROJECT"
   --env-file "$ENVIRONMENT_FILE"
@@ -21,6 +26,16 @@ database_admin() {
   ACKB_RESTORE_DATABASE="$database" docker compose "${COMPOSE_ARGUMENTS[@]}" run \
     --quiet-pull --rm --no-deps --no-TTY \
     --env PGDATABASE=postgres \
+    --entrypoint psql database-restore-tools \
+    --set ON_ERROR_STOP=1 "$@"
+}
+
+database_psql() {
+  local database="$1"
+  shift
+  ACKB_RESTORE_DATABASE="$database" docker compose "${COMPOSE_ARGUMENTS[@]}" run \
+    --quiet-pull --rm --no-deps --no-TTY \
+    --env PGDATABASE="$database" \
     --entrypoint psql database-restore-tools \
     --set ON_ERROR_STOP=1 "$@"
 }
@@ -78,13 +93,35 @@ dump_file="$(find "$TEMPORARY_DIR/backups" -maxdepth 1 -name '*.dump' -type f -p
 "$ROOT_DIR/scripts/database_restore.sh" \
   "$ENVIRONMENT_FILE" "$dump_file" "$RESTORE_DATABASE" "$ACKB_RECOVERY_PROJECT"
 
-# Simulate the supported update path from the previous project schema to current head.
+# Simulate the supported release update from the tagged ACKB 0.21.0 schema.
 database_admin "$UPGRADE_DATABASE" \
   --command "DROP DATABASE IF EXISTS \"$UPGRADE_DATABASE\" WITH (FORCE)"
 database_admin "$UPGRADE_DATABASE" \
   --command "CREATE DATABASE \"$UPGRADE_DATABASE\" TEMPLATE template0 ENCODING 'UTF8'"
 ACKB_RESTORE_DATABASE="$UPGRADE_DATABASE" docker compose "${COMPOSE_ARGUMENTS[@]}" run \
-  --quiet-pull --rm --no-deps database-restore-migrate alembic upgrade 20260729_25
+  --quiet-pull --rm --no-deps database-restore-migrate alembic upgrade 20260721_16
+database_psql "$UPGRADE_DATABASE" \
+  <"$ROOT_DIR/deploy/postgres/upgrade-0.21.0-seed.sql"
+database_psql "$UPGRADE_DATABASE" \
+  --file /dev/stdin \
+  <"$ROOT_DIR/deploy/postgres/upgrade-drill-signature.sql" >"$PRE_UPGRADE_SIGNATURE"
+
+# A rollback-capable backup must exist and be structurally readable before migrations run.
+ACKB_RESTORE_DATABASE="$UPGRADE_DATABASE" docker compose "${COMPOSE_ARGUMENTS[@]}" run \
+  --quiet-pull --rm --no-deps --no-TTY \
+  --env PGDATABASE="$UPGRADE_DATABASE" \
+  --entrypoint pg_dump database-restore-tools \
+  --format=custom --compress=zstd:9 --no-owner --no-acl --serializable-deferrable \
+  >"$PRE_UPGRADE_DUMP"
+chmod 600 "$PRE_UPGRADE_DUMP"
+[[ -s "$PRE_UPGRADE_DUMP" ]]
+ACKB_RESTORE_DATABASE="$UPGRADE_DATABASE" docker compose "${COMPOSE_ARGUMENTS[@]}" run \
+  --quiet-pull --rm --no-deps --no-TTY \
+  --entrypoint pg_restore database-restore-tools --list <"$PRE_UPGRADE_DUMP" >/dev/null
+sha256sum "$PRE_UPGRADE_DUMP" >"${PRE_UPGRADE_DUMP}.sha256"
+chmod 600 "${PRE_UPGRADE_DUMP}.sha256"
+sha256sum --check "${PRE_UPGRADE_DUMP}.sha256" >/dev/null
+
 ACKB_RESTORE_DATABASE="$UPGRADE_DATABASE" docker compose "${COMPOSE_ARGUMENTS[@]}" run \
   --quiet-pull --rm --no-deps database-restore-migrate
 current_revision="$(
@@ -92,10 +129,48 @@ current_revision="$(
     --quiet-pull --rm --no-deps database-restore-migrate alembic current
 )"
 grep -q '20260729_27 (head)' <<<"$current_revision"
+database_psql "$UPGRADE_DATABASE" \
+  --file /dev/stdin \
+  <"$ROOT_DIR/deploy/postgres/upgrade-drill-signature.sql" >"$POST_UPGRADE_SIGNATURE"
+cmp --silent "$PRE_UPGRADE_SIGNATURE" "$POST_UPGRADE_SIGNATURE"
+
+# Prove the documented in-place schema rollback while no 1.0.0 writes exist.
+ACKB_RESTORE_DATABASE="$UPGRADE_DATABASE" docker compose "${COMPOSE_ARGUMENTS[@]}" run \
+  --quiet-pull --rm --no-deps database-restore-migrate alembic downgrade 20260721_16
+downgraded_revision="$(
+  ACKB_RESTORE_DATABASE="$UPGRADE_DATABASE" docker compose "${COMPOSE_ARGUMENTS[@]}" run \
+    --quiet-pull --rm --no-deps database-restore-migrate alembic current
+)"
+grep -q '20260721_16' <<<"$downgraded_revision"
+database_psql "$UPGRADE_DATABASE" \
+  --file /dev/stdin \
+  <"$ROOT_DIR/deploy/postgres/upgrade-drill-signature.sql" >"$ROLLBACK_SIGNATURE"
+cmp --silent "$PRE_UPGRADE_SIGNATURE" "$ROLLBACK_SIGNATURE"
+
+# Prove the safer fallback: restore the checked pre-upgrade dump into an isolated database.
+database_admin "$ROLLBACK_DATABASE" \
+  --command "DROP DATABASE IF EXISTS \"$ROLLBACK_DATABASE\" WITH (FORCE)"
+database_admin "$ROLLBACK_DATABASE" \
+  --command "CREATE DATABASE \"$ROLLBACK_DATABASE\" TEMPLATE template0 ENCODING 'UTF8'"
+ACKB_RESTORE_DATABASE="$ROLLBACK_DATABASE" docker compose "${COMPOSE_ARGUMENTS[@]}" run \
+  --quiet-pull --rm --no-deps --no-TTY \
+  --env PGDATABASE="$ROLLBACK_DATABASE" \
+  --entrypoint pg_restore database-restore-tools \
+  --exit-on-error --no-owner --no-acl --dbname "$ROLLBACK_DATABASE" \
+  <"$PRE_UPGRADE_DUMP"
+database_psql "$ROLLBACK_DATABASE" \
+  --file /dev/stdin \
+  <"$ROOT_DIR/deploy/postgres/upgrade-drill-signature.sql" >"$ROLLBACK_SIGNATURE"
+cmp --silent "$PRE_UPGRADE_SIGNATURE" "$ROLLBACK_SIGNATURE"
+rollback_revision="$(database_psql "$ROLLBACK_DATABASE" --tuples-only --no-align \
+  --command 'SELECT version_num FROM alembic_version')"
+grep -q '20260721_16' <<<"$rollback_revision"
 
 database_admin "$RESTORE_DATABASE" \
   --command "DROP DATABASE \"$RESTORE_DATABASE\" WITH (FORCE)"
 database_admin "$UPGRADE_DATABASE" \
   --command "DROP DATABASE \"$UPGRADE_DATABASE\" WITH (FORCE)"
+database_admin "$ROLLBACK_DATABASE" \
+  --command "DROP DATABASE \"$ROLLBACK_DATABASE\" WITH (FORCE)"
 
-printf 'Clean migration, previous-version upgrade and PostgreSQL restore drill passed.\n'
+printf 'Clean migration, 0.21.0-to-1.0.0 upgrade, rollback and restore drill passed.\n'
