@@ -1,5 +1,11 @@
 import { expect, type Page, test } from "@playwright/test";
 
+import {
+  expectControlTargets,
+  expectKeyboardFocusVisible,
+  expectNoAccessibilityViolations,
+} from "./support/accessibility";
+
 const student = {
   id: "10000000-0000-4000-8000-000000000002",
   login: "student",
@@ -162,10 +168,12 @@ test("student browses the catalog, switches theme and opens sourced learning con
   await expect(page.getByText("Проверенный источник · GPL-3.0-only")).toBeVisible();
   await expect(page.getByRole("link", { name: /Добавить компонент/ })).toHaveCount(0);
   await expect(page.getByRole("img", { name: "Основной вид DHT22" })).toBeVisible();
-  await page.keyboard.press("Tab");
-  await expect(page.locator(":focus")).toBeVisible();
+  await expectNoAccessibilityViolations(page, "catalog light theme");
+  await expectControlTargets(page, "catalog light theme");
+  await expectKeyboardFocusVisible(page, "catalog keyboard");
   await selectTheme(page, "Тёмное");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expectNoAccessibilityViolations(page, "catalog dark theme");
   await page.getByRole("link", { name: /Датчик температуры DHT22/ }).click();
   const primaryThumbnail = page.getByRole("button", {
     name: "Показать изображение 1: Основной вид DHT22",
@@ -182,6 +190,8 @@ test("student browses the catalog, switches theme and opens sourced learning con
   await expect(page.getByText("Подключите библиотеку DHT.")).toBeVisible();
   await page.getByRole("button", { name: "Показать решение" }).click();
   await expect(page.locator(".learning-code")).toContainText("Serial.begin");
+  await expectNoAccessibilityViolations(page, "component details dark theme");
+  await expectControlTargets(page, "component details");
   for (const width of [320, 360, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await expect(
