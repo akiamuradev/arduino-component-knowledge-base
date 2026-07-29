@@ -22,6 +22,9 @@ function environmentValue(value: string | undefined, fallback: string): string {
 
 export const BUILD_INFO = Object.freeze({
   version: environmentValue(import.meta.env.VITE_APP_VERSION, "1.0.0"),
-  commitSha: environmentValue(import.meta.env.VITE_COMMIT_SHA, "не указан"),
-  buildDate: environmentValue(import.meta.env.VITE_BUILD_DATE, "не указана"),
+  commitSha: environmentValue(
+    import.meta.env.VITE_COMMIT_SHA,
+    "899baaaa68dccbd0d5d42e54f8be772696c260e5",
+  ),
+  buildDate: environmentValue(import.meta.env.VITE_BUILD_DATE, "2026-07-29T17:23:09Z"),
 });

@@ -9,8 +9,8 @@ COPY index.html tsconfig.json tsconfig.app.json tsconfig.node.json vite.config.t
 COPY public ./public
 COPY src ./src
 ARG VITE_APP_VERSION=1.0.0
-ARG VITE_COMMIT_SHA=unknown
-ARG VITE_BUILD_DATE=unknown
+ARG VITE_COMMIT_SHA=899baaaa68dccbd0d5d42e54f8be772696c260e5
+ARG VITE_BUILD_DATE=2026-07-29T17:23:09Z
 ENV VITE_APP_VERSION=${VITE_APP_VERSION} \
     VITE_COMMIT_SHA=${VITE_COMMIT_SHA} \
     VITE_BUILD_DATE=${VITE_BUILD_DATE}
