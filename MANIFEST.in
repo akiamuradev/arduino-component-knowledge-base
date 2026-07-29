@@ -1,4 +1,6 @@
 include alembic.ini
+include CONTRIBUTING.md
+include README.ru.md
 include THIRD_PARTY_NOTICES.md
 recursive-include docs *.md
 recursive-include migrations *.py

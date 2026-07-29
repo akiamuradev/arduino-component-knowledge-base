@@ -1,147 +1,88 @@
 # Arduino Component Knowledge Base
 
-[![Quality](https://github.com/akiamuradev/arduino-component-knowledge-base/actions/workflows/quality.yml/badge.svg)](https://github.com/akiamuradev/arduino-component-knowledge-base/actions/workflows/quality.yml)
-[![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-4c566a)](LICENCE)
-[![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![React](https://img.shields.io/badge/React-19-20232A?logo=react&logoColor=61DAFB)](https://react.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
-[![Redis](https://img.shields.io/badge/Redis-8-DC382D?logo=redis&logoColor=white)](https://redis.io/)
-[![MinIO](https://img.shields.io/badge/MinIO-private%20media-C72E49?logo=minio&logoColor=white)](https://min.io/)
-[![Dramatiq](https://img.shields.io/badge/Dramatiq-background%20jobs-222222)](https://dramatiq.io/)
-[![Alembic](https://img.shields.io/badge/Alembic-schema%20migrations-6BA81E)](https://alembic.sqlalchemy.org/)
-[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://docs.docker.com/compose/)
+[![Quality](https://github.com/akiamuradev/arduino-component-knowledge-base/actions/workflows/quality.yml/badge.svg?branch=release%2F1.0.0)](https://github.com/akiamuradev/arduino-component-knowledge-base/actions/workflows/quality.yml?query=branch%3Arelease%2F1.0.0)
+[![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-4c566a)](LICENCE)
 
-**[English](#english) · [Русский](#русский)**
+**English · [Русский](README.ru.md)**
 
----
+A self-hosted educational catalogue for reviewed information about Arduino-compatible boards,
+sensors, actuators, displays, and related electronic components.
 
-<a id="english"></a>
+## About the project
 
-## English
+Arduino Component Knowledge Base (ACKB) gives students a searchable catalogue while teachers,
+editors, and administrators maintain the material through a controlled review process. The
+current application version is **1.0.0**.
 
-### Overview
+A clean installation contains categories and approved source definitions, but no fabricated or
+automatically published cards. Imported material always starts as a draft; it becomes visible to
+students only after review, approval, and explicit publication.
 
-Arduino Component Knowledge Base is a self-hosted educational platform for maintaining a
-reviewed catalogue of Arduino-compatible boards, sensors, actuators, displays and related
-components. Students and teachers browse published learning material, temporary editors prepare
-drafts, and administrators control users, review, publication and operational jobs.
+## Highlights in v1.0.0
 
-The application is currently at version **1.0.0**. Its backend, frontend, workers, migrations,
-media storage and reverse proxy form a runnable Docker Compose stack. A new database intentionally
-contains categories and approved source definitions but **no fabricated or automatically published
-component cards**. Cards become visible in the student catalogue only after editorial review and
-explicit publication.
+- responsive Russian-language React interface with light, dark, and system themes;
+- catalogue search, category and difficulty filters, component pages, and multiple-image galleries;
+- server-enforced roles for students, teachers, temporary editors, and administrators;
+- draft, review, approval, publication, hide, archive, and immutable revision history;
+- teacher correction proposals that never overwrite published content directly;
+- bounded Seeed Studio Wiki and KiCad Symbols imports with provenance and license snapshots;
+- exact and fuzzy duplicate detection with administrator-only merge decisions;
+- private MinIO media, validated image/video processing, and durable Redis/Dramatiq jobs;
+- audit events, Argon2id passwords, opaque sessions, CSRF protection, and throttling;
+- reproducible Docker Compose deployment, Alembic migrations, backup, restore, and upgrade checks.
 
-### Implemented capabilities
+## Screenshots
 
-- responsive React interface with light, dark and system themes;
-- student catalogue, full-text search, filters and component detail pages;
-- editor/administrator dashboard and a server-enforced review lifecycle with reversible archive,
-  hide/show and administrator-only approval/publication;
-- FastAPI application factory, async SQLAlchemy/asyncpg and PostgreSQL readiness checks;
-- Argon2id passwords, opaque server-side sessions, CSRF protection, RBAC, audit events and
-  brute-force throttling;
-- immutable published revisions and optimistic conflict handling;
-- immutable card history with authorship, state transitions and owner-scoped editor access;
-- teacher correction proposals that never mutate a published card directly;
-- private MinIO image/video storage with presigned uploads and PostgreSQL metadata;
-- MIME/magic-byte validation, Pillow image variants, SHA-256/pHash and FFmpeg H.264/AAC
-  renditions with posters;
-- Redis + Dramatiq background jobs with durable PostgreSQL status, progress, retries and
-  idempotency;
-- editor import workspace with bounded discovery, safe upload states, ownership-scoped retry
-  and cancellation; technical processing diagnostics remain administrator-only;
-- versioned, SSRF-resistant Seeed Studio Wiki and KiCad Symbols adapters;
-- exact and fuzzy duplicate detection; only an administrator can confirm merge decisions;
-- Docker Compose deployment with PostgreSQL, Redis and MinIO isolated from host ports.
+| Catalogue — light theme | Catalogue — dark theme |
+|---|---|
+| ![ACKB catalogue in the light theme](docs/screenshots/frontend-light-desktop.png) | ![ACKB catalogue in the dark theme](docs/screenshots/frontend-dark-desktop.png) |
 
-### Stack and trust boundaries
+| Sign in — mobile light theme | Sign in — mobile dark theme |
+|---|---|
+| ![ACKB sign-in page on a mobile viewport in the light theme](docs/screenshots/frontend-light-mobile.png) | ![ACKB sign-in page on a mobile viewport in the dark theme](docs/screenshots/frontend-dark-mobile.png) |
 
-| Layer | Technology | Responsibility |
-|---|---|---|
-| Frontend | React 19, TypeScript 6, Vite, React Router, TanStack Query | Student and editorial UI |
-| Backend | FastAPI, Pydantic, SQLAlchemy 2, asyncpg | API, validation and authorization source of truth |
-| Database | PostgreSQL 17 | Domain data, media metadata, sessions, audit and durable jobs |
-| Binary media | Private MinIO buckets | Original uploads, safe variants, video renditions and posters |
-| Jobs | Redis 8 + Dramatiq | Media and import task delivery |
-| Schema | Alembic only | All PostgreSQL schema changes; runtime `create_all` is forbidden |
-| Edge | nginx + Docker Compose | Same-origin frontend/API routing and the only published host port |
+The screenshots are generated by the repository's deterministic Playwright scenario; production
+code contains no mock catalogue data.
+
+## Architecture
+
+| Layer | Technology |
+|---|---|
+| Web interface | React 19, TypeScript 6, Vite |
+| API and authorization | FastAPI, Pydantic, SQLAlchemy 2, asyncpg |
+| Persistent data | PostgreSQL 17 with Alembic migrations |
+| Media | Private MinIO buckets, Pillow, FFmpeg |
+| Background work | Redis 8 and Dramatiq |
+| Edge | nginx and Docker Compose |
 
 ```text
-Browser -> reverse proxy -> React frontend
-                         -> FastAPI -> PostgreSQL
-                                    -> Redis -> Dramatiq workers
+Browser -> reverse proxy -> frontend
+                         -> backend -> PostgreSQL
+                                    -> Redis -> workers
                                     -> private MinIO
-
-Allowed source URL -> parser worker -> reviewed draft -> editor -> administrator -> published revision
 ```
 
-The backend is always the authorization source of truth. Frontend route guards are only a user
-experience feature. Parser output cannot publish a component, and duplicate merge requires a
-separate administrator decision.
+The backend is the authorization source of truth. Parser output cannot publish a card, and a
+duplicate merge always requires a separate administrator decision. See
+[Architecture](docs/ARCHITECTURE.md) and [Security](docs/SECURITY.md) for the full boundaries.
 
-### Roles
+## Quick start
 
-| Action | Student | Teacher | Editor | Administrator |
-|---|:---:|:---:|:---:|:---:|
-| Browse published cards | Yes | Yes | Yes | Yes |
-| Propose a correction | No | Yes | No | Yes |
-| Create, edit and archive drafts | No | No | Yes | Yes |
-| Submit a draft for review | No | No | Yes | Yes |
-| Request changes or approve | No | No | No | Yes |
-| Start a registered import | No | No | Yes | Yes |
-| Publish a reviewed card | No | No | No | Yes |
-| Manage users and roles | No | No | No | Yes |
-| Confirm duplicate merge | No | No | No | Yes |
-| View own component uploads | No | No | Yes | Yes |
-| Monitor technical background jobs | No | No | No | Yes |
-
-Permissions are resolved by the backend from active database grants. An editor grant always
-expires and does not provide user-management, publication, audit or system permissions.
-Login accepts credentials only. The authenticated response supplies server-resolved roles and
-permissions; frontend navigation and actions use those permissions only as UX guards.
-Administrators manage temporary editors at `/admin/users`: they can create an account with a
-safe student baseline, set or renew its expiry, revoke editor access early and disable the
-account. That screen has no administrator-role input; every mutation revokes affected sessions,
-retains grant history and creates an audit event.
-
-### Data sources and licensing
-
-New imports are limited to two registered repositories:
-
-1. [Seeed Studio Wiki](https://github.com/Seeed-Studio/wiki-documents) — `GPL-3.0-only`;
-2. [Official KiCad Symbols](https://gitlab.com/kicad/libraries/kicad-symbols) — `CC-BY-SA-4.0`.
-
-The historical Arduino-Tex and Portal-PK records are inactive. AlexGyver is disabled because use
-was denied by the source owner. None of these three website sources can be launched from the UI or
-repository import API. Acquisition is bounded to registered repositories, paths and revisions;
-scripts, hooks and documentation builds are never executed. An import produces a preview and then
-only a `draft`, never a published card.
-
-The PolyForm license applies to application code, not imported third-party data. Each imported
-card retains an immutable source, commit, file/entry, parser version, license, attribution and
-modifications snapshot. See [Data licensing](docs/DATA_LICENSING.md) and
-[Third-party notices](THIRD_PARTY_NOTICES.md). This project is not affiliated with Arduino, Seeed
-Studio or KiCad; names and trademarks belong to their respective owners.
-
-### Quick start on a Linux VM
-
-Requirements: Docker Engine, the Docker Compose plugin, Git, `curl` and `openssl`. Clone into a
-native Linux filesystem rather than a Windows/shared mount so file permissions work correctly.
+Requirements: Docker Engine, the Docker Compose plugin, Git, `curl`, and `openssl`. Clone the
+release branch into a native Linux filesystem:
 
 ```bash
-git clone https://github.com/akiamuradev/arduino-component-knowledge-base.git
+git clone --branch release/1.0.0 --single-branch \
+  https://github.com/akiamuradev/arduino-component-knowledge-base.git
 cd arduino-component-knowledge-base
 bash scripts/linux_bootstrap.sh
 ```
 
-The bootstrap script creates an ignored `.env` with random local credentials and mode `0600`,
-validates Compose, builds the stack and waits for `/health`, `/ready` and the frontend. It never
-prints generated secrets. Open <http://localhost:8080> inside the VM.
+The bootstrap creates an ignored `.env` with random local credentials and mode `0600`, builds the
+stack, and waits for the health checks. It does not print generated secrets. Open
+<http://localhost:8080>.
 
-Check the deployment:
+Verify the deployment:
 
 ```bash
 docker compose ps -a
@@ -150,361 +91,130 @@ curl -f http://127.0.0.1:8080/ready
 python3 scripts/compose_smoke.py
 ```
 
-`migrate` and `media-init` are one-shot services: `Exited (0)` is their expected successful state.
-Runtime services should be `Up`/`healthy`. Only reverse proxy publishes port 8080 through the
-host-facing `ingress` network; `edge` and `data` remain internal.
+`migrate` and `media-init` are one-shot services; `Exited (0)` is their successful state. For an
+existing release checkout, preserve its `.env` and volumes:
 
-Create the first administrator after a healthy start:
+```bash
+git pull --ff-only origin release/1.0.0
+docker compose up --build -d
+python3 scripts/compose_smoke.py
+```
+
+Do not replace `.env` while reusing an existing PostgreSQL volume. For production deployment,
+backup, restore, and upgrade procedures, use the [Operations guide](docs/OPERATIONS.md).
+
+## Create the first administrator
+
+After the stack is healthy:
 
 ```bash
 docker compose run --rm backend ackb-bootstrap-admin \
   --login admin --display-name "Initial Administrator"
 ```
 
-The password is entered twice through the TTY and must contain 12 to 128 characters. It is never
-accepted as a command-line argument. The bootstrap command works only while no active administrator
-exists.
+Enter the password twice through the TTY. It must contain 12–128 characters and is never accepted
+as a command-line argument. Bootstrap is available only while no active administrator exists.
 
-For an existing checkout, preserve its `.env` and volumes:
+## Content workflow
+
+1. An editor or administrator creates a manual draft or a bounded Seeed/KiCad import preview.
+2. The selected import entry becomes a draft; it is never published automatically.
+3. The editor completes the card and resolves duplicate candidates.
+4. The editor submits it for review; an administrator requests changes or approves it.
+5. An administrator explicitly publishes the approved revision.
+6. Students see the immutable published snapshot. Later edits begin a new draft; hide and archive
+   actions remain reversible.
+
+## Development and checks
+
+Use Python 3.12 or newer, [uv](https://docs.astral.sh/uv/), Node.js `>=22.12 <26`, npm, and Docker.
+
+Backend and documentation checks:
 
 ```bash
-git pull --ff-only origin main
-docker compose -f compose.yaml up --build -d
-python3 scripts/compose_smoke.py
+uv lock --check
+uv sync --frozen --extra dev
+uv run ruff check .
+uv run ruff format --check src scripts tests migrations
+uv run mypy --strict src scripts tests migrations
+uv run pytest
+uv run python -m build
+uv run python scripts/docs_contract.py
+uv run python scripts/release_contract.py
+uv run python scripts/backend_smoke.py
 ```
 
-Do not replace `.env` when reusing an existing PostgreSQL volume: the database role password is
-established when the volume is first initialized.
-
-### Content workflow
-
-1. Sign in as an editor or administrator to create a manual draft.
-2. An editor or administrator may open import, select Seeed or KiCad, perform bounded
-   discovery and inspect the normalized preview.
-3. Click **Create draft** to enqueue the selected entry, then review and complete the resulting
-   draft in the editor.
-4. Resolve any duplicate candidate; merge confirmation is administrator-only.
-5. An editor submits the draft; an administrator requests changes or approves it.
-6. An administrator explicitly publishes the approved card.
-7. The immutable published snapshot becomes available in the student catalogue. Editing it starts
-   a new draft without removing that public snapshot; hide/archive are reversible.
-
-A clean installation shows an empty catalogue until the first reviewed draft is explicitly
-published. Importing never performs that publication step.
-
-### Development and verification
-
-Backend requirements: Python 3.12+, PostgreSQL, Redis, MinIO, FFmpeg and ffprobe. Frontend requires
-Node.js 22+ and npm.
+Frontend and browser checks:
 
 ```bash
-python -m venv .venv
-python -m pip install -e ".[dev]"
-ruff check .
-ruff format --check src scripts tests migrations
-mypy --strict src scripts tests migrations
-pytest
-python -m build
-python scripts/docs_contract.py
-python scripts/backend_smoke.py
-
 cd frontend
 npm ci
+npm run audit
 npm run lint
 npm run typecheck
 npm test
 npm run build
 npm run smoke
+npx playwright install chromium
 npm run test:e2e
 ```
 
-GitHub Actions runs backend lint/type/tests/build, frontend lint/type/tests/build, Playwright E2E,
-PostgreSQL/MinIO integration tests and container contract/build jobs on every push and pull request.
+Container checks and the PostgreSQL/MinIO integration environment are documented in
+[Testing](docs/TESTING.md). The `quality` workflow runs the complete mandatory release gate on
+every push and pull request.
 
-### API overview
-
-| Prefix or endpoint | Purpose |
-|---|---|
-| `/health`, `/ready` | Process liveness and bounded PostgreSQL readiness |
-| `/api/v1/auth/*` | Login, current backend-resolved principal and logout |
-| `/api/v1/catalog/*` | Published student catalogue and source registry |
-| `/api/v1/workspace/*` | Editor/administrator card and category workspace |
-| `/api/v1/media/*` | Private upload reservation, completion and processing status |
-| `/api/v1/import-jobs*` | Ownership-scoped component uploads, preview, retry and cancellation |
-| `/api/v1/admin/*` | Users, technical diagnostics and duplicate decisions |
-| `/api/v1/openapi.json` | Versioned OpenAPI contract |
-
-Interactive API documentation is disabled by default. Local `.env` enables it at `/docs`; never
-enable it merely to bypass production access controls.
-
-### Documentation
+## Documentation
 
 - [Requirements](docs/REQUIREMENTS.md)
 - [Architecture](docs/ARCHITECTURE.md)
-- [Evidence-first import roadmap](docs/imports/ROADMAP.md)
 - [Data model](docs/DATA_MODEL.md)
-- [Security controls](docs/SECURITY.md)
-- [Threat model](docs/THREAT_MODEL.md)
 - [Testing](docs/TESTING.md)
-- [Manual acceptance for 1.0.0](docs/RELEASE_1.0.0_MANUAL_ACCEPTANCE.md)
-- [Data licensing](docs/DATA_LICENSING.md)
-- [Third-party notices](THIRD_PARTY_NOTICES.md)
-- [Corporate Ubuntu deployment](docs/DEPLOYMENT.md)
-- [Operations guide for 1.0.0](docs/OPERATIONS.md)
-- [Frontend guide](frontend/README.md)
+- [Security controls](docs/SECURITY.md) and [threat model](docs/THREAT_MODEL.md)
+- [Operations](docs/OPERATIONS.md) and [deployment](docs/DEPLOYMENT.md)
+- [Import validation](docs/IMPORT_VALIDATION.md) and [import roadmap](docs/imports/ROADMAP.md)
+- [Data licensing](docs/DATA_LICENSING.md) and [third-party notices](THIRD_PARTY_NOTICES.md)
+- [Manual v1.0.0 acceptance](docs/RELEASE_1.0.0_MANUAL_ACCEPTANCE.md)
+- [Contributing and forks](CONTRIBUTING.md)
 
-### License
+## Contributing and forks
 
-The project is distributed under the
-[PolyForm Noncommercial License 1.0.0](LICENCE). Commercial use is not permitted by this license;
-permitted noncommercial use is governed by the license text.
-
-Third-party data remains under the license recorded in its source snapshot; it is not relicensed
-under PolyForm by inclusion in this application.
-
-[Back to language selector](#arduino-component-knowledge-base)
-
----
-
-<a id="русский"></a>
-
-## Русский
-
-### О проекте
-
-Arduino Component Knowledge Base — самостоятельная образовательная web-платформа для ведения
-проверенного каталога Arduino-совместимых плат, датчиков, исполнительных устройств, дисплеев и
-других компонентов. Студенты читают опубликованные материалы, преподаватели предлагают
-исправления, временные редакторы готовят черновики, а администраторы управляют пользователями,
-решениями по дубликатам и фоновыми задачами.
-
-Текущая версия — **1.0.0**. Backend, frontend, workers, миграции, media storage и reverse proxy
-собираются в единый рабочий Docker Compose-контур. Новая база намеренно содержит категории и
-описания разрешённых источников, но **не содержит вымышленных или автоматически опубликованных
-карточек**. Карточка появляется в студенческом каталоге только после редакционной проверки и явной
-публикации.
-
-### Реализовано
-
-- полностью русифицированный адаптивный React-интерфейс со светлой, тёмной и системной темами;
-- студенческий каталог, полнотекстовый поиск, фильтры и страницы компонентов;
-- редакционный обзор, редактор и серверная проверка карточек с обратимым архивированием,
-  скрытием/возвратом и публикацией только администратором;
-- FastAPI application factory, async SQLAlchemy/asyncpg и PostgreSQL readiness;
-- Argon2id, opaque server-side sessions, CSRF, backend RBAC, audit и brute-force protection;
-- неизменяемые опубликованные revisions и optimistic conflict handling;
-- неизменяемая история карточек с авторами, переходами состояний и доступом редактора только
-  к своим карточкам;
-- предложения исправлений от преподавателей без прямого изменения опубликованной карточки;
-- private MinIO для изображений и видео, presigned upload и metadata в PostgreSQL;
-- MIME/magic bytes, Pillow variants, SHA-256/pHash, FFmpeg H.264/AAC rendition и poster;
-- Redis + Dramatiq с durable status/progress, retry/backoff и idempotency;
-- страница «Загрузка компонентов» для editor/administrator с понятными состояниями,
-  собственными загрузками, повтором, отменой и результатом; техническая диагностика доступна
-  только administrator;
-- версионированные SSRF-safe adapters Seeed Studio Wiki и KiCad Symbols;
-- exact/fuzzy дедупликация; merge всегда отдельно подтверждает administrator;
-- Docker Compose, в котором PostgreSQL, Redis и MinIO не публикуются на host.
-
-### Стек и границы доверия
-
-| Слой | Технологии | Назначение |
-|---|---|---|
-| Frontend | React 19, TypeScript 6, Vite, React Router, TanStack Query | Student и editorial UI |
-| Backend | FastAPI, Pydantic, SQLAlchemy 2, asyncpg | API, валидация и источник истины для авторизации |
-| База | PostgreSQL 17 | Карточки, metadata, sessions, audit и durable jobs |
-| Binary media | Private MinIO buckets | Загрузки, безопасные варианты, видео и posters |
-| Очереди | Redis 8 + Dramatiq | Доставка media/import задач |
-| Схема | Только Alembic | Все изменения PostgreSQL; runtime `create_all` запрещён |
-| Edge | nginx + Docker Compose | Same-origin маршрутизация и единственный опубликованный порт |
-
-```text
-Браузер -> reverse proxy -> React frontend
-                          -> FastAPI -> PostgreSQL
-                                     -> Redis -> Dramatiq workers
-                                     -> private MinIO
-
-Разрешённый URL -> parser worker -> проверяемый draft -> editor -> administrator -> published revision
-```
-
-Backend всегда является источником истины для авторизации. Frontend guards только улучшают UX.
-Parser не может публиковать карточку, а duplicate merge требует отдельного решения administrator.
-
-### Роли
-
-| Действие | Student | Teacher | Editor | Administrator |
-|---|:---:|:---:|:---:|:---:|
-| Просмотр опубликованных карточек | Да | Да | Да | Да |
-| Предложение исправления | Нет | Да | Нет | Да |
-| Создание, изменение и архивирование draft | Нет | Нет | Да | Да |
-| Отправка draft на проверку | Нет | Нет | Да | Да |
-| Возврат на доработку и approval | Нет | Нет | Нет | Да |
-| Запуск зарегистрированного import | Нет | Нет | Да | Да |
-| Публикация после проверки | Нет | Нет | Нет | Да |
-| Управление пользователями и ролями | Нет | Нет | Нет | Да |
-| Подтверждение merge дубликатов | Нет | Нет | Нет | Да |
-| Мониторинг всех фоновых задач | Нет | Нет | Нет | Да |
-
-Permissions вычисляются backend из активных grants в базе. Роль editor всегда ограничена
-сроком и не даёт доступа к пользователям, публикации, журналу и системным настройкам.
-Вход принимает только учётные данные. Ответ authenticated API содержит вычисленные сервером
-roles и permissions; frontend использует permissions только как UX guards навигации и действий.
-Администратор управляет временными редакторами в `/admin/users`: создаёт учётную запись с
-безопасной базовой ролью student, задаёт или продлевает срок, досрочно отзывает editor и
-блокирует пользователя. На этом экране нельзя назначить administrator; mutations отзывают
-затронутые сессии, сохраняют историю grants и создают audit events.
-
-### Источники данных и лицензирование
-
-Новый импорт ограничен двумя зарегистрированными репозиториями:
-
-1. [Seeed Studio Wiki](https://github.com/Seeed-Studio/wiki-documents) — `GPL-3.0-only`;
-2. [Official KiCad Symbols](https://gitlab.com/kicad/libraries/kicad-symbols) — `CC-BY-SA-4.0`.
-
-Исторические записи Arduino-Tex и Portal-PK неактивны. AlexGyver отключён, поскольку владелец
-источника запретил использование материалов. Ни один из этих трёх website-источников нельзя
-запустить через UI или repository import API. Получение ограничено зарегистрированными repository,
-путями и revisions; scripts, hooks и сборка документации не запускаются. Импорт сначала создаёт
-preview, а затем только `draft`, но никогда не публикует карточку.
-
-PolyForm относится к коду приложения, а не к импортированным сторонним данным. Карточка хранит
-неизменяемый snapshot источника, commit, файла/entry, parser version, лицензии, attribution и
-преобразований. См. [Лицензирование данных](docs/DATA_LICENSING.md) и
-[уведомления о сторонних материалах](THIRD_PARTY_NOTICES.md). Проект не аффилирован с Arduino,
-Seeed Studio или KiCad; названия и товарные знаки принадлежат соответствующим правообладателям.
-
-### Быстрый запуск в Linux VM
-
-Нужны Docker Engine, Compose plugin, Git, `curl` и `openssl`. Клонируйте проект в Linux filesystem,
-а не в Windows/shared mount, чтобы корректно работали права файлов.
+To contribute upstream, create a GitHub fork, clone your fork, add this repository as `upstream`,
+and branch from `upstream/release/1.0.0`:
 
 ```bash
-git clone https://github.com/akiamuradev/arduino-component-knowledge-base.git
+git clone https://github.com/<username>/arduino-component-knowledge-base.git
 cd arduino-component-knowledge-base
-bash scripts/linux_bootstrap.sh
+git remote add upstream https://github.com/akiamuradev/arduino-component-knowledge-base.git
+git fetch upstream
+git switch -c feature/<short-name> upstream/release/1.0.0
 ```
 
-Bootstrap создаёт ignored `.env` со случайными local credentials и mode `0600`, проверяет Compose,
-собирает stack и ждёт frontend, `/health` и `/ready`. Секреты в вывод не попадают. Внутри VM
-откройте <http://localhost:8080>.
+Do not push feature work directly to `release/1.0.0` or `main`. Keep one pull request focused on
+one task, synchronize with `git fetch upstream`, and run the relevant checks above before opening
+a PR. Never commit `.env`, credentials, generated build output, or user data.
 
-Проверка:
+An independent fork or derivative remains subject to the
+[PolyForm Noncommercial License 1.0.0](LICENCE): commercial use is not permitted. Imported data
+keeps its own license, attribution, and provenance. Replace all credentials before a public
+deployment, follow the security/deployment requirements, and do not imply affiliation with
+Arduino, Seeed Studio, KiCad, or the original author. Renaming the product requires consistent
+updates to branding, package metadata, Compose image names, frontend metadata, versions, and
+documentation.
 
-```bash
-docker compose ps -a
-curl -f http://127.0.0.1:8080/health
-curl -f http://127.0.0.1:8080/ready
-python3 scripts/compose_smoke.py
-```
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the complete upstream and independent-fork workflows.
 
-`migrate` и `media-init` — одноразовые services; `Exited (0)` для них означает успех. Остальные
-services должны быть `Up`/`healthy`. Только reverse proxy публикует 8080 через host-facing сеть
-`ingress`; `edge` и `data` остаются internal.
+## Security
 
-Создание первого administrator после healthy startup:
+Never publish credentials, personal data, or exploit details in an issue or pull request. Review
+the trust boundaries in [Security](docs/SECURITY.md) before changing authentication, imports,
+media, or deployment. A green CI run does not replace TLS, secret rotation, backups, network
+policy, monitoring, and the production preflight checks.
 
-```bash
-docker compose run --rm backend ackb-bootstrap-admin \
-  --login admin --display-name "Initial Administrator"
-```
+## License and third-party material
 
-Пароль вводится дважды через TTY, содержит от 12 до 128 символов и не передаётся аргументом
-командной строки. Bootstrap работает только пока в базе нет активного administrator.
+Application code is distributed under the
+[PolyForm Noncommercial License 1.0.0](LICENCE). Commercial use is not permitted by this license.
 
-Обновление существующей установки с сохранением `.env` и volumes:
-
-```bash
-git pull --ff-only origin main
-docker compose -f compose.yaml up --build -d
-python3 scripts/compose_smoke.py
-```
-
-Не заменяйте `.env`, если используется существующий PostgreSQL volume: пароль database role
-устанавливается при первой инициализации volume.
-
-### Наполнение каталога
-
-1. Войдите как editor или administrator, чтобы создать ручной draft.
-2. Editor или administrator может открыть импорт, выбрать Seeed или KiCad,
-   выполнить ограниченный поиск и проверить нормализованный preview.
-3. Нажмите **Создать черновик**, дождитесь job и проверьте полученный draft в редакторе.
-4. Разберите найденный duplicate candidate; merge подтверждает только administrator.
-5. Editor отправляет draft на проверку; administrator возвращает его на доработку или approve.
-6. Administrator явно публикует approved-карточку.
-7. Immutable published snapshot появится в студенческом каталоге. Новая редакция начинает
-   отдельный draft, не убирая этот snapshot; hide/archive обратимы.
-
-Чистая установка показывает пустой каталог до первой проверенной и явно опубликованной карточки.
-Импорт сам по себе публикацию не выполняет.
-
-### Разработка и проверки
-
-Backend требует Python 3.12+, PostgreSQL, Redis, MinIO, FFmpeg и ffprobe. Frontend требует Node.js
-22+ и npm.
-
-```bash
-python -m venv .venv
-python -m pip install -e ".[dev]"
-ruff check .
-ruff format --check src scripts tests migrations
-mypy --strict src scripts tests migrations
-pytest
-python -m build
-python scripts/docs_contract.py
-python scripts/backend_smoke.py
-
-cd frontend
-npm ci
-npm run lint
-npm run typecheck
-npm test
-npm run build
-npm run smoke
-npm run test:e2e
-```
-
-GitHub Actions на каждый push и pull request запускает backend lint/type/tests/build, frontend
-lint/type/tests/build, Playwright E2E, PostgreSQL/MinIO integration и container contract/build jobs.
-
-### Обзор API
-
-| Prefix или endpoint | Назначение |
-|---|---|
-| `/health`, `/ready` | Liveness процесса и bounded PostgreSQL readiness |
-| `/api/v1/auth/*` | Login, backend-resolved principal и logout |
-| `/api/v1/catalog/*` | Опубликованный студенческий каталог и реестр источников |
-| `/api/v1/workspace/*` | Карточки и категории editor/administrator |
-| `/api/v1/media/*` | Private upload, completion и processing status |
-| `/api/v1/import-jobs*` | Загрузки компонентов, preview, повтор и отмена с проверкой владельца |
-| `/api/v1/admin/*` | Пользователи, техническая диагностика и duplicate decisions |
-| `/api/v1/openapi.json` | Версионированный OpenAPI contract |
-
-Interactive API documentation по умолчанию выключена. Локальный `.env` включает `/docs`; её нельзя
-включать как способ обхода production access controls.
-
-### Документация
-
-- [Требования](docs/REQUIREMENTS.md)
-- [Архитектура](docs/ARCHITECTURE.md)
-- [ROADMAP evidence-first импорта](docs/imports/ROADMAP.md)
-- [Модель данных](docs/DATA_MODEL.md)
-- [Контроли безопасности](docs/SECURITY.md)
-- [Модель угроз](docs/THREAT_MODEL.md)
-- [Тестирование](docs/TESTING.md)
-- [Ручная приёмка 1.0.0](docs/RELEASE_1.0.0_MANUAL_ACCEPTANCE.md)
-- [Лицензирование данных](docs/DATA_LICENSING.md)
-- [Уведомления о сторонних материалах](THIRD_PARTY_NOTICES.md)
-- [Развёртывание в Ubuntu](docs/DEPLOYMENT.md)
-- [Эксплуатация ACKB 1.0.0](docs/OPERATIONS.md)
-- [Frontend](frontend/README.md)
-
-### Лицензия
-
-Проект распространяется по [PolyForm Noncommercial License 1.0.0](LICENCE). Коммерческое
-использование этой лицензией не разрешается; допустимое некоммерческое использование определяется
-текстом лицензии.
-
-Сторонние данные остаются под лицензией, записанной в их source snapshot, и не становятся
-PolyForm-материалом из-за включения в приложение.
-
-[К выбору языка](#arduino-component-knowledge-base)
+Imported third-party material is not relicensed as application code. See
+[Data licensing](docs/DATA_LICENSING.md) and [Third-party notices](THIRD_PARTY_NOTICES.md) for
+source-specific licenses, attribution, and provenance requirements.
