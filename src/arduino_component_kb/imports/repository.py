@@ -18,6 +18,7 @@ from arduino_component_kb.catalog.domain import Difficulty, DraftData, Technical
 from arduino_component_kb.catalog.models import Category, Component
 from arduino_component_kb.catalog.service import CatalogService
 from arduino_component_kb.deduplication.service import FuzzyCandidateService
+from arduino_component_kb.dispatch.repository import DispatchRepository
 from arduino_component_kb.imports.domain import ParsedComponent
 from arduino_component_kb.imports.exact import ExactKeys
 from arduino_component_kb.imports.models import ComponentSource, ImportJob, Source
@@ -199,6 +200,13 @@ class ImportRepository:
             updated_at=now,
         )
         self.session.add(job)
+        DispatchRepository(self.session).add(
+            job_type="import",
+            job_id=job.id,
+            queue_name="imports",
+            max_attempts=max_attempts,
+            now=now,
+        )
         return job
 
     def add_repository_job(
@@ -232,6 +240,13 @@ class ImportRepository:
             updated_at=now,
         )
         self.session.add(job)
+        DispatchRepository(self.session).add(
+            job_type="import",
+            job_id=job.id,
+            queue_name="imports",
+            max_attempts=max_attempts,
+            now=now,
+        )
         return job
 
     async def exact_component(self, source_id: UUID, keys: ExactKeys) -> UUID | None:

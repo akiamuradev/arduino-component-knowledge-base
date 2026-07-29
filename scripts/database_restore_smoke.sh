@@ -84,14 +84,14 @@ database_admin "$UPGRADE_DATABASE" \
 database_admin "$UPGRADE_DATABASE" \
   --command "CREATE DATABASE \"$UPGRADE_DATABASE\" TEMPLATE template0 ENCODING 'UTF8'"
 ACKB_RESTORE_DATABASE="$UPGRADE_DATABASE" docker compose "${COMPOSE_ARGUMENTS[@]}" run \
-  --quiet-pull --rm --no-deps database-restore-migrate alembic upgrade 20260728_24
+  --quiet-pull --rm --no-deps database-restore-migrate alembic upgrade 20260729_25
 ACKB_RESTORE_DATABASE="$UPGRADE_DATABASE" docker compose "${COMPOSE_ARGUMENTS[@]}" run \
   --quiet-pull --rm --no-deps database-restore-migrate
 current_revision="$(
   ACKB_RESTORE_DATABASE="$UPGRADE_DATABASE" docker compose "${COMPOSE_ARGUMENTS[@]}" run \
     --quiet-pull --rm --no-deps database-restore-migrate alembic current
 )"
-grep -q '20260729_25 (head)' <<<"$current_revision"
+grep -q '20260729_26 (head)' <<<"$current_revision"
 
 database_admin "$RESTORE_DATABASE" \
   --command "DROP DATABASE \"$RESTORE_DATABASE\" WITH (FORCE)"

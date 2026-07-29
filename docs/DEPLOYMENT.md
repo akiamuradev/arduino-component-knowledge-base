@@ -297,3 +297,31 @@ bash scripts/database_restore_smoke.sh
 восстановление и точное сохранение критичных сущностей. Этот этап покрывает PostgreSQL.
 Binary media находятся в MinIO и требуют отдельного согласованного object-backup; PostgreSQL
 dump нельзя считать полной резервной копией системы.
+
+## 10. Надёжность background jobs
+
+`job-reconciler` запускается обычным Compose profile рядом с workers. Он читает только
+PostgreSQL `job_dispatches` и отправляет в Redis opaque job UUID; parser network и внешний egress
+ему не выдаются. API фиксирует job и dispatch intent одной transaction, поэтому временно
+недоступный или очищенный Redis не превращает запрос пользователя в потерянную задачу.
+
+Reconciler каждые `ACKB_JOB_DISPATCH_INTERVAL_SECONDS` обрабатывает не более
+`ACKB_JOB_DISPATCH_BATCH_SIZE` записей. Claim lease и порог потерянной доставки задаются
+`ACKB_JOB_DISPATCH_CLAIM_LEASE_SECONDS` и `ACKB_JOB_DISPATCH_STALE_SECONDS`. Значения ограничены
+application settings; processing и delivery используют конечный `max_attempts`, а backoff
+ограничен 60 секундами. Не увеличивайте пределы для маскировки постоянного сбоя Redis.
+
+Разовый безопасный запуск для диагностики:
+
+```fish
+docker compose --env-file .env.production \
+  -f compose.yaml -f compose.production.yaml run --rm job-reconciler \
+  ackb-reconcile-jobs
+```
+
+Проверьте `docker compose ... ps` и logs `job-reconciler`, `worker`, `parser-worker`. Logs содержат
+только dispatch/job UUID, queue, attempt и класс ошибки — без Redis URL, credentials и содержимого
+компонента. Потерянный `queued`, due `retrying` и `running` с истёкшей heartbeat lease
+доставляются повторно; свежая lease и terminal job не запускаются. После исчерпания delivery
+attempts задача фиксируется как `failed`. Возобновление выполняется только явной кнопкой retry с
+RBAC, CSRF и audit, а не бесконечным автоматическим циклом.

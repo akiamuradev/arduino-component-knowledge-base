@@ -3,6 +3,10 @@ x-production-environment: &production-environment
   ACKB_DATABASE_ECHO: "false"
   ACKB_DOCS_ENABLED: "false"
   ACKB_LOG_LEVEL: ${ACKB_LOG_LEVEL:-INFO}
+  ACKB_JOB_DISPATCH_BATCH_SIZE: ${ACKB_JOB_DISPATCH_BATCH_SIZE:-100}
+  ACKB_JOB_DISPATCH_INTERVAL_SECONDS: ${ACKB_JOB_DISPATCH_INTERVAL_SECONDS:-5}
+  ACKB_JOB_DISPATCH_CLAIM_LEASE_SECONDS: ${ACKB_JOB_DISPATCH_CLAIM_LEASE_SECONDS:-60}
+  ACKB_JOB_DISPATCH_STALE_SECONDS: ${ACKB_JOB_DISPATCH_STALE_SECONDS:-60}
   ACKB_LEGACY_KICAD_CARD_IMPORT_ENABLED: "false"
   ACKB_SESSION_TTL_MINUTES: ${ACKB_SESSION_TTL_MINUTES:-480}
   ACKB_SESSION_COOKIE_SECURE: "true"
@@ -204,6 +208,15 @@ services:
     depends_on:
       database-permissions:
         condition: service_completed_successfully
+
+  job-reconciler:
+    <<: *production-app
+    depends_on:
+      database-permissions:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    networks: [data]
 
   media-retention:
     <<: *production-app

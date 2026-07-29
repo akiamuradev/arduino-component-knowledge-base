@@ -10,6 +10,8 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
+from arduino_component_kb.catalog.models import Component
+from arduino_component_kb.dispatch.repository import DispatchRepository
 from arduino_component_kb.media.domain import (
     ComponentMedia,
     ComponentMediaUsage,
@@ -45,8 +47,6 @@ class MediaRepository:
         await self.session.execute(select(func.pg_advisory_xact_lock(0x4D454449, 0x4155504C)))
 
     async def lock_component_revision(self, component_id: UUID) -> int | None:
-        from arduino_component_kb.catalog.models import Component
-
         value = await self.session.scalar(
             select(Component.revision).where(Component.id == component_id).with_for_update()
         )
@@ -304,6 +304,13 @@ class MediaRepository:
             updated_at=now,
         )
         self.session.add(job)
+        DispatchRepository(self.session).add(
+            job_type="media",
+            job_id=job.id,
+            queue_name="videos" if asset.kind == "video" else "images",
+            max_attempts=max_attempts,
+            now=now,
+        )
         await self.session.flush()
         return job
 

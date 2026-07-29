@@ -6,6 +6,7 @@ from arduino_component_kb.auth.models import User
 from arduino_component_kb.catalog.models import Component
 from arduino_component_kb.config import Settings
 from arduino_component_kb.db import Base, Database
+from arduino_component_kb.dispatch.models import JobDispatch
 from arduino_component_kb.media.models import MediaAsset
 
 
@@ -28,6 +29,7 @@ def test_metadata_contains_authentication_catalog_and_media_tables() -> None:
     assert User.__tablename__ == "users"
     assert Component.__tablename__ == "components"
     assert MediaAsset.__tablename__ == "media_assets"
+    assert JobDispatch.__tablename__ == "job_dispatches"
     assert set(Base.metadata.tables) == {
         "audit_events",
         "auth_sessions",
@@ -48,6 +50,7 @@ def test_metadata_contains_authentication_catalog_and_media_tables() -> None:
         "components",
         "duplicate_candidates",
         "import_jobs",
+        "job_dispatches",
         "import_pipeline_artifacts",
         "import_review_actions",
         "import_review_drafts",

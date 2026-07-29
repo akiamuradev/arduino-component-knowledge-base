@@ -15,7 +15,6 @@ from arduino_component_kb.api.imports import (
     RepositoryImportRequest,
     _admit_submission,
     _display_status,
-    _enqueue_import,
     _list_item,
     _owned_job,
     _response,
@@ -25,7 +24,6 @@ from arduino_component_kb.auth.domain import Principal, Role
 from arduino_component_kb.config import Settings
 from arduino_component_kb.imports.models import ImportJob
 from arduino_component_kb.imports.processor import _mark_failed
-from arduino_component_kb.imports.queue import ImportQueue
 from arduino_component_kb.imports.repository import ImportRepository
 
 
@@ -296,28 +294,4 @@ async def test_import_active_quotas_are_checked_under_submission_lock(
 
     assert cast(dict[str, str], captured.value.detail) == {"code": expected_code}
     repository.lock_submissions.assert_awaited_once()
-    session.commit.assert_awaited_once()
-
-
-@pytest.mark.asyncio
-async def test_enqueue_failure_is_safe_audited_and_remains_replayable() -> None:
-    job = import_job()
-    actor = principal(Role.EDITOR, job.requested_by)
-    queue = Mock(spec=ImportQueue)
-    queue.enqueue.side_effect = RuntimeError("internal broker address must not leak")
-    session = Mock(spec=AsyncSession)
-    session.commit = AsyncMock()
-
-    with pytest.raises(HTTPException) as captured:
-        await _enqueue_import(
-            queue,
-            cast(AsyncSession, session),
-            actor,
-            job,
-        )
-
-    assert captured.value.status_code == 503
-    assert cast(dict[str, str], captured.value.detail) == {"code": "import_enqueue_failed"}
-    assert job.status == "queued"
-    session.add.assert_called_once()
     session.commit.assert_awaited_once()

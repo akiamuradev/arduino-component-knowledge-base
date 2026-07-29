@@ -13,6 +13,7 @@ from arduino_component_kb.catalog import models as catalog_models
 from arduino_component_kb.config import DatabaseSettings
 from arduino_component_kb.db import Base
 from arduino_component_kb.deduplication import models as deduplication_models
+from arduino_component_kb.dispatch import models as dispatch_models
 from arduino_component_kb.imports import models as import_models
 from arduino_component_kb.media import models as media_models
 
@@ -21,6 +22,7 @@ registered_models = (
     auth_models.User,
     catalog_models.Component,
     deduplication_models.DuplicateCandidate,
+    dispatch_models.JobDispatch,
     import_models.ImportJob,
     media_models.MediaAsset,
 )

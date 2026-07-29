@@ -102,6 +102,14 @@ def test_production_application_and_edge_containers_are_hardened() -> None:
         assert "no-new-privileges:true" in block
         assert "cap_drop:" in block
 
+    base_compose = (ROOT / "compose.yaml").read_text(encoding="utf-8")
+    reconciler = base_compose.split("  job-reconciler:", 1)[1].split("\n  frontend:", 1)[0]
+    assert 'command: ["ackb-reconcile-jobs", "--loop"]' in reconciler
+    assert "read_only: true" in reconciler
+    assert "no-new-privileges:true" in reconciler
+    assert "cap_drop:" in reconciler
+    assert "parser-egress" not in reconciler
+
 
 def test_internal_nginx_requires_tls_and_exact_redirect_hostname() -> None:
     nginx = (ROOT / "deploy/reverse-proxy/internal-https.conf.template").read_text(encoding="utf-8")

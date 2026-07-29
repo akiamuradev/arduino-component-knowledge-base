@@ -19,7 +19,7 @@ def alembic_config() -> Config:
 
 def test_alembic_has_one_backend_head() -> None:
     scripts = ScriptDirectory.from_config(alembic_config())
-    assert scripts.get_heads() == ["20260729_25"]
+    assert scripts.get_heads() == ["20260729_26"]
 
 
 def test_alembic_upgrade_renders_offline_postgresql_sql(
@@ -145,6 +145,10 @@ def test_alembic_upgrade_renders_offline_postgresql_sql(
     assert "ix_audit_events_actor_occurred" in sql
     assert "ix_audit_events_action_occurred" in sql
     assert "20260729_25" in sql
+    assert "CREATE TABLE job_dispatches" in sql
+    assert "ix_job_dispatches_due" in sql
+    assert "dispatch_attempts_exhausted" not in sql
+    assert "20260729_26" in sql
 
 
 def test_multiple_images_migration_renders_reversible_downgrade(
@@ -298,6 +302,25 @@ def test_audit_filter_indexes_migration_renders_reversible_downgrade(
     assert "DROP INDEX ix_audit_events_action_occurred" in sql
     assert "DROP INDEX ix_audit_events_actor_occurred" in sql
     assert "version_num='20260728_24'" in sql
+
+
+def test_job_dispatch_migration_renders_reversible_downgrade(
+    monkeypatch: MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setenv(
+        "ACKB_DATABASE_URL",
+        "postgresql+asyncpg://ackb:placeholder@localhost:5432/ackb",
+    )
+    command.downgrade(
+        alembic_config(),
+        "20260729_26:20260729_25",
+        sql=True,
+    )
+    sql = capsys.readouterr().out
+    assert "DROP INDEX ix_job_dispatches_due" in sql
+    assert "DROP TABLE job_dispatches" in sql
+    assert "version_num='20260729_25'" in sql
 
 
 def test_runtime_has_no_create_all_escape_hatch() -> None:

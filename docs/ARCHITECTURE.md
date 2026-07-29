@@ -167,9 +167,9 @@ fallback scraper нет.
 1. Editor или administrator вызывает `POST /api/v1/import-jobs` с одним URL и idempotency key.
 2. Backend проверяет `imports.create`, HTTPS, allowlisted exact host, source policy, port и
    canonical URL.
-3. В одной PostgreSQL transaction создаётся `import_job=queued`; после commit задача
-   публикуется в Dramatiq. Transactional outbox добавляется, если прямую публикацию нельзя
-   сделать надёжной на этапе реализации.
+3. В одной PostgreSQL transaction создаются `import_job=queued` и bounded
+   `job_dispatch=pending`. Отдельный `job-reconciler` публикует opaque job UUID в Dramatiq и
+   отмечает доставку в PostgreSQL; browser request не зависит от доступности Redis.
 4. Worker получает job, ставит bounded Redis lock и выполняет transaction recheck.
 5. Safe fetcher резолвит DNS, блокирует non-public IP, pinning connection и повторяет
    validation для каждого redirect. Размер, время и число redirects ограничены.
@@ -261,9 +261,9 @@ published snapshot. На publication backend копирует source/license dat
    преобразует внутренний MinIO URL в same-origin `/media-storage/...`; reverse proxy удаляет
    этот prefix, восстанавливает подписанный `Host: minio:9000` и передаёт запрос в private
    MinIO. Storage request не содержит session cookie, а bucket не получает public policy.
-3. Backend подтверждает фактический MinIO size, фиксирует durable job в PostgreSQL и после
-   commit ставит её в Dramatiq. Если broker временно недоступен, тот же `complete` повторно
-   возвращает job UUID и безопасно повторяет доставку.
+3. Backend подтверждает фактический MinIO size и одной PostgreSQL transaction фиксирует durable
+   media job вместе с dispatch intent. Reconciler доставляет job UUID в Dramatiq независимо от
+   browser request и восстанавливает сообщение после временного сбоя или очистки broker.
 
 При student read media берётся только из последнего immutable published snapshot. Backend
 повторно сверяет asset status и каждый variant по name, MIME, dimensions и SHA-256 с текущей
@@ -281,6 +281,10 @@ private storage metadata; только после этого создаётся 
 
 - PostgreSQL constraints и transaction recheck обеспечивают correctness; Redis lock снижает
   конкуренцию, но его потеря не нарушает инварианты.
+- `job_dispatches` — transactional dispatch intent для import/image/video. Reconciler использует
+  `FOR UPDATE SKIP LOCKED`, bounded batch, delivery lease и не более `max_attempts`. Crash между
+  send и отметкой delivery может дать duplicate, но не потерю; actor idempotency делает его
+  безопасным.
 - Dramatiq actors idempotent по job UUID и повторно читают durable state.
 - Retry разрешён только для transient failures с exponential backoff и max attempts.
   Validation, authorization, parser drift и quota failures не ретраятся автоматически.
@@ -288,7 +292,9 @@ private storage metadata; только после этого создаётся 
   повторная доставка пропускается, а просроченная lease может быть безопасно перехвачена.
 - `queued → running → retrying → running` повторяется в пределах `max_attempts`; terminal
   result — только `succeeded` или `failed`. Dramatiq retry delay и `next_retry_at` фиксируются
-  согласованно. Очистка Redis не переписывает durable status.
+  согласованно. Очистка Redis не переписывает durable status: reconciler повторно доставляет
+  старый `queued`, due `retrying` или `running` с истёкшей heartbeat lease. Исчерпание delivery
+  attempts переводит job в safe `failed`, после чего нужен явный audited retry.
 - Administrator monitor читает PostgreSQL с фильтрами и polling. Ручной retry разрешён только
   для `failed` (повторный запрос к уже `queued` лишь повторяет доставку) и записывается в audit.
 - Object upload и DB commit не атомарны: orphan/pending objects убирает audited retention job.

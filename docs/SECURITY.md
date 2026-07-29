@@ -340,6 +340,10 @@ Seed/demo accounts и автоматическое создание пользо
 - Bounded exponential backoff только для transient errors; dead-letter/failed jobs видимы admin.
 - PostgreSQL остаётся durable job truth, поэтому очистка Redis не превращает failed job в
   success и не отменяет audit.
+- Import/media job и `job_dispatch` создаются в одной transaction. Изолированный reconciler без
+  parser egress публикует только opaque UUID, использует bounded batch/lease/backoff и после
+  исчерпания delivery attempts фиксирует safe failure вместо бесконечного retry. Потерянные
+  Redis messages и истёкшие worker leases восстанавливаются из PostgreSQL.
 - Общий monitor и повторная обработка доступны только administrator. Editor может повторить только
   собственный import job; чужой UUID возвращает `404`. Любой retry повторно проходит backend
   RBAC, mutation требует CSRF и audit. UI guard не заменяет эти проверки.
