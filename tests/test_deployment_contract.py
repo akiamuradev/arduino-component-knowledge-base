@@ -30,6 +30,7 @@ def test_required_container_files_exist() -> None:
         ROOT / "deploy" / "reverse-proxy" / "default.conf",
         ROOT / ".github" / "workflows" / "quality.yml",
         ROOT / "scripts" / "linux_bootstrap.sh",
+        ROOT / "scripts" / "clean_stack_smoke.sh",
         ROOT / "LICENCE",
     )
     assert all(path.is_file() for path in paths)
@@ -183,8 +184,26 @@ def test_ci_runs_existing_quality_and_container_build_gates() -> None:
         "bash -n scripts/linux_bootstrap.sh",
         "docker compose config --quiet",
         "docker compose build backend frontend reverse-proxy",
+        "ACKB_CLEAN_STACK_SKIP_BUILD=true bash scripts/clean_stack_smoke.sh",
     ):
         assert command in workflow
+    assert "release-quality-gate:" in workflow
+    assert "if: always()" in workflow
+    for required_job in ("backend", "frontend", "integration", "e2e", "containers"):
+        assert f"${{{{ needs.{required_job}.result }}}}" in workflow
+
+
+def test_clean_stack_smoke_is_isolated_and_checks_empty_application_startup() -> None:
+    script = (ROOT / "scripts" / "clean_stack_smoke.sh").read_text(encoding="utf-8")
+    assert script.startswith("#!/usr/bin/env bash\nset -Eeuo pipefail")
+    assert '--project-name "$ACKB_CLEAN_PROJECT"' in script
+    assert "ACKB_HTTP_PORT=0" in script
+    assert "up_arguments=(--detach --wait)" in script
+    assert "0|0|0|20260729_26" in script
+    for endpoint in ("/health", "/ready", "/"):
+        assert f"${{base_url}}{endpoint}" in script
+    assert "--volumes --remove-orphans" in script
+    assert 'rm -rf -- "$TEMPORARY_DIR"' in script
 
 
 def test_linux_bootstrap_is_fail_closed_and_does_not_print_secrets() -> None:

@@ -305,7 +305,7 @@ class DispatchRepository:
                     )
                 ).one_or_none()
                 if row is not None:
-                    media_job, asset = row.tuple()
+                    media_job, asset = row._tuple()
                     self._fail_media(dispatch, media_job, asset, now)
             return
         dispatch.error_code = "broker_unavailable"

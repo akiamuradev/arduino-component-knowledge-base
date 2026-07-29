@@ -222,7 +222,7 @@ class AuthRepository:
         ).one_or_none()
         if row is None:
             return None
-        auth_session, user = row.tuple()
+        auth_session, user = row._tuple()
         roles = await self._roles(user.id, now)
         if not roles:
             return None
