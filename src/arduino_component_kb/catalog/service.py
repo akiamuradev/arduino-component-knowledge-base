@@ -31,6 +31,8 @@ from arduino_component_kb.catalog.domain import (
     ComponentMediaNotFoundError,
     ComponentNotFoundError,
     ComponentStatus,
+    CorrectionProposal,
+    CorrectionProposalStatus,
     Difficulty,
     DraftData,
     RevisionConflictError,
@@ -43,6 +45,7 @@ from arduino_component_kb.catalog.models import (
     Component,
     ComponentAlias,
     ComponentCompatibility,
+    ComponentCorrectionProposal,
     ComponentProperty,
     ComponentRevision,
     ComponentTag,
@@ -263,6 +266,118 @@ class CatalogService:
                 occurred_at=revision.created_at,
             )
             for revision, actor_display_name in records.all()
+        )
+
+    async def propose_correction(
+        self,
+        component_id: UUID,
+        message: str,
+        author_id: UUID,
+    ) -> CorrectionProposal:
+        published = await self.session.scalar(
+            select(Component.id)
+            .join(
+                PublishedSearchDocument,
+                PublishedSearchDocument.component_id == Component.id,
+            )
+            .where(Component.id == component_id)
+        )
+        if published is None:
+            raise ComponentNotFoundError
+        now = datetime.now(UTC)
+        row = ComponentCorrectionProposal(
+            id=uuid4(),
+            component_id=component_id,
+            author_id=author_id,
+            message=message.strip(),
+            status=CorrectionProposalStatus.OPEN.value,
+            created_at=now,
+            resolved_by=None,
+            resolved_at=None,
+        )
+        self.session.add(row)
+        await self.session.flush()
+        author_name = await self.session.scalar(
+            select(User.display_name).where(User.id == author_id)
+        )
+        if author_name is None:
+            raise ComponentNotFoundError
+        return self._correction_proposal(row, author_name)
+
+    async def correction_proposals(
+        self,
+        component_id: UUID,
+        actor_id: UUID,
+        *,
+        can_view_all: bool,
+    ) -> tuple[CorrectionProposal, ...]:
+        component = await self.session.get(Component, component_id)
+        if component is None or (not can_view_all and component.created_by != actor_id):
+            raise ComponentNotFoundError
+        records = await self.session.execute(
+            select(ComponentCorrectionProposal, User.display_name)
+            .join(User, User.id == ComponentCorrectionProposal.author_id)
+            .where(ComponentCorrectionProposal.component_id == component_id)
+            .order_by(
+                ComponentCorrectionProposal.status.desc(),
+                ComponentCorrectionProposal.created_at.desc(),
+            )
+        )
+        return tuple(
+            self._correction_proposal(proposal, author_name)
+            for proposal, author_name in records.all()
+        )
+
+    async def resolve_correction_proposal(
+        self,
+        component_id: UUID,
+        proposal_id: UUID,
+        decision: CorrectionProposalStatus,
+        actor_id: UUID,
+        *,
+        can_resolve_all: bool,
+    ) -> CorrectionProposal:
+        if decision is CorrectionProposalStatus.OPEN:
+            raise CatalogValidationError("correction_proposal_decision_invalid")
+        component = await self.session.get(Component, component_id)
+        if component is None or (not can_resolve_all and component.created_by != actor_id):
+            raise ComponentNotFoundError
+        proposal = await self.session.scalar(
+            select(ComponentCorrectionProposal)
+            .where(
+                ComponentCorrectionProposal.id == proposal_id,
+                ComponentCorrectionProposal.component_id == component_id,
+            )
+            .with_for_update()
+        )
+        if proposal is None:
+            raise ComponentNotFoundError
+        if proposal.status != CorrectionProposalStatus.OPEN.value:
+            raise CatalogValidationError("correction_proposal_resolved")
+        proposal.status = decision.value
+        proposal.resolved_by = actor_id
+        proposal.resolved_at = datetime.now(UTC)
+        author_name = await self.session.scalar(
+            select(User.display_name).where(User.id == proposal.author_id)
+        )
+        if author_name is None:
+            raise ComponentNotFoundError
+        await self.session.flush()
+        return self._correction_proposal(proposal, author_name)
+
+    @staticmethod
+    def _correction_proposal(
+        row: ComponentCorrectionProposal,
+        author_display_name: str,
+    ) -> CorrectionProposal:
+        return CorrectionProposal(
+            id=row.id,
+            component_id=row.component_id,
+            author_display_name=author_display_name,
+            message=row.message,
+            status=CorrectionProposalStatus(row.status),
+            created_at=row.created_at,
+            resolved_at=row.resolved_at,
         )
 
     async def create(self, data: DraftData, actor_id: UUID) -> CatalogCard:

@@ -2,7 +2,10 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 
 import { catalogComponentQuery } from "../catalog/queries";
+import { hasPermission } from "../auth/permissions";
+import { useCurrentUser } from "../auth/queries";
 import { ErrorState, LoadingState } from "../components/AsyncStates";
+import { CorrectionProposalForm } from "../components/CorrectionProposalForm";
 import { LearningExample } from "../components/LearningExample";
 import { MediaGallery } from "../components/MediaGallery";
 import { SourceAttributionBlock } from "../components/SourceAttributionBlock";
@@ -11,12 +14,15 @@ import { DIFFICULTY_LABELS } from "../config/uiLabels";
 const targetLabels = { board: "Плата", library: "Библиотека", platform: "Платформа" };
 export function CatalogComponentPage() {
   const { slug = "" } = useParams();
+  const currentUser = useCurrentUser();
   const component = useQuery({ ...catalogComponentQuery(slug), enabled: slug !== "" });
   if (component.isPending) return <LoadingState label="Загружаем карточку…" />;
   if (component.isError) {
     return <ErrorState message="Карточка не найдена или больше не опубликована." onRetry={() => void component.refetch()} />;
   }
   const card = component.data;
+  const canPropose = currentUser.data !== undefined
+    && hasPermission(currentUser.data, "components.propose_correction");
   return <article className="student-card">
     <Link className="breadcrumb" to="/"><span aria-hidden="true">←</span> Каталог компонентов</Link>
     <header className="student-card__hero"><div><div className="student-card__meta"><span className="status-badge status-badge--published">{card.primary_category.name}</span><span>{DIFFICULTY_LABELS[card.difficulty]}</span>{card.model ? <span>{card.model}</span> : null}</div><h1>{card.title}</h1><p className="preview-summary">{card.summary}</p><div className="tag-list">{[...new Set([...card.aliases, ...card.tags])].map((tag) => <span key={tag}>{tag}</span>)}</div></div><div className="student-card__visual">{card.media !== undefined && card.media.length > 0 ? <MediaGallery items={card.media} /> : <div className="component-symbol" role="img" aria-label={`Изображение для ${card.title} пока не добавлено`}><span aria-hidden="true">{card.title.charAt(0).toUpperCase()}</span><i /><i /><i /><i /></div>}</div></header>
@@ -33,6 +39,7 @@ export function CatalogComponentPage() {
       </div>
       <aside className="component-facts" aria-label="Краткие сведения"><p className="eyebrow">Кратко</p><dl><div><dt>Производитель</dt><dd>{card.manufacturer ?? "Не указан"}</dd></div><div><dt>Модель</dt><dd>{card.model ?? "Не указана"}</dd></div><div><dt>Уровень</dt><dd>{DIFFICULTY_LABELS[card.difficulty]}</dd></div><div><dt>Категория</dt><dd>{card.primary_category.name}</dd></div></dl></aside>
     </div>
+    {canPropose ? <CorrectionProposalForm componentId={card.id} /> : null}
     <footer className="student-card__footer"><span>Опубликовано: {new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "long", year: "numeric" }).format(new Date(card.published_at))}</span><Link to="/">Смотреть другие компоненты →</Link></footer>
   </article>;
 }

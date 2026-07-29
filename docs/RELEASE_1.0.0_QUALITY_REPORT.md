@@ -33,9 +33,9 @@ GitHub workflow `quality` разделяет проверки на `backend`, `f
 
 Финальный прогон этапа выполнен 2026-07-29:
 
-- backend: 649 обычных тестов пройдено; 15 integration tests ожидаемо пропущены без opt-in;
-- integration: отдельно пройдено 15 из 15 тестов на одноразовых PostgreSQL 17 и MinIO;
-- frontend: 80 из 80 Vitest tests пройдено;
+- backend: 658 обычных тестов пройдено; 16 integration tests ожидаемо пропущены без opt-in;
+- integration: отдельно пройдено 16 из 16 тестов на одноразовых PostgreSQL 17 и MinIO;
+- frontend: 83 из 83 Vitest tests пройдено;
 - browser: 7 из 7 обязательных Chromium E2E пройдено, visual-update test ожидаемо пропущен;
 - strict mypy, TypeScript typecheck, Ruff format/lint, ESLint и Bandit прошли;
 - pip-audit не обнаружил известных уязвимостей;
@@ -43,7 +43,9 @@ GitHub workflow `quality` разделяет проверки на `backend`, `f
 - clean-stack, production identity и database upgrade/restore smokes прошли.
 
 Во время прогона устранено использование deprecated `SQLAlchemy Row.tuple()` в repositories.
-После замены повторные unit и integration tests завершились без deprecation warnings.
+После замены повторные unit и integration tests завершились без deprecation warnings. Этап 21
+повторно выполнил контур после добавления correction proposals и Alembic revision `20260729_27`;
+clean install, upgrade/restore, localhost и все указанные наборы остались зелёными.
 
 ## Воспроизводимый запуск на чистой базе
 
@@ -54,7 +56,7 @@ proxy. Host port выбирается Docker автоматически, поэ�
 Скрипт проверяет:
 
 - единственную Alembic head revision;
-- ноль записей в `users`, `components` и `import_jobs`;
+- ноль записей в `users`, `components`, `import_jobs` и `component_correction_proposals`;
 - healthy всех постоянных сервисов;
 - ответы `/health`, `/ready` и production frontend;
 - удаление контейнеров, сетей, volumes и временного environment file после завершения.
@@ -77,7 +79,8 @@ ACKB_CLEAN_STACK_SKIP_BUILD=true bash scripts/clean_stack_smoke.sh
 Автоматический результат не заменяет следующие проверки перед выпуском:
 
 1. Визуально просмотреть утверждённые desktop/mobile screenshots без обрезки текста и наложений.
-2. Выполнить сценарии ученика, преподавателя, редактора и администратора из этапа 21.
+2. Выполнить сценарии ученика, преподавателя, редактора и администратора по
+   [`RELEASE_1.0.0_MANUAL_ACCEPTANCE.md`](RELEASE_1.0.0_MANUAL_ACCEPTANCE.md).
 3. Проверить режим «Как на устройстве» на реальном браузере и переключение системной темы.
 4. Загрузить небольшое реальное изображение и открыть его варианты через установленный стенд.
 5. На тестовой VM проверить TLS hostname/CA, HTTP→HTTPS, внутренний DNS и разрешённый client VLAN.
@@ -86,7 +89,7 @@ ACKB_CLEAN_STACK_SKIP_BUILD=true bash scripts/clean_stack_smoke.sh
 8. Проверить backup/restore вместе с фактическим MinIO backup по эксплуатационной инструкции.
 9. Подтвердить метрики, alerts, свободное место и время выполнения на целевом оборудовании.
 
-Подробные пошаговые сценарии по ролям намеренно относятся к этапу 21 и здесь не дублируются.
+Подробные пошаговые сценарии по ролям зафиксированы этапом 21 и здесь не дублируются.
 
 ## Известные ограничения
 

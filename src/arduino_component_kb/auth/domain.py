@@ -25,6 +25,7 @@ class Permission(StrEnum):
     """Stable server-side capabilities used at authorization boundaries."""
 
     COMPONENTS_VIEW = "components.view"
+    COMPONENTS_PROPOSE_CORRECTION = "components.propose_correction"
     COMPONENTS_CREATE = "components.create"
     COMPONENTS_EDIT = "components.edit"
     COMPONENTS_ARCHIVE = "components.archive"
@@ -59,7 +60,7 @@ _EDITOR_PERMISSIONS = _VIEW_PERMISSIONS | frozenset(
 )
 _ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
     Role.STUDENT: _VIEW_PERMISSIONS,
-    Role.TEACHER: _VIEW_PERMISSIONS,
+    Role.TEACHER: _VIEW_PERMISSIONS | frozenset({Permission.COMPONENTS_PROPOSE_CORRECTION}),
     Role.EDITOR: _EDITOR_PERMISSIONS,
     Role.ADMINISTRATOR: frozenset(Permission),
 }

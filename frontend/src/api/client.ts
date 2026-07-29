@@ -10,6 +10,8 @@ import type {
   ComponentCard,
   ComponentDraftInput,
   ComponentHistoryResponse,
+  CorrectionProposal,
+  CorrectionProposalListResponse,
   ComponentImagesUpdateInput,
   ComponentListResponse,
   ComponentStatus,
@@ -313,6 +315,37 @@ export const api = {
   getComponentHistory: (componentId: string): Promise<ComponentHistoryResponse> =>
     apiRequest<ComponentHistoryResponse>(
       `/workspace/components/${encodeURIComponent(componentId)}/history`,
+    ),
+  listCorrectionProposals: (
+    componentId: string,
+  ): Promise<CorrectionProposalListResponse> =>
+    apiRequest<CorrectionProposalListResponse>(
+      `/workspace/components/${encodeURIComponent(componentId)}/correction-proposals`,
+    ),
+  proposeComponentCorrection: (
+    componentId: string,
+    message: string,
+  ): Promise<CorrectionProposal> =>
+    apiRequest<CorrectionProposal>(
+      `/catalog/components/${encodeURIComponent(componentId)}/correction-proposals`,
+      {
+        method: "POST",
+        body: JSON.stringify({ message }),
+        csrf: true,
+      },
+    ),
+  resolveComponentCorrection: (
+    componentId: string,
+    proposalId: string,
+    decision: "applied" | "dismissed",
+  ): Promise<CorrectionProposal> =>
+    apiRequest<CorrectionProposal>(
+      `/workspace/components/${encodeURIComponent(componentId)}/correction-proposals/${encodeURIComponent(proposalId)}/resolve`,
+      {
+        method: "POST",
+        body: JSON.stringify({ decision }),
+        csrf: true,
+      },
     ),
   createComponentDraft: (input: ComponentDraftInput): Promise<ComponentCard> =>
     apiRequest<ComponentCard>("/workspace/components", {

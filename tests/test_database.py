@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from arduino_component_kb.auth.models import User
-from arduino_component_kb.catalog.models import Component
+from arduino_component_kb.catalog.models import Component, ComponentCorrectionProposal
 from arduino_component_kb.config import Settings
 from arduino_component_kb.db import Base, Database
 from arduino_component_kb.dispatch.models import JobDispatch
@@ -28,6 +28,7 @@ async def test_database_uses_asyncpg_without_connecting() -> None:
 def test_metadata_contains_authentication_catalog_and_media_tables() -> None:
     assert User.__tablename__ == "users"
     assert Component.__tablename__ == "components"
+    assert ComponentCorrectionProposal.__tablename__ == "component_correction_proposals"
     assert MediaAsset.__tablename__ == "media_assets"
     assert JobDispatch.__tablename__ == "job_dispatches"
     assert set(Base.metadata.tables) == {
@@ -48,6 +49,7 @@ def test_metadata_contains_authentication_catalog_and_media_tables() -> None:
         "component_tags",
         "component_sources",
         "components",
+        "component_correction_proposals",
         "duplicate_candidates",
         "import_jobs",
         "job_dispatches",

@@ -27,6 +27,7 @@ _ALLOWED_AUDIT_DETAIL_KEYS: Final = frozenset(
         "bucket",
         "code",
         "component_revision",
+        "component_id",
         "decision_id",
         "editor_expires_at",
         "key",

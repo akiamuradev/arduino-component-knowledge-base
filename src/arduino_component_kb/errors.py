@@ -19,6 +19,8 @@ _CODE_MESSAGES: Final[dict[str, str]] = {
     "authentication_required": "Войдите, чтобы продолжить.",
     "catalog_conflict": "Данные уже изменились. Обновите страницу и повторите действие.",
     "component_not_found": "Карточка компонента не найдена.",
+    "correction_proposal_decision_invalid": "Выберите итог предложения исправления.",
+    "correction_proposal_resolved": "Это предложение уже обработано.",
     "cross_origin_forbidden": "Запрос с этой страницы недоступен.",
     "csrf_token_missing": "Сессия устарела. Обновите страницу и повторите действие.",
     "csrf_validation_failed": "Сессия устарела. Обновите страницу и повторите действие.",

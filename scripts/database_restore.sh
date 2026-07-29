@@ -93,7 +93,7 @@ compose_restore run --quiet-pull --rm --no-deps --no-TTY \
   --set ON_ERROR_STOP=1 \
   --file /etc/ackb/backup-manifest.sql >"$TARGET_MANIFEST"
 cmp --silent "$MANIFEST_FILE" "$TARGET_MANIFEST" \
-  || fail "restored users, roles, components, revisions or audit history differ from the backup"
+  || fail "restored users, roles, components, revisions, corrections or audit history differ from the backup"
 
 compose_restore run --quiet-pull --rm --no-deps --no-TTY database-restore-migrate
 compose_restore run --quiet-pull --rm --no-deps --no-TTY \
@@ -108,5 +108,5 @@ compose_restore run --quiet-pull --rm --no-deps --no-TTY \
 RESTORE_SUCCEEDED="true"
 
 printf 'PostgreSQL restore verified in isolated database: %s\n' "$TARGET_DATABASE"
-printf 'Critical users, roles, components, revision history and audit events match the backup.\n'
+printf 'Critical users, roles, components, revision/correction history and audit events match the backup.\n'
 printf 'The production database was not changed; inspect the target before any manual cutover.\n'

@@ -39,6 +39,19 @@ SELECT json_build_object(
             FROM component_revisions
         )
     ),
+    'component_correction_proposals', json_build_object(
+        'count', (SELECT count(*) FROM component_correction_proposals),
+        'fingerprint', (
+            SELECT md5(coalesce(string_agg(
+                concat_ws(
+                    ':', id, component_id, author_id, status, created_at,
+                    resolved_by, resolved_at
+                ),
+                ',' ORDER BY id::text
+            ), ''))
+            FROM component_correction_proposals
+        )
+    ),
     'audit_events', json_build_object(
         'count', (SELECT count(*) FROM audit_events),
         'fingerprint', (

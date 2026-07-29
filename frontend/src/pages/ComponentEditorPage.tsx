@@ -27,6 +27,7 @@ import { hasPermission } from "../auth/permissions";
 import { useCurrentUser } from "../auth/queries";
 import { ErrorState, LoadingState } from "../components/AsyncStates";
 import { ComponentImagesEditor } from "../components/ComponentImagesEditor";
+import { CorrectionProposalReview } from "../components/CorrectionProposalReview";
 import { LearningExample } from "../components/LearningExample";
 import { MediaGallery } from "../components/MediaGallery";
 import { SourceAttributionBlock } from "../components/SourceAttributionBlock";
@@ -38,11 +39,12 @@ import {
 } from "../workspace/queries";
 
 type EditorMode = "new" | "edit";
-type EditorView = "edit" | "preview" | "history";
+type EditorView = "edit" | "preview" | "history" | "proposals";
 const EDITOR_VIEW_LABELS: Readonly<Record<EditorView, string>> = {
   edit: "Редактор",
   preview: "Предпросмотр",
   history: "История",
+  proposals: "Предложения",
 };
 type LifecycleAction =
   | "submit"
@@ -398,7 +400,7 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
   };
   const availableViews: EditorView[] = workingCard === undefined
     ? ["edit", "preview"]
-    : ["edit", "preview", "history"];
+    : ["edit", "preview", "history", "proposals"];
   const moveViewFocus = (
     event: KeyboardEvent<HTMLButtonElement>,
     index: number,
@@ -464,7 +466,9 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
         role="tabpanel"
         tabIndex={0}
       >
-        {view === "history" && workingCard !== undefined ? (
+        {view === "proposals" && workingCard !== undefined ? (
+          <CorrectionProposalReview componentId={workingCard.id} />
+        ) : view === "history" && workingCard !== undefined ? (
           <ComponentHistory componentId={workingCard.id} />
         ) : view === "preview" ? (
           <ComponentPreview state={state} categories={categories} status={workingCard?.status ?? "draft"} />
