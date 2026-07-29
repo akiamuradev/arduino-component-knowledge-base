@@ -210,7 +210,7 @@ describe("component editor", () => {
 
   it("renders a safe preview without interpreting raw HTML", async () => {
     renderEditor({ ...card, description: "<img src=x onerror=alert(1)>" });
-    await userEvent.click(screen.getByRole("button", { name: "Предпросмотр" }));
+    await userEvent.click(screen.getByRole("tab", { name: "Предпросмотр" }));
 
     expect(screen.getByRole("heading", { name: "Arduino Uno", level: 1 })).toBeVisible();
     expect(screen.getByText("<img src=x onerror=alert(1)>")).toBeVisible();
@@ -242,7 +242,7 @@ describe("component editor", () => {
       }),
     );
     renderEditor({ ...card, media: editorImages });
-    await userEvent.click(screen.getByRole("button", { name: "Предпросмотр" }));
+    await userEvent.click(screen.getByRole("tab", { name: "Предпросмотр" }));
 
     const gallery = await screen.findByRole("region", {
       name: "Галерея изображений компонента",
@@ -280,7 +280,7 @@ describe("component editor", () => {
     vi.stubGlobal("fetch", fetchMock);
     renderEditor();
 
-    await userEvent.click(screen.getByRole("button", { name: "История" }));
+    await userEvent.click(screen.getByRole("tab", { name: "История" }));
 
     const region = await screen.findByRole("region", {
       name: "История изменений карточки",

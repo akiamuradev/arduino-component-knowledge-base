@@ -4,7 +4,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { type SyntheticEvent, useState } from "react";
+import { type KeyboardEvent, type SyntheticEvent, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import type {
@@ -39,6 +39,11 @@ import {
 
 type EditorMode = "new" | "edit";
 type EditorView = "edit" | "preview" | "history";
+const EDITOR_VIEW_LABELS: Readonly<Record<EditorView, string>> = {
+  edit: "Редактор",
+  preview: "Предпросмотр",
+  history: "История",
+};
 type LifecycleAction =
   | "submit"
   | "request-changes"
@@ -391,6 +396,30 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
     setState(stateFromCard(loaded));
     setImagesDirty(false);
   };
+  const availableViews: EditorView[] = workingCard === undefined
+    ? ["edit", "preview"]
+    : ["edit", "preview", "history"];
+  const moveViewFocus = (
+    event: KeyboardEvent<HTMLButtonElement>,
+    index: number,
+  ) => {
+    let nextIndex: number | null = null;
+    if (event.key === "ArrowRight") {
+      nextIndex = (index + 1) % availableViews.length;
+    } else if (event.key === "ArrowLeft") {
+      nextIndex = (index - 1 + availableViews.length) % availableViews.length;
+    } else if (event.key === "Home") {
+      nextIndex = 0;
+    } else if (event.key === "End") {
+      nextIndex = availableViews.length - 1;
+    }
+    if (nextIndex === null) return;
+    event.preventDefault();
+    const nextView = availableViews[nextIndex];
+    if (nextView === undefined) return;
+    setView(nextView);
+    document.getElementById(`editor-tab-${nextView}`)?.focus();
+  };
 
   return (
     <section>
@@ -399,10 +428,23 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
           <p className="eyebrow">{mode === "new" ? "Новый черновик" : `Версия ${String(workingCard?.revision ?? 0)}`}</p>
           <h2>{state.title || "Без названия"}</h2>
         </div>
-        <div className="editor-tabs" aria-label="Режим редактора">
-          <button className={view === "edit" ? "active" : ""} type="button" onClick={() => { setView("edit"); }}>Редактор</button>
-          <button className={view === "preview" ? "active" : ""} type="button" onClick={() => { setView("preview"); }}>Предпросмотр</button>
-          {workingCard === undefined ? null : <button className={view === "history" ? "active" : ""} type="button" onClick={() => { setView("history"); }}>История</button>}
+        <div className="editor-tabs" aria-label="Режим редактора" role="tablist">
+          {availableViews.map((editorView, index) => (
+            <button
+              aria-controls={`editor-panel-${editorView}`}
+              aria-selected={view === editorView}
+              className={view === editorView ? "active" : ""}
+              id={`editor-tab-${editorView}`}
+              key={editorView}
+              onClick={() => { setView(editorView); }}
+              onKeyDown={(event) => { moveViewFocus(event, index); }}
+              role="tab"
+              tabIndex={view === editorView ? 0 : -1}
+              type="button"
+            >
+              {EDITOR_VIEW_LABELS[editorView]}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -416,12 +458,18 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
       {hasUnknownLicense ? <div className="license-warning" role="alert"><strong>Лицензия источника не подтверждена</strong><span>Условия использования материала не определены. Перед публикацией проверьте правила исходного ресурса.</span></div> : null}
       {workingCard === undefined || workingCard.sources.length === 0 ? null : <SourceAttributionBlock sources={workingCard.sources} />}
 
-      {view === "history" && workingCard !== undefined ? (
-        <ComponentHistory componentId={workingCard.id} />
-      ) : view === "preview" ? (
-        <ComponentPreview state={state} categories={categories} status={workingCard?.status ?? "draft"} />
-      ) : (
-        <form className="editor-form" onSubmit={submit}>
+      <div
+        aria-labelledby={`editor-tab-${view}`}
+        id={`editor-panel-${view}`}
+        role="tabpanel"
+        tabIndex={0}
+      >
+        {view === "history" && workingCard !== undefined ? (
+          <ComponentHistory componentId={workingCard.id} />
+        ) : view === "preview" ? (
+          <ComponentPreview state={state} categories={categories} status={workingCard?.status ?? "draft"} />
+        ) : (
+          <form className="editor-form" onSubmit={submit}>
           <fieldset><legend>Идентификация</legend><div className="form-grid">
             <EditorField label="Название" value={state.title} maxLength={160} required onChange={(value) => { update("title", value); }} />
             <EditorField label="Адрес страницы" value={state.slug} maxLength={160} required onChange={(value) => { update("slug", value); }} />
@@ -459,7 +507,7 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
               <EditorField label="Отображаемое значение" value={item.value_text} maxLength={2000} required onChange={(value) => { updateSpecification(index, "value_text", value); }} />
               <EditorField label="Число (необязательно)" value={item.value_number ?? ""} maxLength={64} onChange={(value) => { updateSpecification(index, "value_number", value); }} />
               <EditorField label="Единица" value={item.unit ?? ""} maxLength={32} onChange={(value) => { updateSpecification(index, "unit", value); }} />
-              <button className="button button--quiet" type="button" onClick={() => { update("specifications", state.specifications.filter((_, position) => position !== index)); }}>Удалить</button>
+              <button aria-label={`Удалить характеристику ${String(index + 1)}`} className="button button--quiet" type="button" onClick={() => { update("specifications", state.specifications.filter((_, position) => position !== index)); }}>Удалить</button>
             </div>)}</div>
             <button className="button button--quiet" disabled={state.specifications.length >= 50} type="button" onClick={() => { update("specifications", [...state.specifications, { key: "", label: "", value_text: "", value_number: null, unit: null }]); }}>Добавить характеристику</button>
           </fieldset>
@@ -469,7 +517,7 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
               <EditorField label="Название" value={item.name} maxLength={160} required onChange={(value) => { updateCompatibility(index, "name", value); }} />
               <EditorField label="Версия" value={item.version_constraint ?? ""} maxLength={120} onChange={(value) => { updateCompatibility(index, "version_constraint", value); }} />
               <EditorField label="Примечание" value={item.notes ?? ""} maxLength={2000} onChange={(value) => { updateCompatibility(index, "notes", value); }} />
-              <button className="button button--quiet" type="button" onClick={() => { update("compatibility", state.compatibility.filter((_, position) => position !== index)); }}>Удалить</button>
+              <button aria-label={`Удалить совместимость ${String(index + 1)}`} className="button button--quiet" type="button" onClick={() => { update("compatibility", state.compatibility.filter((_, position) => position !== index)); }}>Удалить</button>
             </div>)}</div>
             <button className="button button--quiet" disabled={state.compatibility.length >= 30} type="button" onClick={() => { update("compatibility", [...state.compatibility, { target_type: "board", name: "", version_constraint: null, notes: null }]); }}>Добавить совместимость</button>
           </fieldset>
@@ -484,12 +532,12 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
               <EditorTextArea label="Практическое задание" value={item.practical_task} maxLength={5000} required onChange={(value) => { updateCodeExample(index, "practical_task", value); }} />
               <div className="structured-list"><strong>Подсказки по порядку</strong>{item.hints.map((hint, hintIndex) => <div className="hint-editor" key={`${String(hintIndex)}:${hint}`}>
                 <EditorTextArea label={`Подсказка ${String(hintIndex + 1)}`} value={hint} maxLength={2000} required rows={2} onChange={(value) => { updateCodeExample(index, "hints", item.hints.map((current, position) => position === hintIndex ? value : current)); }} />
-                <button className="button button--quiet" type="button" onClick={() => { updateCodeExample(index, "hints", item.hints.filter((_, position) => position !== hintIndex)); }}>Удалить подсказку</button>
+                <button aria-label={`Удалить подсказку ${String(hintIndex + 1)} из примера ${String(index + 1)}`} className="button button--quiet" type="button" onClick={() => { updateCodeExample(index, "hints", item.hints.filter((_, position) => position !== hintIndex)); }}>Удалить подсказку</button>
               </div>)}</div>
-              <button className="button button--quiet" disabled={item.hints.length >= 10} type="button" onClick={() => { updateCodeExample(index, "hints", [...item.hints, ""]); }}>Добавить подсказку</button>
+              <button aria-label={`Добавить подсказку в пример ${String(index + 1)}`} className="button button--quiet" disabled={item.hints.length >= 10} type="button" onClick={() => { updateCodeExample(index, "hints", [...item.hints, ""]); }}>Добавить подсказку</button>
               <EditorTextArea label="Решение — скрыто до действия студента" value={item.body} maxLength={65536} required rows={10} onChange={(value) => { updateCodeExample(index, "body", value); }} />
               <EditorTextArea label="Объяснение решения" value={item.explanation ?? ""} maxLength={10000} onChange={(value) => { updateCodeExample(index, "explanation", value || null); }} />
-              <button className="button button--danger" type="button" onClick={() => { update("codeExamples", state.codeExamples.filter((_, position) => position !== index)); }}>Удалить пример</button>
+              <button aria-label={`Удалить учебный пример ${String(index + 1)}`} className="button button--danger" type="button" onClick={() => { update("codeExamples", state.codeExamples.filter((_, position) => position !== index)); }}>Удалить пример</button>
             </section>)}</div>
             <button className="button button--quiet" disabled={state.codeExamples.length >= 10} type="button" onClick={() => { update("codeExamples", [...state.codeExamples, { title: "", language: "arduino", practical_task: "", hints: [], body: "", libraries: "", explanation: null, visibility: "student" }]); }}>Добавить учебный пример</button>
           </fieldset>
@@ -508,8 +556,9 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
           {!editable ? <p className="validation-note">Содержимое заблокировано в состоянии «{COMPONENT_STATUS_LABELS[workingCard.status]}». Используйте доступное действие.</p> : null}
           {workingCard !== undefined && ["draft", "changes_requested", "approved"].includes(workingCard.status) && problems.length > 0 ? <p className="validation-note">Для проверки и публикации заполните: {problems.join(", ")}.</p> : null}
           {workingCard !== undefined && ["draft", "changes_requested", "approved"].includes(workingCard.status) && imagesDirty ? <p className="validation-note">Перед переходом сохраните изменения изображений.</p> : null}
-        </form>
-      )}
+          </form>
+        )}
+      </div>
     </section>
   );
 }
