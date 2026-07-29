@@ -123,11 +123,11 @@ def test_operator_ui_paths_are_real_and_role_scoped() -> None:
 
 
 def test_operator_guide_is_linked_and_packaged() -> None:
-    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    readmes = [(ROOT / path).read_text(encoding="utf-8") for path in ("README.md", "README.ru.md")]
     deployment = (ROOT / "docs" / "DEPLOYMENT.md").read_text(encoding="utf-8")
     manifest = (ROOT / "MANIFEST.in").read_text(encoding="utf-8")
     project = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    assert readme.count("(docs/OPERATIONS.md)") == 2
+    assert all(readme.count("(docs/OPERATIONS.md)") >= 1 for readme in readmes)
     assert "[`OPERATIONS.md`](OPERATIONS.md)" in deployment
     assert "recursive-include docs *.md" in manifest
     assert '"docs/*.md"' in project

@@ -4,7 +4,15 @@ from __future__ import annotations
 
 import re
 
-from scripts.docs_contract import DOCS, ROOT, URLS, read_documents, validate
+from scripts.docs_contract import (
+    DOCS,
+    PUBLIC_MARKDOWN,
+    ROOT,
+    URLS,
+    read_documents,
+    validate,
+    validate_markdown_links,
+)
 
 
 def test_required_documents_exist_and_contract_is_consistent() -> None:
@@ -59,16 +67,38 @@ def test_no_runtime_ddl_escape_hatch_is_approved() -> None:
     assert "create_all` запрещ" in combined or "`create_all` в runtime запрещ" in combined
 
 
-def test_repository_contains_no_real_environment_file() -> None:
-    assert not (ROOT / ".env").exists()
+def test_local_environment_file_is_ignored_and_not_packaged() -> None:
+    gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
+    manifest = (ROOT / "MANIFEST.in").read_text(encoding="utf-8")
+    project = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert ".env" in gitignore
+    assert ".env" not in manifest
+    assert '".env"' not in project
     assert all(path.is_relative_to(ROOT / "docs") for path in DOCS)
 
 
 def test_markdown_files_have_no_absolute_local_links() -> None:
-    markdown_files = (ROOT / "README.md", *DOCS)
     local_drive_link = re.compile(r"\]\([A-Za-z]:[/\\]")
-    for path in markdown_files:
+    for path in PUBLIC_MARKDOWN:
         assert not local_drive_link.search(path.read_text(encoding="utf-8"))
+
+
+def test_public_markdown_local_links_and_anchors_resolve() -> None:
+    assert validate_markdown_links() == []
+
+
+def test_readme_languages_and_contributor_workflows_stay_discoverable() -> None:
+    english = (ROOT / "README.md").read_text(encoding="utf-8")
+    russian = (ROOT / "README.ru.md").read_text(encoding="utf-8")
+    contributing = (ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8")
+    assert "[Русский](README.ru.md)" in english
+    assert "[English](README.md)" in russian
+    for content in (english, russian, contributing):
+        assert "upstream/release/1.0.0" in content
+        assert "PolyForm Noncommercial License 1.0.0" in content
+    for forbidden in ("ACKB_1.0.0_STAGE_", "MULTIPLE_IMAGES_STAGE_", "XRAY_AUDIT_"):
+        assert forbidden not in english
+        assert forbidden not in russian
 
 
 def test_media_limits_are_unambiguous() -> None:

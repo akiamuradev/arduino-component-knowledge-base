@@ -51,7 +51,21 @@ def main() -> None:
     require("uv project version", locked_project["version"] == version, failures)
 
     expected_fragments = {
-        "README.md": [f"version **{version}**", f"версия — **{version}**"],
+        "README.md": [
+            f"version is **{version}**",
+            "README.ru.md",
+            "upstream/release/1.0.0",
+        ],
+        "README.ru.md": [
+            f"версия — **{version}**",
+            "README.md",
+            "upstream/release/1.0.0",
+        ],
+        "CONTRIBUTING.md": [
+            "upstream/release/1.0.0",
+            "PolyForm Noncommercial License 1.0.0",
+        ],
+        "MANIFEST.in": ["include CONTRIBUTING.md", "include README.ru.md"],
         ".env.example": [f"ACKB_APP_VERSION={version}"],
         ".env.production.example": [f"ACKB_APP_VERSION={version}"],
         "compose.yaml": [
