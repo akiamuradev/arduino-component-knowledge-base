@@ -76,6 +76,13 @@ class JsonFormatter(logging.Formatter):
             "quality_score",
             "comparison_conflicts",
             "field_coverage_basis_points",
+            "dispatch_id",
+            "job_type",
+            "queue_name",
+            "recovered",
+            "claimed",
+            "delivered",
+            "failed",
         ):
             value = getattr(record, key, None)
             if value is not None:
