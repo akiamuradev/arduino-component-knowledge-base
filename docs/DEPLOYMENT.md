@@ -1,8 +1,10 @@
 # Корпоративное развёртывание
 
-Этот runbook относится к этапу 20 и описывает одну внутреннюю Ubuntu Server VM. Он не меняет
-сетевые настройки автоматически: неверный Netplan или firewall может оборвать удалённый доступ.
-Команды выполняет системный администратор через console-access или с проверенным rollback.
+Этот runbook описывает infrastructure baseline одной внутренней Ubuntu Server VM. Порядок
+установки, обновления, штатного обслуживания и аварийного восстановления собран в
+[`OPERATIONS.md`](OPERATIONS.md). Runbook не меняет сетевые настройки автоматически: неверный
+Netplan или firewall может оборвать удалённый доступ. Команды выполняет системный администратор
+через console-access или с проверенным rollback.
 
 ## 1. Ubuntu Server и static IP
 
@@ -296,7 +298,8 @@ bash scripts/database_restore_smoke.sh
 Он проверяет полный Alembic install на чистой базе, upgrade с предыдущего head, backup,
 восстановление и точное сохранение критичных сущностей. Этот этап покрывает PostgreSQL.
 Binary media находятся в MinIO и требуют отдельного согласованного object-backup; PostgreSQL
-dump нельзя считать полной резервной копией системы.
+dump нельзя считать полной резервной копией системы. Согласованное окно и snapshot/restore
+`minio-data` описаны в разделах 7–8 [`OPERATIONS.md`](OPERATIONS.md).
 
 ## 10. Надёжность background jobs
 

@@ -33,7 +33,7 @@ GitHub workflow `quality` разделяет проверки на `backend`, `f
 
 Финальный прогон этапа выполнен 2026-07-29:
 
-- backend: 658 обычных тестов пройдено; 16 integration tests ожидаемо пропущены без opt-in;
+- backend: 663 обычных теста пройдено; 16 integration tests ожидаемо пропущены без opt-in;
 - integration: отдельно пройдено 16 из 16 тестов на одноразовых PostgreSQL 17 и MinIO;
 - frontend: 83 из 83 Vitest tests пройдено;
 - browser: 7 из 7 обязательных Chromium E2E пройдено, visual-update test ожидаемо пропущен;
@@ -46,6 +46,11 @@ GitHub workflow `quality` разделяет проверки на `backend`, `f
 После замены повторные unit и integration tests завершились без deprecation warnings. Этап 21
 повторно выполнил контур после добавления correction proposals и Alembic revision `20260729_27`;
 clean install, upgrade/restore, localhost и все указанные наборы остались зелёными.
+
+Этап 22 добавил русское руководство установки, обслуживания, согласованного PostgreSQL/MinIO
+backup и восстановления, обновления и rollback. Пять статических тестов фиксируют 13 сценариев
+руководства и реальные Compose/CLI/UI boundaries; infrastructure snapshot MinIO остаётся ручной
+операцией целевого сервера.
 
 ## Воспроизводимый запуск на чистой базе
 
