@@ -28,6 +28,7 @@ chmod 600 "$TEMPORARY_DIR/tls.key"
 sed \
   -e 's|replace-with-production-postgres-password|ci-postgres-owner-password-000000000|' \
   -e 's|replace-with-production-runtime-postgres-password|ci-postgres-runtime-password-0000000|' \
+  -e 's|replace-with-production-backup-postgres-password|ci-postgres-backup-password-00000000|' \
   -e 's|replace-with-production-minio-user|ci-minio-user|' \
   -e 's|replace-with-production-minio-password|ci-minio-root-password-0000000000000|' \
   -e 's|replace-with-production-minio-runtime-secret|ci-minio-runtime-password-000000000|' \
@@ -56,9 +57,12 @@ database_contract="$(docker compose "${COMPOSE_ARGUMENTS[@]}" exec --no-TTY post
     --tuples-only --no-align --command \
     "SELECT CASE WHEN NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls THEN '\''pass'\'' ELSE '\''fail'\'' END FROM pg_roles WHERE rolname = '\''ackb_runtime'\'';
      SELECT CASE WHEN NOT has_schema_privilege('\''ackb_runtime'\'', '\''public'\'', '\''CREATE'\'') THEN '\''pass'\'' ELSE '\''fail'\'' END;
-     SELECT CASE WHEN has_table_privilege('\''ackb_runtime'\'', '\''users'\'', '\''SELECT,INSERT,UPDATE,DELETE'\'') THEN '\''pass'\'' ELSE '\''fail'\'' END;"
+     SELECT CASE WHEN has_table_privilege('\''ackb_runtime'\'', '\''users'\'', '\''SELECT,INSERT,UPDATE,DELETE'\'') THEN '\''pass'\'' ELSE '\''fail'\'' END;
+     SELECT CASE WHEN NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls THEN '\''pass'\'' ELSE '\''fail'\'' END FROM pg_roles WHERE rolname = '\''ackb_backup'\'';
+     SELECT CASE WHEN has_table_privilege('\''ackb_backup'\'', '\''users'\'', '\''SELECT'\'') AND NOT has_table_privilege('\''ackb_backup'\'', '\''users'\'', '\''INSERT,UPDATE,DELETE'\'') THEN '\''pass'\'' ELSE '\''fail'\'' END;
+     SELECT CASE WHEN NOT has_schema_privilege('\''ackb_backup'\'', '\''public'\'', '\''CREATE'\'') THEN '\''pass'\'' ELSE '\''fail'\'' END;"
 ')"
-if [[ "$database_contract" != $'pass\npass\npass' ]]; then
+if [[ "$database_contract" != $'pass\npass\npass\npass\npass\npass' ]]; then
   printf 'ERROR: production PostgreSQL runtime grant contract failed: %q\n' \
     "$database_contract" >&2
   exit 1

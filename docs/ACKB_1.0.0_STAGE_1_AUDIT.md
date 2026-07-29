@@ -446,6 +446,12 @@ outcome, details и время. Записываются:
 Это production blocker. Простого копирования Docker volumes недостаточно: PostgreSQL и
 MinIO должны восстанавливаться согласованно, а процедура — регулярно проверяться.
 
+Статус этапа 17: PostgreSQL-часть закрыта отдельной read-only backup identity, проверяемым
+custom-format dump, checksum/manifest, безопасным restore только в `ackb_restore_*` и CI drill
+для clean install, upgrade и сохранности критичных данных. MinIO objects, cross-store
+consistency и выбранное оператором encrypted off-host storage остаются открытой частью этого
+исходного finding.
+
 ## 10. Тесты и CI
 
 Сильные стороны:

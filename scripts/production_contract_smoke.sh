@@ -15,6 +15,7 @@ chmod 600 "$temporary_dir/tls.key"
 sed \
   -e 's|replace-with-production-postgres-password|ci-postgres-owner-password-000000000|' \
   -e 's|replace-with-production-runtime-postgres-password|ci-postgres-runtime-password-0000000|' \
+  -e 's|replace-with-production-backup-postgres-password|ci-postgres-backup-password-00000000|' \
   -e 's|replace-with-production-minio-user|ci-minio-user|' \
   -e 's|replace-with-production-minio-password|ci-minio-root-password-0000000000000|' \
   -e 's|replace-with-production-minio-runtime-secret|ci-minio-runtime-password-000000000|' \

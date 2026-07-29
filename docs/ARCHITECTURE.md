@@ -309,14 +309,18 @@ internal TLS, backups, monitoring и restore drill обязательны пер
 разделяет PostgreSQL migration owner и DML-only runtime role, включает password-authenticated
 Redis и выдаёт приложению отдельную bucket-scoped MinIO policy вместо root credentials.
 Одноразовые `database-permissions` и `minio-identity-init` завершаются до запуска backend/workers.
+Отдельная read-only PostgreSQL backup role используется pinned `pg_dump`; restore допускается
+только владельцем в изолированную базу `ackb_restore_*`, проверяет privacy-safe manifest и затем
+применяет Alembic head. Автоматический drill проверяет clean install и upgrade с предыдущего head.
 Exact trusted Host и same-origin middleware сохраняют внешний DNS hostname как browser boundary.
 
 ## Решения, отложенные до следующих этапов
 
 Локальные opaque server-side sessions утверждены как MVP baseline. Возможная интеграция с
 колледжным SSO не должна менять backend RBAC, отзыв сессий и audit invariants. Outbox
-implementation, backup identity/tooling и orchestrator остаются
-отложенными. Merge/review UI уже реализован.
+implementation и согласованный PostgreSQL+MinIO backup orchestrator остаются отложенными.
+PostgreSQL identity/tooling и restore drill реализованы на этапе 17. Merge/review UI уже
+реализован.
 
 ## Поиск опубликованного каталога
 

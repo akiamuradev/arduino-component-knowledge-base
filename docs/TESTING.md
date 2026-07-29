@@ -140,3 +140,9 @@ flow через Docker Compose reverse proxy и FFmpeg на Windows. Эти пр
 production Compose и выполняет `nginx -t` с одноразовым тестовым сертификатом. Реальный
 корпоративный hostname/CA проверяются после развёртывания командой
 `python scripts/production_smoke.py`; insecure TLS fallback отсутствует.
+
+Этап 17 добавляет `scripts/database_restore_smoke.sh`. В полностью disposable production-like
+Compose project он применяет всю Alembic chain на чистую базу, отдельно обновляет предыдущий
+head `20260728_24` до текущего, создаёт PostgreSQL dump и восстанавливает его в
+`ackb_restore_drill`. Manifest доказывает сохранность тестовых пользователя, роли, карточки,
+revision history и audit event. Скрипт удаляет тестовые базы, volumes и временные credentials.

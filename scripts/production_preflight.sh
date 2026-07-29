@@ -75,6 +75,7 @@ minio_certificate="$(read_setting ACKB_MINIO_TLS_CERT_FILE)"
 minio_key="$(read_setting ACKB_MINIO_TLS_KEY_FILE)"
 postgres_owner="$(read_setting ACKB_POSTGRES_USER)"
 postgres_runtime="$(read_setting ACKB_POSTGRES_RUNTIME_USER)"
+postgres_backup="$(read_setting ACKB_POSTGRES_BACKUP_USER)"
 minio_root="$(read_setting ACKB_MINIO_ROOT_USER)"
 minio_runtime="$(read_setting ACKB_MINIO_ACCESS_KEY)"
 commit_sha="$(read_setting ACKB_COMMIT_SHA)"
@@ -83,6 +84,7 @@ build_date="$(read_setting ACKB_BUILD_DATE)"
 for secret_name in \
   ACKB_POSTGRES_PASSWORD \
   ACKB_POSTGRES_RUNTIME_PASSWORD \
+  ACKB_POSTGRES_BACKUP_PASSWORD \
   ACKB_MINIO_ROOT_PASSWORD \
   ACKB_MINIO_SECRET_KEY \
   ACKB_REDIS_PASSWORD \
@@ -96,6 +98,12 @@ done
   || fail "runtime PostgreSQL role must differ from bootstrap owner"
 [[ ! "$postgres_runtime" =~ ^(postgres|root|admin|administrator|demo|test|ackb)$ ]] \
   || fail "ACKB_POSTGRES_RUNTIME_USER is not a dedicated runtime role"
+[[ "$postgres_backup" =~ ^[a-z_][a-z0-9_]{2,62}$ ]] \
+  || fail "ACKB_POSTGRES_BACKUP_USER must be a simple lowercase PostgreSQL role"
+[[ "$postgres_backup" != "$postgres_owner" && "$postgres_backup" != "$postgres_runtime" ]] \
+  || fail "backup PostgreSQL role must differ from owner and runtime roles"
+[[ ! "$postgres_backup" =~ ^(postgres|root|admin|administrator|demo|test|ackb)$ ]] \
+  || fail "ACKB_POSTGRES_BACKUP_USER is not a dedicated backup role"
 [[ "$minio_runtime" != "$minio_root" ]] \
   || fail "runtime MinIO access key must differ from root access key"
 [[ ! "$minio_runtime" =~ ^(minioadmin|root|admin|administrator|demo|test)$ ]] \
