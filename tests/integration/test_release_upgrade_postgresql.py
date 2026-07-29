@@ -215,7 +215,7 @@ async def _assert_migrated_data(database_url: str) -> None:
         async with engine.connect() as connection:
             assert (
                 await connection.scalar(text("SELECT version_num FROM alembic_version"))
-                == "20260729_27"
+                == "20260729_28"
             )
             users = await connection.scalar(
                 text("SELECT count(*) FROM users WHERE id IN (:admin_id, :student_id)"),

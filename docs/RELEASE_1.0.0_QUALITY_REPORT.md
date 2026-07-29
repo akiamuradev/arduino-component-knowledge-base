@@ -59,6 +59,12 @@ Integration acceptance дополнительно доказывает вход 
 назначение временного editor, создание import job и публикацию карточки. Полный протокол:
 [`RELEASE_1.0.0_UPGRADE_REPORT.md`](RELEASE_1.0.0_UPGRADE_REPORT.md).
 
+Повторный контур после добавления неполных ручных draft и staging-изображений выполнен на
+Alembic `20260729_28`: 667 обычных backend tests, 18 из 18 integration tests на одноразовых
+PostgreSQL/MinIO/Redis, 87 Vitest tests и 8 обязательных Chromium E2E прошли; visual-update test
+ожидаемо пропущен. Browser-сценарий отдельно загружает два изображения до первого сохранения,
+прикрепляет их при создании draft и продолжает lifecycle до immutable published snapshot.
+
 ## Воспроизводимый запуск на чистой базе
 
 `scripts/clean_stack_smoke.sh` создаёт отдельный Compose project и одноразовые credentials,

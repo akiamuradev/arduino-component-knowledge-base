@@ -19,7 +19,7 @@ def alembic_config() -> Config:
 
 def test_alembic_has_one_backend_head() -> None:
     scripts = ScriptDirectory.from_config(alembic_config())
-    assert scripts.get_heads() == ["20260729_27"]
+    assert scripts.get_heads() == ["20260729_28"]
 
 
 def test_alembic_upgrade_renders_offline_postgresql_sql(
@@ -152,6 +152,9 @@ def test_alembic_upgrade_renders_offline_postgresql_sql(
     assert "CREATE TABLE component_correction_proposals" in sql
     assert "ix_component_correction_proposals_component_status_created" in sql
     assert "20260729_27" in sql
+    assert "char_length(title) <= 160" in sql
+    assert "char_length(summary) <= 500" in sql
+    assert "20260729_28" in sql
 
 
 def test_multiple_images_migration_renders_reversible_downgrade(
@@ -343,6 +346,27 @@ def test_correction_proposal_migration_renders_reversible_downgrade(
     assert "DROP INDEX ix_component_correction_proposals_component_status_created" in sql
     assert "DROP TABLE component_correction_proposals" in sql
     assert "version_num='20260729_26'" in sql
+
+
+def test_incomplete_drafts_migration_restores_legacy_minimums_on_downgrade(
+    monkeypatch: MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setenv(
+        "ACKB_DATABASE_URL",
+        "postgresql+asyncpg://ackb:placeholder@localhost:5432/ackb",
+    )
+    command.downgrade(
+        alembic_config(),
+        "20260729_28:20260729_27",
+        sql=True,
+    )
+    sql = capsys.readouterr().out
+    assert "UPDATE components SET title = 'Без названия'" in sql
+    assert "UPDATE components SET summary =" in sql
+    assert "char_length(title) BETWEEN 2 AND 160" in sql
+    assert "char_length(summary) BETWEEN 20 AND 500" in sql
+    assert "version_num='20260729_27'" in sql
 
 
 def test_runtime_has_no_create_all_escape_hatch() -> None:

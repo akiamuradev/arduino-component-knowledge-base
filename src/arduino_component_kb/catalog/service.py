@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from hashlib import sha256
@@ -380,11 +381,21 @@ class CatalogService:
             resolved_at=row.resolved_at,
         )
 
-    async def create(self, data: DraftData, actor_id: UUID) -> CatalogCard:
+    async def create(
+        self,
+        data: DraftData,
+        actor_id: UUID,
+        *,
+        staged_images: tuple[ComponentImageMutation, ...] = (),
+        primary_asset_id: UUID | None = None,
+    ) -> CatalogCard:
+        component_id = uuid4()
+        if not data.slug:
+            data = replace(data, slug=f"draft-{component_id.hex}")
         await self._validate(data)
         now = datetime.now(UTC)
         row = Component(
-            id=uuid4(),
+            id=component_id,
             status=ComponentStatus.DRAFT.value,
             created_by=actor_id,
             updated_by=actor_id,
@@ -399,6 +410,13 @@ class CatalogService:
         await self._replace_lists(row.id, data)
         await self._replace_technical(row.id, data)
         await self._replace_learning(row.id, data, actor_id, now)
+        await self._attach_staged_images(
+            row.id,
+            staged_images,
+            primary_asset_id,
+            actor_id,
+        )
+        await self.session.flush()
         await self._snapshot(
             row,
             data,
@@ -408,6 +426,66 @@ class CatalogService:
             previous_status=None,
         )
         return await self._card(row)
+
+    async def _attach_staged_images(
+        self,
+        component_id: UUID,
+        images: tuple[ComponentImageMutation, ...],
+        primary_asset_id: UUID | None,
+        actor_id: UUID,
+    ) -> None:
+        """Attach only this editor's unassigned uploads to a new draft."""
+        if len(images) > 12 or len({item.asset_id for item in images}) != len(images):
+            raise CatalogValidationError("component_images_invalid")
+        requested_ids = {item.asset_id for item in images}
+        if primary_asset_id is not None and primary_asset_id not in requested_ids:
+            raise CatalogValidationError("component_primary_image_invalid")
+        assets = (
+            tuple(
+                await self.session.scalars(
+                    select(MediaAsset).where(MediaAsset.id.in_(requested_ids)).with_for_update()
+                )
+            )
+            if requested_ids
+            else ()
+        )
+        by_id = {item.id: item for item in assets}
+        if len(by_id) != len(requested_ids):
+            raise ComponentMediaNotFoundError
+        for item in images:
+            asset = by_id[item.asset_id]
+            if (
+                asset.owner_user_id != actor_id
+                or asset.component_id is not None
+                or asset.kind != MediaKind.IMAGE.value
+                or asset.storage_cleaned_at is not None
+            ):
+                raise ComponentMediaNotFoundError
+            if (
+                not item.purpose.strip()
+                or len(item.purpose) > 40
+                or not item.alt_text.strip()
+                or len(item.alt_text) > 500
+                or "\x00" in item.purpose
+                or "\x00" in item.alt_text
+                or (
+                    item.caption is not None
+                    and ("\x00" in item.caption or len(item.caption) > 1_000)
+                )
+            ):
+                raise CatalogValidationError("component_image_metadata_invalid")
+
+        selected_primary = primary_asset_id
+        if images and selected_primary is None:
+            selected_primary = images[0].asset_id
+        for position, item in enumerate(images):
+            asset = by_id[item.asset_id]
+            asset.component_id = component_id
+            asset.purpose = item.purpose.strip()
+            asset.alt_text = item.alt_text.strip()
+            asset.caption = item.caption.strip() if item.caption and item.caption.strip() else None
+            asset.display_order = position
+            asset.is_primary = item.asset_id == selected_primary
 
     async def update(
         self, component_id: UUID, expected_revision: int, data: DraftData, actor_id: UUID
@@ -573,6 +651,8 @@ class CatalogService:
         source = ComponentStatus(row.status)
         if source not in LIFECYCLE_TRANSITION_SOURCES.get(target, frozenset()):
             raise CatalogValidationError("lifecycle_transition_denied")
+        if target is ComponentStatus.IN_REVIEW:
+            self._validate_review_content(row)
         if target is ComponentStatus.PUBLISHED:
             await self._validate_publication(row)
 
@@ -696,6 +776,7 @@ class CatalogService:
         from arduino_component_kb.deduplication.models import DuplicateCandidate
         from arduino_component_kb.deduplication.scoring import HIGH_SCORE_THRESHOLD
 
+        self._validate_review_content(row)
         source_rows = await self._component_source_rows(row.id)
         high_duplicates = await self.session.scalar(
             select(func.count())
@@ -709,15 +790,20 @@ class CatalogService:
                 ),
             )
         )
-        if (
-            (not row.manual_original and not source_rows)
-            or high_duplicates != 0
-            or not row.description.strip()
-        ):
+        if (not row.manual_original and not source_rows) or high_duplicates != 0:
             raise CatalogValidationError
         if not row.manual_original:
             self._validate_publish_sources(source_rows)
         await self._validate_publish_media(row.id)
+
+    @staticmethod
+    def _validate_review_content(row: Component) -> None:
+        if (
+            len(row.title.strip()) < 2
+            or len(row.summary.strip()) < 20
+            or not row.description.strip()
+        ):
+            raise CatalogValidationError("component_content_incomplete")
 
     async def resolve_duplicate_pair(
         self,

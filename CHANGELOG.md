@@ -23,6 +23,11 @@ All notable changes to this project are documented here. Versions follow semanti
 
 ### Changed
 
+- Manual cards can be saved immediately as incomplete drafts: the server assigns a stable
+  temporary slug when the address is blank, while publication still enforces complete core
+  content.
+- Editors can upload and preview component images before the first draft save; owned staged
+  uploads are attached atomically when the draft is created.
 - Authentication and navigation now derive the current user's roles and permissions from the
   server; the sign-in form no longer offers a client-side role selector.
 - User-facing navigation, forms, statuses, errors and empty states are in Russian, while

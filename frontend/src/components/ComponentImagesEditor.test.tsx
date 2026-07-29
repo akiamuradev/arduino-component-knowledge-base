@@ -187,12 +187,106 @@ function renderEditor(
   return queryClient;
 }
 
+function renderStagedEditor(saved: (value: ComponentCard) => void) {
+  function StagedHarness() {
+    const [images, setImages] = useState<ComponentMedia[]>([]);
+    const [dirty, setDirty] = useState(false);
+    return (
+      <ComponentImagesEditor
+        card={undefined}
+        dirty={dirty}
+        images={images}
+        onChange={(next) => {
+          setImages(next);
+          setDirty(true);
+        }}
+        onSaved={saved}
+      />
+    );
+  }
+
+  const queryClient = createQueryClient();
+  queryClient.setDefaultOptions({
+    queries: { retry: false, staleTime: Infinity },
+    mutations: { retry: false },
+  });
+  render(
+    <QueryClientProvider client={queryClient}>
+      <StagedHarness />
+    </QueryClientProvider>,
+  );
+}
+
 afterEach(() => {
   document.cookie = "ackb_csrf=; Max-Age=0; Path=/";
   vi.unstubAllGlobals();
 });
 
 describe("component images editor", () => {
+  it("uploads and previews an image before the first draft save", async () => {
+    document.cookie = "ackb_csrf=media-csrf; Path=/";
+    const staged = {
+      ...asset(firstImage),
+      component_id: null,
+      alt_text: "component front",
+      status: "pending",
+      detected_mime: null,
+      size_bytes: null,
+      sha256: null,
+      phash: null,
+      width: null,
+      height: null,
+      job_status: "queued",
+      phase: "queued",
+      progress_percent: 0,
+      variants: [],
+    } satisfies MediaAsset;
+    const saved = vi.fn<(value: ComponentCard) => void>();
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input) => {
+      await Promise.resolve();
+      const url = requestUrl(input);
+      if (url === "/api/v1/media/images/uploads") {
+        return jsonResponse({
+          asset_id: staged.id,
+          upload_url: `/media-storage/quarantine/${staged.id}?signed=1`,
+          upload_headers: { "Content-Type": "image/png" },
+          expires_at: "2026-07-29T12:00:00Z",
+          component_revision: null,
+        }, 201);
+      }
+      if (url.startsWith("/media-storage/")) return new Response(null, { status: 200 });
+      if (url.endsWith("/complete")) {
+        return jsonResponse({ asset_id: staged.id, job_id: "job", status: "queued" });
+      }
+      if (url.endsWith(staged.id)) return jsonResponse(staged);
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    renderStagedEditor(saved);
+
+    await userEvent.upload(
+      screen.getByLabelText("Добавить изображения", { selector: "input" }),
+      new File(["preview"], "component-front.png", { type: "image/png" }),
+    );
+
+    expect(await screen.findByText("1 / 12")).toBeVisible();
+    expect(screen.getByText(/Фото уже загружены/)).toBeVisible();
+    expect(screen.getByLabelText("Альтернативный текст изображения 1")).toHaveValue(
+      "component front",
+    );
+    expect(screen.getByRole("button", { name: "Добавить изображения" })).toBeEnabled();
+    expect(saved).not.toHaveBeenCalled();
+
+    const reservation = fetchMock.mock.calls.find(
+      ([input]) => requestUrl(input) === "/api/v1/media/images/uploads",
+    );
+    expect(JSON.parse(requestBody(reservation?.[1]))).toEqual(expect.objectContaining({
+      component_id: null,
+      component_revision: null,
+      alt_text: "component front",
+    }));
+  });
+
   it("persists metadata, primary choice and accessible ordering", async () => {
     document.cookie = "ackb_csrf=media-csrf; Path=/";
     const saved = vi.fn<(value: ComponentCard) => void>();

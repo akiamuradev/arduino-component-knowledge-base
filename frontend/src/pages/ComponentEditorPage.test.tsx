@@ -159,19 +159,60 @@ function jsonResponse(value: unknown, status = 200): Response {
   });
 }
 
+function requestBody(options: RequestInit | undefined): string {
+  if (typeof options?.body !== "string") {
+    throw new Error("Expected a JSON string request body");
+  }
+  return options.body;
+}
+
 afterEach(() => {
   document.cookie = "ackb_csrf=; Max-Age=0; Path=/";
   vi.unstubAllGlobals();
 });
 
 describe("component editor", () => {
-  it("allows a new draft without images and explains when upload becomes available", () => {
+  it("allows images and an incomplete draft before the first save", () => {
     renderNewEditor();
 
-    expect(screen.getByText("Сначала сохраните черновик")).toBeVisible();
-    expect(screen.getByText(/Карточку можно сохранить без изображений/)).toBeVisible();
+    expect(screen.getByText(/Фото можно загрузить до заполнения и сохранения/)).toBeVisible();
     expect(screen.getByRole("button", { name: "Сохранить черновик" })).toBeEnabled();
-    expect(screen.queryByRole("button", { name: "Добавить изображения" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Добавить изображения" })).toBeEnabled();
+    expect(screen.getByText(/Черновик уже можно сохранить/)).toBeVisible();
+  });
+
+  it("saves an empty manual draft with an automatic page address", async () => {
+    document.cookie = "ackb_csrf=csrf-value; Path=/";
+    const saved = {
+      ...card,
+      slug: "draft-10000000000040008000000000000000",
+      title: "",
+      summary: "",
+      description: "",
+      revision: 1,
+      media: [],
+    };
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse(saved, 201));
+    vi.stubGlobal("fetch", fetchMock);
+    renderNewEditor();
+
+    await userEvent.click(screen.getByRole("button", { name: "Сохранить черновик" }));
+
+    expect(await screen.findByText("Версия 1")).toBeVisible();
+    const body = JSON.parse(requestBody(fetchMock.mock.calls[0]?.[1])) as {
+      slug: string;
+      title: string;
+      summary: string;
+      description: string;
+      images: unknown[];
+    };
+    expect(body).toEqual(expect.objectContaining({
+      slug: "",
+      title: "",
+      summary: "",
+      description: "",
+      images: [],
+    }));
   });
 
   it("places the persistent image editor between identification and learning content", () => {
