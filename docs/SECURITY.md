@@ -270,6 +270,9 @@ worker. Durable imports still execute only in the parser worker; media workers h
 - Production overlay отделяет PostgreSQL bootstrap owner от `ackb_runtime`: Alembic остаётся
   единственным DDL path, а runtime получает только CONNECT, schema USAGE, table DML и sequence
   use. Tracked idempotent grants повторяются после каждой migration и явно снимают schema CREATE.
+- Отдельный `ackb_backup` получает только CONNECT, schema USAGE и SELECT. Backup/restore scripts
+  создают private dump/checksum/manifest, отказываются восстанавливать в имя без
+  `ackb_restore_*` и сверяют пользователей, роли, карточки, revisions и audit до migration.
 - MinIO root используется только data service и одноразовым identity init. Backend/workers
   получают отдельную policy только для list/read/write/delete объектов двух private media buckets;
   Redis в production требует независимый пароль. Runtime credentials не дают admin API access.
@@ -312,7 +315,10 @@ Audit обязателен для входа и выхода, bounded login fail
 publication/archive, retention cleanup, category settings, duplicate decision и merge.
 Обычный HTTP-контур append-only: существует только защищённый `GET`, операций записи,
 изменения или удаления журнала в UI/API нет. Запись выполняется внутри серверных mutation
-transactions. Retention/backup выполняются отдельным эксплуатационным контуром.
+transactions. Retention/backup выполняются отдельным эксплуатационным контуром. PostgreSQL
+manifest содержит только counts и идентификаторные fingerprints: login, password hash и
+содержимое карточек в него не экспортируются. Сам dump остаётся конфиденциальным production
+артефактом и должен храниться зашифрованно вне VM.
 
 `GET /api/v1/admin/audit-events` требует backend permission `audit.view`, возвращает только
 время, безопасную identity субъекта, действие, объект и исход и устанавливает

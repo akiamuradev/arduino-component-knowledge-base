@@ -66,6 +66,8 @@ services:
       POSTGRES_USER: ${ACKB_POSTGRES_USER:?set ACKB_POSTGRES_USER}
       ACKB_POSTGRES_RUNTIME_USER: ${ACKB_POSTGRES_RUNTIME_USER:?set ACKB_POSTGRES_RUNTIME_USER}
       ACKB_POSTGRES_RUNTIME_PASSWORD: ${ACKB_POSTGRES_RUNTIME_PASSWORD:?set ACKB_POSTGRES_RUNTIME_PASSWORD}
+      ACKB_POSTGRES_BACKUP_USER: ${ACKB_POSTGRES_BACKUP_USER:?set ACKB_POSTGRES_BACKUP_USER}
+      ACKB_POSTGRES_BACKUP_PASSWORD: ${ACKB_POSTGRES_BACKUP_PASSWORD:?set ACKB_POSTGRES_BACKUP_PASSWORD}
     volumes:
       - ./deploy/postgres/runtime-grants.sql:/etc/ackb/runtime-grants.sql:ro
     read_only: true
@@ -76,6 +78,57 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+    networks: [data]
+
+  database-backup:
+    image: postgres:17-alpine@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193
+    profiles: [maintenance]
+    entrypoint: [pg_dump]
+    environment:
+      PGHOST: postgres
+      PGDATABASE: ${ACKB_POSTGRES_DB:-ackb}
+      PGUSER: ${ACKB_POSTGRES_BACKUP_USER:?set ACKB_POSTGRES_BACKUP_USER}
+      PGPASSWORD: ${ACKB_POSTGRES_BACKUP_PASSWORD:?set ACKB_POSTGRES_BACKUP_PASSWORD}
+    volumes:
+      - ./deploy/postgres/backup-manifest.sql:/etc/ackb/backup-manifest.sql:ro
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m,mode=1777
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    networks: [data]
+
+  database-restore-tools:
+    image: postgres:17-alpine@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193
+    profiles: [restore]
+    command: [postgres, --version]
+    environment:
+      PGHOST: postgres
+      PGDATABASE: ${ACKB_RESTORE_DATABASE:-ackb_restore_required}
+      PGUSER: ${ACKB_POSTGRES_USER:?set ACKB_POSTGRES_USER}
+      PGPASSWORD: ${ACKB_POSTGRES_PASSWORD:?set ACKB_POSTGRES_PASSWORD}
+    volumes:
+      - ./deploy/postgres/backup-manifest.sql:/etc/ackb/backup-manifest.sql:ro
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m,mode=1777
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    networks: [data]
+
+  database-restore-migrate:
+    <<: *production-app
+    image: arduino-component-kb/backend:0.21.0
+    profiles: [restore]
+    command: [alembic, upgrade, head]
+    environment:
+      <<: *production-environment
+      ACKB_DATABASE_URL: postgresql+asyncpg://${ACKB_POSTGRES_USER:?set ACKB_POSTGRES_USER}:${ACKB_POSTGRES_PASSWORD:?set ACKB_POSTGRES_PASSWORD}@postgres:5432/${ACKB_RESTORE_DATABASE:-ackb_restore_required}
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m,mode=1777
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
     networks: [data]
 
   minio-identity-init:

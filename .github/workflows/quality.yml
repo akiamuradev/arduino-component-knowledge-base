@@ -128,9 +128,13 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - run: bash -n scripts/linux_bootstrap.sh
-      - run: bash -n scripts/production_preflight.sh scripts/production_contract_smoke.sh scripts/production_identity_smoke.sh
+      - run: >-
+          bash -n scripts/production_preflight.sh scripts/production_contract_smoke.sh
+          scripts/production_identity_smoke.sh scripts/database_backup.sh
+          scripts/database_restore.sh scripts/database_restore_smoke.sh
       - run: cp .env.example .env
       - run: docker compose config --quiet
       - run: bash scripts/production_contract_smoke.sh
       - run: docker compose build backend frontend reverse-proxy
       - run: bash scripts/production_identity_smoke.sh
+      - run: bash scripts/database_restore_smoke.sh

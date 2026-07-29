@@ -35,6 +35,8 @@ def test_production_compose_uses_dedicated_runtime_credentials() -> None:
     for setting in (
         "ACKB_POSTGRES_RUNTIME_USER",
         "ACKB_POSTGRES_RUNTIME_PASSWORD",
+        "ACKB_POSTGRES_BACKUP_USER",
+        "ACKB_POSTGRES_BACKUP_PASSWORD",
         "ACKB_REDIS_PASSWORD",
         "ACKB_MINIO_ACCESS_KEY",
         "ACKB_MINIO_SECRET_KEY",
@@ -57,6 +59,18 @@ def test_runtime_database_role_has_no_ddl_or_administration_grants() -> None:
     assert "GRANT ALL" not in grants
 
 
+def test_backup_database_role_and_tools_are_read_only_and_isolated() -> None:
+    grants = (ROOT / "deploy" / "postgres" / "runtime-grants.sql").read_text(encoding="utf-8")
+    compose = (ROOT / "compose.production.yaml").read_text(encoding="utf-8")
+    assert "ACKB_POSTGRES_BACKUP_USER" in grants
+    assert "GRANT SELECT ON ALL TABLES" in grants
+    assert "database-backup:" in compose
+    assert "database-restore-tools:" in compose
+    assert "database-restore-migrate:" in compose
+    assert "profiles: [maintenance]" in compose
+    assert "profiles: [restore]" in compose
+
+
 def test_runtime_minio_policy_is_limited_to_private_media_buckets() -> None:
     policy = json.loads(
         (ROOT / "deploy" / "minio" / "ackb-media-policy.json").read_text(encoding="utf-8")
@@ -73,7 +87,10 @@ def test_production_application_and_edge_containers_are_hardened() -> None:
     compose = (ROOT / "compose.production.yaml").read_text(encoding="utf-8")
     for service, next_service in (
         ("migrate", "database-permissions"),
-        ("database-permissions", "minio-identity-init"),
+        ("database-permissions", "database-backup"),
+        ("database-backup", "database-restore-tools"),
+        ("database-restore-tools", "database-restore-migrate"),
+        ("database-restore-migrate", "minio-identity-init"),
         ("minio-identity-init", "media-init"),
         ("media-init", "backend"),
         ("backend", "worker"),

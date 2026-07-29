@@ -65,10 +65,11 @@ chmod 600 .env.production
 `ACKB_BIND_ADDRESS` — static IP VM, `ACKB_INTERNAL_HOSTNAME` — соответствующая DNS-запись.
 Все пути к сертификатам, ключам и CA bundle должны быть абсолютными. Preflight проверяет Ubuntu,
 наличие IP на interface, DNS, SAN, срок действия не менее семи дней, цепочку доверия, mode ключей
-и `.env.production`, длину и URL-safe формат secrets, раздельность bootstrap/runtime identities,
+и `.env.production`, длину и URL-safe формат secrets, раздельность owner/runtime/backup identities,
 полный commit SHA, UTC build date и итоговый Compose config. Он ничего не записывает и не меняет
-firewall. Значения `ACKB_POSTGRES_RUNTIME_PASSWORD`, `ACKB_REDIS_PASSWORD`,
-`ACKB_MINIO_SECRET_KEY` и `ACKB_AUTH_THROTTLE_PEPPER` должны быть независимо сгенерированы;
+firewall. Значения `ACKB_POSTGRES_RUNTIME_PASSWORD`, `ACKB_POSTGRES_BACKUP_PASSWORD`,
+`ACKB_REDIS_PASSWORD`, `ACKB_MINIO_SECRET_KEY` и `ACKB_AUTH_THROTTLE_PEPPER` должны быть
+независимо сгенерированы;
 не переиспользуйте пароль пользователя или TLS private key.
 
 Production overlay разделяет полномочия автоматически:
@@ -77,6 +78,8 @@ Production overlay разделяет полномочия автоматиче�
   `database-permissions` создаёт/обновляет `ACKB_POSTGRES_RUNTIME_USER` без DDL, role или
   database administration rights;
 - backend и workers подключаются только runtime PostgreSQL role;
+- `database-backup` подключается отдельной ролью `ACKB_POSTGRES_BACKUP_USER`, которая может
+  читать таблицы и sequences, но не изменять данные, схему или роли;
 - Redis требует отдельный пароль и остаётся без host port;
 - `minio-identity-init` создаёт private buckets и ограниченную media policy, после чего backend
   и workers используют `ACKB_MINIO_ACCESS_KEY`, а не `ACKB_MINIO_ROOT_USER`;
@@ -238,3 +241,59 @@ versions, confusion matrix, sample size и 95% confidence intervals. Он не �
 reviewer notes, reasons, evidence или source text. `summary.sample_gate=insufficient` запрещает
 использовать precision/recall как switch evidence. Повторный запуск по неизменной базе и тому же
 порогу должен создать byte-identical JSON.
+
+## 9. PostgreSQL backup и восстановление
+
+PostgreSQL backup выполняется стандартными `pg_dump`/`pg_restore` из pinned production image,
+без внешнего backup-сервиса. Перед запуском откройте короткое окно без записей: остановите
+`backend`, `worker`, `parser-worker` и любые maintenance jobs либо переведите edge в режим
+обслуживания. Это необходимо, чтобы manifest и dump описывали одну неизменяемую точку данных.
+
+```fish
+set project arduino-component-kb
+docker compose --project-name $project --env-file .env.production \
+  -f compose.yaml -f compose.production.yaml stop backend worker parser-worker
+./scripts/database_backup.sh .env.production /var/backups/ackb $project
+docker compose --project-name $project --env-file .env.production \
+  -f compose.yaml -f compose.production.yaml up -d backend worker parser-worker
+```
+
+Скрипт использует только read-only `ACKB_POSTGRES_BACKUP_USER`, создаёт custom-format dump,
+privacy-safe manifest и SHA-256 sidecar, валидирует TOC через `pg_restore --list` и выставляет
+mode `0600`. Файлы содержат production data; не выводите их содержимое и не отправляйте в Git.
+После создания атомарно перенесите все три файла в зашифрованное off-host хранилище. Скрипт сам
+не шифрует и не передаёт backup, поэтому выбор ключей, носителя и контроль доступа остаются
+обязанностью оператора.
+
+Baseline расписания: полный PostgreSQL backup ежедневно и непосредственно перед каждой
+миграцией; хранить 14 ежедневных, 8 еженедельных и 12 ежемесячных копий. Целевой RPO — 24 часа.
+Ежемесячно и перед релизом выполняйте restore drill, сохраняйте дату, имя backup, checksum,
+исходную/целевую Alembic revision, результат и оператора без credentials или данных пользователей.
+Периодичность должна быть сокращена, если утверждённый организацией RPO меньше 24 часов.
+
+Восстановление всегда начинается в отдельную базу; имя намеренно обязано иметь prefix
+`ackb_restore_`, поэтому скрипт не может удалить production database:
+
+```fish
+set dump /var/backups/ackb/ackb-postgresql-YYYYMMDDTHHMMSSZ.dump
+./scripts/database_restore.sh \
+  .env.production $dump ackb_restore_incident arduino-component-kb
+```
+
+Restore проверяет checksum и TOC, пересоздаёт только указанную тестовую базу, применяет dump,
+сверяет пользователей, роли, карточки, историю revisions и audit events, затем обновляет схему
+до Alembic head и повторно выдаёт минимальные runtime/backup grants. Успешная команда оставляет
+тестовую базу для ручной проверки; production database не переключается. Cutover выполняется
+отдельно и только после проверки приложения, согласования downtime и сохранения прежней базы
+для rollback.
+
+Автоматический disposable drill, используемый CI:
+
+```bash
+bash scripts/database_restore_smoke.sh
+```
+
+Он проверяет полный Alembic install на чистой базе, upgrade с предыдущего head, backup,
+восстановление и точное сохранение критичных сущностей. Этот этап покрывает PostgreSQL.
+Binary media находятся в MinIO и требуют отдельного согласованного object-backup; PostgreSQL
+dump нельзя считать полной резервной копией системы.

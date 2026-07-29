@@ -29,16 +29,21 @@ Release gates added by this audit:
 - Stage 16 added separate PostgreSQL migration/runtime identities, repeatable no-DDL runtime
   grants, a bucket-scoped MinIO application identity, Redis authentication, exact trusted Host,
   production fail-closed validation and read-only/drop-capability profiles for application/init
-  and edge containers. Backup identity remains part of the backup finding and Stage 17.
+  and edge containers.
+- Stage 17 added a SELECT-only PostgreSQL backup identity, private custom-format dump with
+  checksum/data manifest, isolated fail-closed restore and an automated clean-install,
+  previous-head upgrade and restore drill. The remaining availability finding is MinIO binary
+  backup and cross-store consistency, not PostgreSQL recovery.
 
 ### High
 
 1. Queue publication happens after the database commit without a transactional outbox or a
    reconciler. A broker outage can leave a durable `queued` import/media job unpublished until an
    operator/client retries it. Add an outbox dispatcher or a periodic queued-job reconciler.
-2. The repository contains a backup policy but no automated PostgreSQL/MinIO backup, consistency
-   orchestration, encryption/retention implementation or proven restore drill. Production rollout
-   remains blocked until the operator supplies and tests these controls.
+2. PostgreSQL backup and restore are automated and proven, but MinIO object backup,
+   PostgreSQL/MinIO consistency orchestration and deployment-specific encrypted off-host storage
+   remain open. Production rollout remains blocked until the operator supplies and tests the
+   complete cross-store recovery control.
 3. Parser egress is constrained by application allowlists and SSRF validation, but the Compose
    `parser-egress` network does not itself enforce DNS/HTTPS-only destinations. A host firewall or
    network policy is still required as an independent containment layer.
