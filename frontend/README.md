@@ -78,7 +78,7 @@ same-origin абсолютным path, например `/api/v1`; URL внеш�
 Build metadata необязательны и не должны содержать секреты:
 
 ```bash
-VITE_APP_VERSION=0.21.0 VITE_COMMIT_SHA=<commit> VITE_BUILD_DATE=<ISO-8601> npm run build
+VITE_APP_VERSION=1.0.0 VITE_COMMIT_SHA=<commit> VITE_BUILD_DATE=<ISO-8601> npm run build
 ```
 
 ## Проверки

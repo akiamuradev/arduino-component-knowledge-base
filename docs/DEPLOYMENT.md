@@ -189,7 +189,7 @@ docker run --rm --network none --read-only --user 0:0 \
   --cap-drop ALL --security-opt no-new-privileges \
   --mount type=bind,src=/absolute/path/to/kicad-symbols,dst=/snapshot,readonly \
   --mount type=volume,src=arduino-component-kb_kicad-index-data,dst=/output \
-  arduino-component-kb/backend:0.21.0 \
+  arduino-component-kb/backend:1.0.0 \
   ackb-build-kicad-index \
   --snapshot-root /snapshot \
   --revision "$KICAD_REVISION" \

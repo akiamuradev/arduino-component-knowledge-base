@@ -28,7 +28,7 @@ reviewed catalogue of Arduino-compatible boards, sensors, actuators, displays an
 components. Students and teachers browse published learning material, temporary editors prepare
 drafts, and administrators control users, review, publication and operational jobs.
 
-The application is currently at version **0.21.0**. Its backend, frontend, workers, migrations,
+The application is currently at version **1.0.0**. Its backend, frontend, workers, migrations,
 media storage and reverse proxy form a runnable Docker Compose stack. A new database intentionally
 contains categories and approved source definitions but **no fabricated or automatically published
 component cards**. Cards become visible in the student catalogue only after editorial review and
@@ -278,7 +278,7 @@ Arduino Component Knowledge Base — самостоятельная образо
 исправления, временные редакторы готовят черновики, а администраторы управляют пользователями,
 решениями по дубликатам и фоновыми задачами.
 
-Текущая версия — **0.21.0**. Backend, frontend, workers, миграции, media storage и reverse proxy
+Текущая версия — **1.0.0**. Backend, frontend, workers, миграции, media storage и reverse proxy
 собираются в единый рабочий Docker Compose-контур. Новая база намеренно содержит категории и
 описания разрешённых источников, но **не содержит вымышленных или автоматически опубликованных
 карточек**. Карточка появляется в студенческом каталоге только после редакционной проверки и явной
