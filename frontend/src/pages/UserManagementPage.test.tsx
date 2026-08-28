@@ -142,7 +142,8 @@ describe("temporary editor management", () => {
       throw new Error(`Unexpected request: ${url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
-    vi.stubGlobal("confirm", vi.fn(() => true));
+    const confirmMock = vi.fn(() => true);
+    vi.stubGlobal("confirm", confirmMock);
     const client = createQueryClient();
     client.setDefaultOptions({ queries: { retry: false }, mutations: { retry: false } });
     const user = userEvent.setup();
@@ -211,7 +212,9 @@ describe("temporary editor management", () => {
       }),
     );
     expect(await screen.findByText("Учётная запись заблокирована.")).toBeVisible();
-    expect(window.confirm).toHaveBeenCalledWith("Заблокировать пользователя «Активный редактор»?");
+    expect(confirmMock.mock.calls).toContainEqual([
+      "Заблокировать пользователя «Активный редактор»?",
+    ]);
     expect(
       fetchMock.mock.calls.some(
         ([request, options]) =>

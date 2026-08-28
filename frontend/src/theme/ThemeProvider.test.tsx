@@ -34,7 +34,7 @@ describe("theme provider", () => {
     window.localStorage.setItem("ackb-theme", "system");
     let dark = true;
     let changeListener: (() => void) | undefined;
-    vi.mocked(window.matchMedia).mockImplementation((query: string) => ({
+    vi.spyOn(window, "matchMedia").mockImplementation((query: string) => ({
       get matches() { return query.includes("dark") && dark; },
       media: query,
       onchange: null,
