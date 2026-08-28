@@ -48,7 +48,7 @@ describe("OLED login display", () => {
   });
 
   it("disables pointer animation for reduced motion", () => {
-    vi.mocked(window.matchMedia).mockImplementation((query: string) => ({
+    vi.spyOn(window, "matchMedia").mockImplementation((query: string) => ({
       matches: query.includes("reduced-motion"), media: query, onchange: null,
       addEventListener: vi.fn(), removeEventListener: vi.fn(), addListener: vi.fn(),
       removeListener: vi.fn(), dispatchEvent: vi.fn(),
