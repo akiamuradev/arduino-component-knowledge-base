@@ -20,10 +20,10 @@
     "typecheck": "tsc -b --pretty false && tsc -p tsconfig.e2e.json --pretty false"
   },
   "dependencies": {
-    "@tanstack/react-query": "5.101.4",
+    "@tanstack/react-query": "5.102.8",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "react-router-dom": "7.18.2"
+    "react-router-dom": "7.18.3"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.12.1",
