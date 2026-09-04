@@ -24,7 +24,7 @@ export const BUILD_INFO = Object.freeze({
   version: environmentValue(import.meta.env.VITE_APP_VERSION, "1.0.0"),
   commitSha: environmentValue(
     import.meta.env.VITE_COMMIT_SHA,
-    "9bbcdac2983a4c96566c8dccb28454759d59f371",
+    "c720b265dfac291370a38b83daa1de97256a9b3d",
   ),
-  buildDate: environmentValue(import.meta.env.VITE_BUILD_DATE, "2026-09-04T19:39:16Z"),
+  buildDate: environmentValue(import.meta.env.VITE_BUILD_DATE, "2026-09-04T19:49:43Z"),
 });
