@@ -59,6 +59,7 @@ All notable changes to this project are documented here. Versions follow semanti
   longer authorize editor actions while preserving authorship and audit history.
 - Production startup rejects placeholder credentials and unsafe deployment settings before
   serving traffic.
+- Frontend and Python development locks use patched Browserslist, pip and pytest releases.
 
 ## [0.21.0] - 2026-07-21
 
