@@ -4,6 +4,11 @@ All notable changes to this project are documented here. Versions follow semanti
 
 ## [1.0.1] - Unreleased
 
+### Changed
+
+- Consolidated permanent documentation around current architecture, testing, security, import
+  validation and a compact operator QA checklist; release-only reports now live in release notes.
+
 ### Security
 
 - Frontend and Python development locks use patched Browserslist, pip and pytest releases.

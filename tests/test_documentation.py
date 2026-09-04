@@ -94,7 +94,7 @@ def test_readme_languages_and_contributor_workflows_stay_discoverable() -> None:
     assert "[Русский](README.ru.md)" in english
     assert "[English](README.md)" in russian
     for content in (english, russian, contributing):
-        assert "upstream/release/1.0.0" in content
+        assert "upstream/main" in content
         assert "PolyForm Noncommercial License 1.0.0" in content
     for forbidden in ("ACKB_1.0.0_STAGE_", "MULTIPLE_IMAGES_STAGE_", "XRAY_AUDIT_"):
         assert forbidden not in english

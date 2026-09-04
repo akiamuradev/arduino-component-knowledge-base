@@ -54,15 +54,15 @@ def main() -> None:
         "README.md": [
             f"version is **{version}**",
             "README.ru.md",
-            "upstream/release/1.0.0",
+            "upstream/main",
         ],
         "README.ru.md": [
             f"версия — **{version}**",
             "README.md",
-            "upstream/release/1.0.0",
+            "upstream/main",
         ],
         "CONTRIBUTING.md": [
-            "upstream/release/1.0.0",
+            "upstream/main",
             "PolyForm Noncommercial License 1.0.0",
         ],
         "MANIFEST.in": ["include CONTRIBUTING.md", "include README.ru.md"],

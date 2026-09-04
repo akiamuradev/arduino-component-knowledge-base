@@ -1,5 +1,9 @@
 # Модель угроз
 
+Этот документ отвечает на вопрос «от чего защищаем систему»: перечисляет активы, границы доверия,
+сценарии атак и остаточные риски. Реализованные механизмы и обязательные проверки находятся в
+[SECURITY.md](SECURITY.md); эксплуатационные процедуры — в [OPERATIONS.md](OPERATIONS.md).
+
 ## Scope и активы
 
 Модель охватывает browser, reverse proxy, FastAPI, Dramatiq workers, PostgreSQL, Redis,
@@ -45,5 +49,5 @@ hosts, проверяет все DNS answers и каждый redirect.
   не является production UI и может потребовать отдельной административной policy.
 - Старые website sources деактивированы; AlexGyver explicitly denied. Seeed/KiCad imports
   сохраняют собственные license snapshots и остаются draft до ручной проверки.
-- Реальные penetration test, dependency/container vulnerability scan и restore drill входят в
-  этап стабилизации перед релизом.
+- Реальные penetration test и container vulnerability scan выполняются отдельно от CI;
+  dependency audit и restore drill входят в обязательный release gate.

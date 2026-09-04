@@ -14,11 +14,11 @@ git clone https://github.com/<username>/arduino-component-knowledge-base.git
 cd arduino-component-knowledge-base
 git remote add upstream https://github.com/akiamuradev/arduino-component-knowledge-base.git
 git fetch upstream
-git switch -c feature/<short-name> upstream/release/1.0.0
+git switch -c feature/<short-name> upstream/main
 ```
 
-Do not develop directly on `release/1.0.0` or `main`, and do not send feature commits directly to
-those branches. A pull request should solve one bounded problem.
+Do not develop directly on `main`, and do not send feature commits directly to it. A pull request
+should solve one bounded problem.
 
 Before opening or updating a PR:
 
@@ -34,7 +34,7 @@ Before opening or updating a PR:
 3. Review the diff and make sure it contains no `.env`, credentials, generated build output,
    user uploads, database dumps, logs, or other user data.
 4. Push the feature branch to your fork and open a pull request against
-   `akiamuradev/arduino-component-knowledge-base:release/1.0.0`.
+   `akiamuradev/arduino-component-knowledge-base:main`.
 5. Explain the problem, the bounded solution, verification results, migrations or operational
    impact, and any remaining risk.
 
@@ -73,11 +73,11 @@ git clone https://github.com/<username>/arduino-component-knowledge-base.git
 cd arduino-component-knowledge-base
 git remote add upstream https://github.com/akiamuradev/arduino-component-knowledge-base.git
 git fetch upstream
-git switch -c feature/<short-name> upstream/release/1.0.0
+git switch -c feature/<short-name> upstream/main
 ```
 
-Не разрабатывайте непосредственно в `release/1.0.0` или `main` и не отправляйте feature-коммиты
-прямо в эти ветки. Один pull request должен решать одну ограниченную задачу.
+Не разрабатывайте непосредственно в `main` и не отправляйте feature-коммиты прямо в неё. Один
+pull request должен решать одну ограниченную задачу.
 
 Перед созданием или обновлением PR:
 
@@ -94,7 +94,7 @@ git switch -c feature/<short-name> upstream/release/1.0.0
 3. Проверьте diff: в нём не должно быть `.env`, credentials, generated build output,
    пользовательских uploads, database dumps, логов и других пользовательских данных.
 4. Отправьте feature-ветку в свой fork и откройте pull request в
-   `akiamuradev/arduino-component-knowledge-base:release/1.0.0`.
+   `akiamuradev/arduino-component-knowledge-base:main`.
 5. Опишите проблему, ограниченное решение, результаты проверок, влияние на миграции или
    эксплуатацию и оставшиеся риски.
 

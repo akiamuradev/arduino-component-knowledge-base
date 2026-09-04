@@ -68,11 +68,11 @@ merge дубликатов всегда требует отдельного ре
 
 ## Быстрый запуск
 
-Нужны Docker Engine, Docker Compose plugin, Git, `curl` и `openssl`. Клонируйте release-ветку в
+Нужны Docker Engine, Docker Compose plugin, Git, `curl` и `openssl`. Клонируйте основную ветку в
 нативную Linux filesystem:
 
 ```bash
-git clone --branch release/1.0.0 --single-branch \
+git clone --branch main --single-branch \
   https://github.com/akiamuradev/arduino-component-knowledge-base.git
 cd arduino-component-knowledge-base
 bash scripts/linux_bootstrap.sh
@@ -94,7 +94,7 @@ python3 scripts/compose_smoke.py
 копии релиза сохраните её `.env` и volumes:
 
 ```bash
-git pull --ff-only origin release/1.0.0
+git pull --ff-only origin main
 docker compose up --build -d
 python3 scripts/compose_smoke.py
 ```
@@ -174,23 +174,22 @@ release gate на каждый push и pull request.
 - [Эксплуатация](docs/OPERATIONS.md) и [развёртывание](docs/DEPLOYMENT.md)
 - [Проверка импорта](docs/IMPORT_VALIDATION.md) и [ROADMAP импорта](docs/imports/ROADMAP.md)
 - [Лицензирование данных](docs/DATA_LICENSING.md) и [сторонние материалы](THIRD_PARTY_NOTICES.md)
-- [Ручная приёмка v1.0.0](docs/RELEASE_1.0.0_MANUAL_ACCEPTANCE.md)
 - [Участие в разработке и fork](CONTRIBUTING.md)
 
 ## Участие в разработке и fork
 
 Чтобы отправить изменение в исходный проект, создайте fork на GitHub, клонируйте его, добавьте
-этот репозиторий как `upstream` и создайте ветку от `upstream/release/1.0.0`:
+этот репозиторий как `upstream` и создайте ветку от `upstream/main`:
 
 ```bash
 git clone https://github.com/<username>/arduino-component-knowledge-base.git
 cd arduino-component-knowledge-base
 git remote add upstream https://github.com/akiamuradev/arduino-component-knowledge-base.git
 git fetch upstream
-git switch -c feature/<short-name> upstream/release/1.0.0
+git switch -c feature/<short-name> upstream/main
 ```
 
-Не отправляйте изменения напрямую в `release/1.0.0` или `main`. Один PR должен решать одну
+Не отправляйте изменения напрямую в `main`. Один PR должен решать одну
 ограниченную задачу. Синхронизируйтесь через `git fetch upstream` и запускайте подходящие проверки
 перед PR. Никогда не коммитьте `.env`, credentials, generated build output и пользовательские
 данные.
