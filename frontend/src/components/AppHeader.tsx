@@ -43,7 +43,7 @@ export function AppHeader() {
           <BrandMark />
           <span className="brand__copy"><strong>{PRODUCT_BRAND.shortName}</strong><small>Справочник электронных компонентов</small></span>
         </NavLink>
-        <form className="global-search" role="search" onSubmit={submitSearch}>
+        <form aria-label="Глобальный поиск" className="global-search" role="search" onSubmit={submitSearch}>
           <span aria-hidden="true">⌕</span>
           <label className="sr-only" htmlFor="global-search">Глобальный поиск</label>
           <input defaultValue={search} id="global-search" key={search} maxLength={100} name="q" placeholder="Найти компонент…" type="search" />
