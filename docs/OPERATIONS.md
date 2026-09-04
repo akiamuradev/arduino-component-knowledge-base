@@ -325,7 +325,7 @@ $compose run --rm --no-deps migrate alembic current
 ```
 
 7. Выполните production smoke и релевантные пункты
-   [ручной приёмки](RELEASE_1.0.0_MANUAL_ACCEPTANCE.md). Не удаляйте старые images, checkout,
+   [ручной приёмки](QA_CHECKLIST.md). Не удаляйте старые images, checkout,
    database или MinIO snapshot до окончания rollback window.
 
 ## 10. Управление временными редакторами

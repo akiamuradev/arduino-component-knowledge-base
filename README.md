@@ -69,10 +69,10 @@ duplicate merge always requires a separate administrator decision. See
 ## Quick start
 
 Requirements: Docker Engine, the Docker Compose plugin, Git, `curl`, and `openssl`. Clone the
-release branch into a native Linux filesystem:
+default branch into a native Linux filesystem:
 
 ```bash
-git clone --branch release/1.0.0 --single-branch \
+git clone --branch main --single-branch \
   https://github.com/akiamuradev/arduino-component-knowledge-base.git
 cd arduino-component-knowledge-base
 bash scripts/linux_bootstrap.sh
@@ -95,7 +95,7 @@ python3 scripts/compose_smoke.py
 existing release checkout, preserve its `.env` and volumes:
 
 ```bash
-git pull --ff-only origin release/1.0.0
+git pull --ff-only origin main
 docker compose up --build -d
 python3 scripts/compose_smoke.py
 ```
@@ -173,23 +173,22 @@ every push and pull request.
 - [Operations](docs/OPERATIONS.md) and [deployment](docs/DEPLOYMENT.md)
 - [Import validation](docs/IMPORT_VALIDATION.md) and [import roadmap](docs/imports/ROADMAP.md)
 - [Data licensing](docs/DATA_LICENSING.md) and [third-party notices](THIRD_PARTY_NOTICES.md)
-- [Manual v1.0.0 acceptance](docs/RELEASE_1.0.0_MANUAL_ACCEPTANCE.md)
 - [Contributing and forks](CONTRIBUTING.md)
 
 ## Contributing and forks
 
 To contribute upstream, create a GitHub fork, clone your fork, add this repository as `upstream`,
-and branch from `upstream/release/1.0.0`:
+and branch from `upstream/main`:
 
 ```bash
 git clone https://github.com/<username>/arduino-component-knowledge-base.git
 cd arduino-component-knowledge-base
 git remote add upstream https://github.com/akiamuradev/arduino-component-knowledge-base.git
 git fetch upstream
-git switch -c feature/<short-name> upstream/release/1.0.0
+git switch -c feature/<short-name> upstream/main
 ```
 
-Do not push feature work directly to `release/1.0.0` or `main`. Keep one pull request focused on
+Do not push feature work directly to `main`. Keep one pull request focused on
 one task, synchronize with `git fetch upstream`, and run the relevant checks above before opening
 a PR. Never commit `.env`, credentials, generated build output, or user data.
 
