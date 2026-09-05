@@ -9,7 +9,7 @@
 Модель охватывает browser, reverse proxy, FastAPI, Dramatiq workers, PostgreSQL, Redis,
 MinIO, исторический HTML boundary и зарегистрированные Git repository snapshots. Защищаются credentials и
 sessions, роли, draft/teacher-only материалы, published catalog, provenance, media binary,
-job state и audit. Backup, корпоративный TLS termination и host firewall остаются deployment
+job state и audit. Backup, TLS termination и host firewall остаются deployment
 ответственностью и не подменяются application controls.
 
 ## Границы доверия

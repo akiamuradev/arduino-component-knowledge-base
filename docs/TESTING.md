@@ -125,5 +125,5 @@ Skipped, cancelled или failed обязательный job блокирует
 ## Границы автоматизации
 
 CI не заменяет нагрузочные и длительные тесты, реальный внешний импорт, Firefox/WebKit,
-физическое восстановление VM, корпоративные DNS/CA/firewall и согласованный PostgreSQL + MinIO
+физическое восстановление VM, настройки DNS/CA/firewall и согласованный PostgreSQL + MinIO
 backup. Эти проверки выполняются на приёмочном стенде по [QA checklist](QA_CHECKLIST.md).

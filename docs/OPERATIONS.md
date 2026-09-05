@@ -31,7 +31,7 @@ set compose docker compose --project-name $project --env-file $env_file \
 1. Подготовьте Ubuntu Server 24.04 LTS со статическим IP, внутренним DNS, синхронизацией времени
    и console-access. Сначала согласуйте firewall и установку внутреннего CA по
    [production runbook](DEPLOYMENT.md#1-ubuntu-server-и-static-ip).
-2. Установите поддерживаемые организацией Docker Engine и Compose plugin, затем Git, `curl`,
+2. Установите поддерживаемые версии Docker Engine и Compose plugin, затем Git, `curl`,
    `openssl` и `ca-certificates`. Пользователь-оператор должен иметь разрешение обращаться к
    Docker daemon.
 3. Проверьте базовые инструменты:
@@ -200,7 +200,7 @@ $compose logs --since 15m --tail 200 backend postgres reverse-proxy
 
 Redis не является источником истины: durable jobs хранятся в PostgreSQL и после восстановления
 повторно доставляются reconciler. Checkout, `.env.production`, TLS keys и backup encryption keys
-резервируются отдельно согласно политике организации.
+резервируются отдельно с ограничением доступа и шифрованием.
 
 Откройте окно без записи:
 
@@ -241,7 +241,7 @@ $compose ps -a
 Все PostgreSQL-файлы и MinIO archive/checksum одной точки пометьте общим timestamp, зашифруйте и
 атомарно перенесите в off-host storage. Не отправляйте backup в Git. Baseline: daily PostgreSQL и
 MinIO backup, 14 daily, 8 weekly, 12 monthly; ежемесячный и предрелизный restore drill. Если
-организационный RPO меньше 24 часов, расписание должно быть строже.
+целевой RPO меньше 24 часов, расписание должно быть строже.
 
 ## 8. Восстановление
 

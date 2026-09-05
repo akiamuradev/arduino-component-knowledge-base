@@ -57,7 +57,7 @@ Before any public deployment:
 - replace every development or example credential and keep real secrets outside Git;
 - complete the [security](docs/SECURITY.md), [deployment](docs/DEPLOYMENT.md), and
   [operations](docs/OPERATIONS.md) requirements;
-- do not imply official affiliation with Arduino, Seeed Studio, KiCad, or the original author;
+- do not imply official affiliation with Arduino, Seeed Studio, KiCad, or akiamuradev;
 - if the product is renamed, update branding, package metadata, Compose image names, frontend
   metadata, versions, and documentation consistently.
 
@@ -117,6 +117,6 @@ pull request должен решать одну ограниченную зад�
 - замените все development/example credentials и храните реальные secrets вне Git;
 - выполните требования [безопасности](docs/SECURITY.md),
   [развёртывания](docs/DEPLOYMENT.md) и [эксплуатации](docs/OPERATIONS.md);
-- не создавайте впечатление официальной связи с Arduino, Seeed Studio, KiCad или исходным автором;
+- не создавайте впечатление официальной связи с Arduino, Seeed Studio, KiCad или akiamuradev;
 - при переименовании продукта согласованно обновите branding, package metadata, Compose image
   names, frontend metadata, версии и документацию.
