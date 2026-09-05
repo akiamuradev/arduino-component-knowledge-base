@@ -16,6 +16,22 @@ const active: CatalogSource = {
 };
 
 describe("sources registry", () => {
+  it("shows inactive parser sources with readable policy labels", () => {
+    const client = createQueryClient();
+    client.setQueryData(catalogKeys.sources, [
+      { ...active, status: "inactive", content_policy: "facts_and_limited_adaptation", default_revision_policy: "immutable_commit" },
+      { ...active, key: "kicad_symbols", display_name: "Official KiCad Libraries", status: "inactive", source_type: "official_library", content_policy: "structured_metadata" },
+    ]);
+    render(<QueryClientProvider client={client}><MemoryRouter><SourcesPage /></MemoryRouter></QueryClientProvider>);
+    expect(screen.getByText("Активных источников пока нет")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Official KiCad Libraries", level: 3 })).toBeVisible();
+    expect(screen.getByText("Тип: Библиотека компонентов")).toBeVisible();
+    expect(screen.getByText("Структурированные метаданные")).toBeVisible();
+    expect(screen.getByText("Факты и ограниченная адаптация")).toBeVisible();
+    expect(screen.getByText("Зафиксированный коммит")).toBeVisible();
+    expect(screen.getAllByText("Неактивен")).toHaveLength(2);
+  });
+
   it("separates active sources and owner-denied historical records", () => {
     const client = createQueryClient();
     client.setQueryData(catalogKeys.sources, [active, {

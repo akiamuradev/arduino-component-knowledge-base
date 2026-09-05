@@ -220,6 +220,45 @@ test("gallery keeps portrait and scheme geometry stable and opens a keyboard lig
   await expect(opener).toBeFocused();
 });
 
+test("inactive source cards keep names, badges and facts inside responsive columns", async ({ page }) => {
+  await mockCatalog(page);
+  const sources = ["AlexGyver", "Arduino-Tex", "Official KiCad Libraries", "Portal-PK", "Seeed Studio Wiki"].map((name, index) => ({
+    key: `source-${String(index)}`, display_name: name,
+    source_type: index === 2 ? "official_library" : "git_repository",
+    status: index === 0 ? "disabled" : "inactive",
+    content_policy: index === 2 ? "structured_metadata" : "facts_and_limited_adaptation",
+    default_revision_policy: "immutable_commit", adapter_version: "1.1.0",
+    license_name: "Creative Commons Attribution-ShareAlike 4.0 International",
+    license_spdx: "CC-BY-SA-4.0", license_url: "https://creativecommons.org/licenses/by-sa/4.0/",
+    repository_url: "https://github.com/Seeed-Studio/wiki-documents",
+    attribution_template: `${name}, {source_file_path}: {source_entry_name}, revision {source_revision}`,
+    disable_reason: index === 0 ? "owner_denied_usage" : "operator_disabled",
+  }));
+  await page.route("**/api/v1/catalog/sources", (route) => route.fulfill({ json: sources }));
+  await page.goto("/sources");
+  await expect(page.getByText("Активных источников пока нет")).toBeVisible();
+  await expect(page.locator(".source-card")).toHaveCount(5);
+  await selectTheme(page, "Тёмное");
+  for (const width of [1440, 1024, 768, 360, 320]) {
+    await page.setViewportSize({ width, height: 1000 });
+    const overflow = await page.locator(".source-card").evaluateAll((cards) =>
+      cards.flatMap((card) => {
+        const bounds = card.getBoundingClientRect();
+        return [...card.querySelectorAll<HTMLElement>("header, h3, p, .status-badge, dl, dt, dd, a")]
+          .filter((element) => {
+            const box = element.getBoundingClientRect();
+            return element.scrollWidth > element.clientWidth + 1
+              || box.left < bounds.left - 1 || box.right > bounds.right + 1;
+          })
+          .map((element) => element.tagName);
+      }),
+    );
+    expect(overflow, `source overflow at ${String(width)}px`).toEqual([]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
+  await expectNoAccessibilityViolations(page, "inactive sources dark mobile");
+});
+
 test("catalog card content stays inside narrow cards", async ({ page }) => {
   const longCard = {
     ...component,
