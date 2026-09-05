@@ -78,6 +78,13 @@ const NAVIGATION_ITEMS: readonly NavigationItem[] = [
     section: "administration",
   },
   {
+    label: "Администраторы",
+    path: "/admin/administrators",
+    icon: "◆",
+    permission: "users.manage",
+    section: "administration",
+  },
+  {
     label: "Диагностика",
     path: "/admin/jobs",
     icon: "↻",

@@ -23,6 +23,7 @@ students only after review, approval, and explicit publication.
 - responsive Russian-language React interface with light, dark, and system themes;
 - catalogue search, category and difficulty filters, component pages, and multiple-image galleries;
 - server-enforced roles for students, teachers, temporary editors, and administrators;
+- student-only public registration plus administrator-controlled password reset and admin creation;
 - draft, review, approval, publication, hide, archive, and immutable revision history;
 - teacher correction proposals that never overwrite published content directly;
 - bounded Seeed Studio Wiki and KiCad Symbols imports with provenance and license snapshots;
@@ -114,6 +115,11 @@ docker compose run --rm backend ackb-bootstrap-admin \
 
 Enter the password twice through the TTY. It must contain 12–128 characters and is never accepted
 as a command-line argument. Bootstrap is available only while no active administrator exists.
+
+Students can create an account at `/register` with only a login and password; the backend always
+assigns the `student` role. Existing administrators manage password resets and additional
+administrator accounts in the protected workspace. Password reset revokes all target sessions;
+there is no self-service recovery or collection of email, phone, 2FA, or recovery-code data.
 
 ## Content workflow
 

@@ -36,6 +36,7 @@ describe("login page", () => {
     const submitted = JSON.parse(body) as Record<string, unknown>;
     expect(submitted).toEqual({ login: "admin", password: "invalid-password" });
     expect(submitted).not.toHaveProperty("role");
+    expect(screen.getByRole("link", { name: "Создать аккаунт" })).toHaveAttribute("href", "/register");
     expect(screen.getByRole("link", { name: /GitHub автора/ })).toHaveAttribute("rel", "noopener noreferrer");
   });
 });

@@ -39,6 +39,7 @@ function errorMessage(error: unknown): string {
       "Не удалось назначить редактора. Проверьте статус пользователя и будущую дату окончания.",
     editor_revoke_conflict: "Роль редактора уже не действует или пользователь недоступен.",
     disable_user_conflict: "Нельзя заблокировать эту учётную запись.",
+    password_reset_conflict: "Не удалось сбросить пароль. Проверьте требования к паролю.",
   };
   return messages[error.code] ?? "Сервер отклонил действие. Обновите список и повторите попытку.";
 }
@@ -62,6 +63,9 @@ export function UserManagementPage() {
   const [password, setPassword] = useState("");
   const [newEditorExpiry, setNewEditorExpiry] = useState(() => localDateTimeAfter(7));
   const [grantExpiry, setGrantExpiry] = useState<Record<string, string>>({});
+  const [resetUserId, setResetUserId] = useState<string | null>(null);
+  const [resetPassword, setResetPassword] = useState("");
+  const [resetConfirmation, setResetConfirmation] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
 
@@ -121,12 +125,28 @@ export function UserManagementPage() {
       setFailure(errorMessage(error));
     },
   });
+  const resetUserPassword = useMutation({
+    mutationFn: ({ userId, password }: { userId: string; password: string }) =>
+      api.resetPassword(userId, { password }),
+    onSuccess: () => {
+      setResetUserId(null);
+      setResetPassword("");
+      setResetConfirmation("");
+      setFailure(null);
+      setNotice("Пароль изменён. Все прежние сеансы пользователя завершены.");
+    },
+    onError: (error) => {
+      setNotice(null);
+      setFailure(errorMessage(error));
+    },
+  });
 
   const busy =
     createEditor.isPending ||
     grantEditor.isPending ||
     revokeEditor.isPending ||
-    disableUser.isPending;
+    disableUser.isPending ||
+    resetUserPassword.isPending;
 
   const submitEditor = (event: SyntheticEvent<HTMLFormElement, SubmitEvent>) => {
     event.preventDefault();
@@ -153,6 +173,17 @@ export function UserManagementPage() {
       return;
     }
     grantEditor.mutate({ userId: user.id, expiresAt });
+  };
+
+  const submitPasswordReset = (event: SyntheticEvent<HTMLFormElement, SubmitEvent>) => {
+    event.preventDefault();
+    if (resetUserId === null) return;
+    if (resetPassword !== resetConfirmation) {
+      setNotice(null);
+      setFailure("Пароли не совпадают.");
+      return;
+    }
+    resetUserPassword.mutate({ userId: resetUserId, password: resetPassword });
   };
 
   if (users.isPending) {
@@ -284,6 +315,22 @@ export function UserManagementPage() {
                 )}
               </div>
               <div className="managed-user-card__actions">
+                {!isDisabled ? (
+                  <button
+                    className="button button--quiet"
+                    disabled={busy}
+                    onClick={() => {
+                      setResetUserId(managedUser.id);
+                      setResetPassword("");
+                      setResetConfirmation("");
+                      setFailure(null);
+                      setNotice(null);
+                    }}
+                    type="button"
+                  >
+                    Сбросить пароль
+                  </button>
+                ) : null}
                 {isAdministrator ? (
                   <p>Администратор изменяется отдельным защищённым действием.</p>
                 ) : isDisabled ? (
@@ -338,6 +385,46 @@ export function UserManagementPage() {
                   </>
                 )}
               </div>
+              {resetUserId === managedUser.id ? (
+                <form className="password-reset-form" onSubmit={submitPasswordReset}>
+                  <strong>Новый пароль для @{managedUser.login}</strong>
+                  <label>
+                    Новый пароль
+                    <input
+                      autoComplete="new-password"
+                      maxLength={128}
+                      minLength={12}
+                      onChange={(event) => { setResetPassword(event.target.value); }}
+                      required
+                      type="password"
+                      value={resetPassword}
+                    />
+                  </label>
+                  <label>
+                    Подтверждение пароля
+                    <input
+                      autoComplete="new-password"
+                      maxLength={128}
+                      minLength={12}
+                      onChange={(event) => { setResetConfirmation(event.target.value); }}
+                      required
+                      type="password"
+                      value={resetConfirmation}
+                    />
+                  </label>
+                  <button className="button button--primary" disabled={busy} type="submit">
+                    {resetUserPassword.isPending ? "Сохраняем…" : "Сохранить новый пароль"}
+                  </button>
+                  <button
+                    className="button button--quiet"
+                    disabled={busy}
+                    onClick={() => { setResetUserId(null); }}
+                    type="button"
+                  >
+                    Отмена
+                  </button>
+                </form>
+              ) : null}
             </article>
           );
         })}

@@ -93,6 +93,28 @@ class CreateEditorRequest(BaseModel):
         return CreateUserRequest.non_blank_display_name(value)
 
 
+class CreateAdministratorRequest(BaseModel):
+    """Administrator creation input with a server-owned role and display name."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    login: str = Field(min_length=3, max_length=100)
+    password: str = Field(min_length=12, max_length=128)
+
+    @field_validator("login")
+    @classmethod
+    def valid_login(cls, value: str) -> str:
+        return CreateUserRequest.valid_login(value)
+
+
+class ResetPasswordRequest(BaseModel):
+    """One replacement password without role or profile input."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    password: str = Field(min_length=12, max_length=128)
+
+
 class EditorGrantRequest(BaseModel):
     """One temporary editor lifetime without role replacement."""
 
@@ -164,6 +186,51 @@ async def list_users(
     )
 
 
+@router.get("/administrators", response_model=ManagedUserListResponse)
+async def list_administrators(
+    response: Response,
+    _: Annotated[Principal, Depends(administrator)],
+    service: Annotated[AuthService, Depends(auth_service)],
+) -> ManagedUserListResponse:
+    """List active administrators in the dedicated administration workspace."""
+    users = await service.list_administrators()
+    response.headers["Cache-Control"] = "no-store"
+    return ManagedUserListResponse(
+        items=[managed_identity_response(user) for user in users],
+        total=len(users),
+    )
+
+
+@router.post(
+    "/administrators",
+    response_model=UserResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_administrator(
+    payload: CreateAdministratorRequest,
+    actor: Annotated[Principal, Depends(administrator)],
+    _: Annotated[Principal, Depends(csrf_principal)],
+    service: Annotated[AuthService, Depends(auth_service)],
+    session: Annotated[AsyncSession, Depends(database_session)],
+) -> UserResponse:
+    """Create an administrator with a role assigned exclusively by the server."""
+    error: Exception | None = None
+    user: UserIdentity | None = None
+    try:
+        user = await service.create_administrator(
+            actor=actor,
+            login=payload.login,
+            password=payload.password,
+            request_id=current_request_id(),
+        )
+    except (UserAlreadyExistsError, PasswordPolicyError) as caught:
+        error = caught
+    await session.commit()
+    if error is not None or user is None:
+        raise HTTPException(status_code=409, detail={"code": "administrator_creation_conflict"})
+    return identity_response(user)
+
+
 @router.post("/editors", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def create_editor(
     payload: CreateEditorRequest,
@@ -201,7 +268,12 @@ async def create_user(
     service: Annotated[AuthService, Depends(auth_service)],
     session: Annotated[AsyncSession, Depends(database_session)],
 ) -> UserResponse:
-    """Create a local user; there is intentionally no public registration."""
+    """Create a managed local user while reserving administrator creation."""
+    if Role.ADMINISTRATOR in payload.roles:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "administrator_creation_requires_dedicated_action"},
+        )
     error: Exception | None = None
     user: UserIdentity | None = None
     try:
@@ -220,6 +292,32 @@ async def create_user(
     if error is not None or user is None:
         raise HTTPException(status_code=409, detail={"code": "user_creation_conflict"})
     return identity_response(user)
+
+
+@router.put("/{user_id}/password", response_model=MutationResponse)
+async def reset_password(
+    user_id: UUID,
+    payload: ResetPasswordRequest,
+    actor: Annotated[Principal, Depends(administrator)],
+    _: Annotated[Principal, Depends(csrf_principal)],
+    service: Annotated[AuthService, Depends(auth_service)],
+    session: Annotated[AsyncSession, Depends(database_session)],
+) -> MutationResponse:
+    """Replace a user's password and revoke all of that user's sessions."""
+    error: Exception | None = None
+    try:
+        await service.reset_password(
+            actor=actor,
+            user_id=user_id,
+            password=payload.password,
+            request_id=current_request_id(),
+        )
+    except (AuthenticationRequiredError, PasswordPolicyError) as caught:
+        error = caught
+    await session.commit()
+    if error is not None:
+        raise HTTPException(status_code=409, detail={"code": "password_reset_conflict"})
+    return MutationResponse(status="password_reset")
 
 
 @router.put("/{user_id}/editor", response_model=MutationResponse)

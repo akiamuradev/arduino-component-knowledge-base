@@ -33,6 +33,11 @@ export interface LoginInput {
   password: string;
 }
 
+export interface RegisterInput {
+  login: string;
+  password: string;
+}
+
 export interface LoginResponse {
   user: User;
   expires_at: string;
@@ -55,6 +60,15 @@ export interface CreateEditorInput {
   display_name: string;
   password: string;
   editor_expires_at: string;
+}
+
+export interface CreateAdministratorInput {
+  login: string;
+  password: string;
+}
+
+export interface ResetPasswordInput {
+  password: string;
 }
 
 export interface SetRolesInput {

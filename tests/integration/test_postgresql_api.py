@@ -23,6 +23,7 @@ pytestmark = pytest.mark.integration
 
 ADMIN_CREDENTIAL = "integration-admin-passphrase"
 STUDENT_CREDENTIAL = "integration-student-passphrase"
+REPLACEMENT_CREDENTIAL = "integration-replacement-passphrase"
 
 
 async def seed_administrator(settings: Settings, login: str) -> UUID:
@@ -371,6 +372,167 @@ def test_temporary_editor_lifecycle_preserves_history_and_audit(
                 assert editor_grants[1].expires_at == renewed_expiry
 
         asyncio.run(assert_history())
+    finally:
+        asyncio.run(database.dispose())
+        asyncio.run(remove_test_identities(integration_settings, created_ids))
+
+
+def test_registration_admin_creation_and_password_reset(
+    integration_settings: Settings,
+) -> None:
+    """Exercise student-only registration and protected administrator recovery flows."""
+    import asyncio
+
+    suffix = uuid4().hex[:12]
+    admin_login = f"account-admin-{suffix}"
+    student_login = f"registered-student-{suffix}"
+    second_admin_login = f"second-admin-{suffix}"
+    admin_id = asyncio.run(seed_administrator(integration_settings, admin_login))
+    created_ids = {admin_id}
+    database = Database(integration_settings)
+    app = create_app(
+        integration_settings,
+        database,
+        media_storage=Mock(),
+        media_queue=Mock(),
+        import_queue=Mock(),
+    )
+    try:
+        with TestClient(app, base_url="http://testserver") as client:
+            spoofed = client.post(
+                "/api/v1/auth/register",
+                json={
+                    "login": f"spoofed-{suffix}",
+                    "password": STUDENT_CREDENTIAL,
+                    "roles": ["administrator"],
+                },
+            )
+            assert spoofed.status_code == 422
+
+            registered = client.post(
+                "/api/v1/auth/register",
+                json={"login": student_login, "password": STUDENT_CREDENTIAL},
+            )
+            assert registered.status_code == 201
+            assert registered.json()["user"]["roles"] == ["student"]
+            assert registered.json()["user"]["display_name"] == student_login
+            student_id = UUID(registered.json()["user"]["id"])
+            created_ids.add(student_id)
+            student_cookies = dict(client.cookies.items())
+
+            duplicate = client.post(
+                "/api/v1/auth/register",
+                json={"login": student_login, "password": STUDENT_CREDENTIAL},
+            )
+            assert duplicate.status_code == 409
+            assert duplicate.json()["error"]["code"] == "login_already_exists"
+
+            student_csrf = student_cookies["ackb_csrf"]
+            forbidden_reset = client.put(
+                f"/api/v1/admin/users/{student_id}/password",
+                headers={"X-CSRF-Token": student_csrf},
+                json={"password": REPLACEMENT_CREDENTIAL},
+            )
+            assert forbidden_reset.status_code == 403
+            forbidden_admin = client.post(
+                "/api/v1/admin/users/administrators",
+                headers={"X-CSRF-Token": student_csrf},
+                json={"login": second_admin_login, "password": ADMIN_CREDENTIAL},
+            )
+            assert forbidden_admin.status_code == 403
+
+            client.cookies.clear()
+            admin_login_response = client.post(
+                "/api/v1/auth/login",
+                json={"login": admin_login, "password": ADMIN_CREDENTIAL},
+            )
+            assert admin_login_response.status_code == 200
+            admin_csrf = client.cookies.get("ackb_csrf")
+            assert admin_csrf is not None
+            admin_cookies = dict(client.cookies.items())
+
+            reserved_admin_creation = client.post(
+                "/api/v1/admin/users",
+                headers={"X-CSRF-Token": admin_csrf},
+                json={
+                    "login": second_admin_login,
+                    "display_name": second_admin_login,
+                    "password": ADMIN_CREDENTIAL,
+                    "roles": ["administrator"],
+                },
+            )
+            assert reserved_admin_creation.status_code == 409
+            assert reserved_admin_creation.json()["error"]["code"] == (
+                "administrator_creation_requires_dedicated_action"
+            )
+
+            created_admin = client.post(
+                "/api/v1/admin/users/administrators",
+                headers={"X-CSRF-Token": admin_csrf},
+                json={"login": second_admin_login, "password": ADMIN_CREDENTIAL},
+            )
+            assert created_admin.status_code == 201
+            assert created_admin.json()["roles"] == ["administrator"]
+            second_admin_id = UUID(created_admin.json()["id"])
+            created_ids.add(second_admin_id)
+
+            reset = client.put(
+                f"/api/v1/admin/users/{student_id}/password",
+                headers={"X-CSRF-Token": admin_csrf},
+                json={"password": REPLACEMENT_CREDENTIAL},
+            )
+            assert reset.status_code == 200
+
+            client.cookies.clear()
+            client.cookies.update(student_cookies)
+            assert client.get("/api/v1/auth/me").status_code == 401
+            client.cookies.clear()
+            assert (
+                client.post(
+                    "/api/v1/auth/login",
+                    json={"login": student_login, "password": STUDENT_CREDENTIAL},
+                ).status_code
+                == 401
+            )
+            client.cookies.clear()
+            new_login = client.post(
+                "/api/v1/auth/login",
+                json={"login": student_login, "password": REPLACEMENT_CREDENTIAL},
+            )
+            assert new_login.status_code == 200
+            assert new_login.json()["user"]["roles"] == ["student"]
+
+            client.cookies.clear()
+            client.cookies.update(admin_cookies)
+            disabled_second = client.post(
+                f"/api/v1/admin/users/{second_admin_id}/disable",
+                headers={"X-CSRF-Token": admin_csrf},
+            )
+            assert disabled_second.status_code == 200
+            protected_last = client.post(
+                f"/api/v1/admin/users/{admin_id}/disable",
+                headers={"X-CSRF-Token": admin_csrf},
+            )
+            assert protected_last.status_code == 409
+            assert protected_last.json()["error"]["code"] == "disable_user_conflict"
+
+        async def assert_safe_audit() -> None:
+            async with database.sessions() as session:
+                events = (
+                    await session.scalars(
+                        select(AuditEvent).where(AuditEvent.object_id.in_(created_ids))
+                    )
+                ).all()
+                actions = {event.action for event in events}
+                assert "identity.self_registered" in actions
+                assert "identity.administrator_created" in actions
+                assert "identity.password_reset" in actions
+                reset_event = next(
+                    event for event in events if event.action == "identity.password_reset"
+                )
+                assert reset_event.details_safe_json == {}
+
+        asyncio.run(assert_safe_audit())
     finally:
         asyncio.run(database.dispose())
         asyncio.run(remove_test_identities(integration_settings, created_ids))

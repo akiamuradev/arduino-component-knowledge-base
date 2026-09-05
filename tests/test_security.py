@@ -110,10 +110,19 @@ def _permission_set(dependant: Dependant) -> frozenset[Permission] | None:
 ROUTE_PERMISSIONS: dict[tuple[str, str], frozenset[Permission]] = {
     ("GET", "/api/v1/admin/audit-events"): frozenset({Permission.AUDIT_VIEW}),
     ("GET", "/api/v1/admin/users"): frozenset({Permission.USERS_VIEW}),
+    ("GET", "/api/v1/admin/users/administrators"): frozenset(
+        {Permission.USERS_MANAGE, Permission.ROLES_ASSIGN}
+    ),
+    ("POST", "/api/v1/admin/users/administrators"): frozenset(
+        {Permission.USERS_MANAGE, Permission.ROLES_ASSIGN}
+    ),
     ("POST", "/api/v1/admin/users/editors"): frozenset(
         {Permission.USERS_MANAGE, Permission.ROLES_ASSIGN}
     ),
     ("POST", "/api/v1/admin/users"): frozenset({Permission.USERS_MANAGE, Permission.ROLES_ASSIGN}),
+    ("PUT", "/api/v1/admin/users/{user_id}/password"): frozenset(
+        {Permission.USERS_MANAGE, Permission.ROLES_ASSIGN}
+    ),
     ("PUT", "/api/v1/admin/users/{user_id}/editor"): frozenset(
         {Permission.USERS_MANAGE, Permission.ROLES_ASSIGN}
     ),
@@ -243,17 +252,23 @@ def test_every_authenticated_mutation_requires_csrf() -> None:
     for methods, path, dependant in _effective_api_routes(app):
         if not methods.intersection({"POST", "PUT", "PATCH", "DELETE"}):
             continue
-        if path == "/api/v1/auth/login":
+        if path in {"/api/v1/auth/login", "/api/v1/auth/register"}:
             continue
         if csrf_principal not in set(_dependency_calls(dependant)):
             missing.append(f"{','.join(sorted(methods))} {path}")
     assert missing == []
 
 
-def test_authentication_has_no_public_registration_route() -> None:
+def test_public_registration_is_the_only_additional_unauthenticated_mutation() -> None:
     app = create_app(settings(), FakeDatabase())
-    paths = {path for _, path, _ in _effective_api_routes(app)}
-    assert "/api/v1/auth/register" not in paths
+    routes = {
+        (method, path): dependant
+        for methods, path, dependant in _effective_api_routes(app)
+        for method in methods
+    }
+    registration = routes[("POST", "/api/v1/auth/register")]
+    assert _permission_set(registration) is None
+    assert csrf_principal not in set(_dependency_calls(registration))
 
 
 def test_sensitive_route_groups_keep_backend_permission_dependencies() -> None:

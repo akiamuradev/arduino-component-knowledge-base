@@ -94,16 +94,7 @@ class AuthService:
             raise InvalidCredentialsError
 
         await self.repository.clear_failures(keys)
-        raw_session = secrets.token_urlsafe(32)
-        raw_csrf = secrets.token_urlsafe(32)
-        expires_at = now + timedelta(minutes=self.settings.session_ttl_minutes)
-        principal = await self.repository.create_session(
-            user,
-            token_hash=token_hash(raw_session),
-            csrf_hash=token_hash(raw_csrf),
-            now=now,
-            expires_at=expires_at,
-        )
+        result = await self._start_session(user, now)
         replacement_hash = (
             self.passwords.hash(password)
             if self.passwords.needs_rehash(user.password_hash)
@@ -115,11 +106,66 @@ class AuthService:
             actor_user_id=user.id,
             action="auth.login",
             object_type="session",
-            object_id=principal.session_id,
+            object_id=result.principal.session_id,
             request_id=request_id,
             outcome="success",
         )
-        return LoginResult(principal, raw_session, raw_csrf)
+        return result
+
+    async def register(
+        self,
+        *,
+        login: str,
+        password: str,
+        client_identifier: str,
+        request_id: str | None,
+    ) -> LoginResult:
+        """Create a self-registered student and its first server-side session."""
+        normalized = normalize_login(login)
+        now = datetime.now(UTC)
+        throttle_keys = (self._throttle_key("registration_client", client_identifier),)
+        if await self.repository.is_blocked(throttle_keys, now):
+            await self.repository.audit(
+                now=now,
+                actor_user_id=None,
+                action="identity.self_registration",
+                object_type="user",
+                object_id=None,
+                request_id=request_id,
+                outcome="blocked",
+            )
+            raise TooManyAttemptsError
+        await self.repository.register_failure(
+            throttle_keys,
+            now,
+            window_seconds=self.settings.auth_failure_window_seconds,
+            failure_limit=self.settings.auth_failure_limit,
+            block_seconds=self.settings.auth_block_seconds,
+        )
+        await self.repository.lock_login(normalized)
+        if await self.repository.find_user_by_login(normalized) is not None:
+            raise UserAlreadyExistsError
+        user = await self.repository.create_user(
+            login=normalized,
+            display_name=normalized,
+            password_hash=self.passwords.hash(password),
+            roles=frozenset({Role.STUDENT}),
+            actor_id=None,
+            now=now,
+        )
+        result = await self._start_session(user, now)
+        await self.repository.mark_login(user.id, now, None)
+        await self.repository.audit(
+            now=now,
+            actor_user_id=user.id,
+            action="identity.self_registered",
+            object_type="user",
+            object_id=user.id,
+            request_id=request_id,
+            outcome="success",
+            details={"roles": [Role.STUDENT.value]},
+        )
+        return result
 
     async def authenticate(self, raw_session: str | None) -> Principal:
         if raw_session is None or len(raw_session) > 256:
@@ -192,6 +238,74 @@ class AuthService:
     async def list_users(self) -> tuple[ManagedUserIdentity, ...]:
         """Return safe administrator-facing account state."""
         return await self.repository.list_users(datetime.now(UTC))
+
+    async def list_administrators(self) -> tuple[ManagedUserIdentity, ...]:
+        """Return only active administrator accounts for the dedicated workspace."""
+        users = await self.repository.list_users(datetime.now(UTC))
+        return tuple(
+            user
+            for user in users
+            if user.status is UserStatus.ACTIVE and Role.ADMINISTRATOR in user.roles
+        )
+
+    async def create_administrator(
+        self,
+        *,
+        actor: Principal,
+        login: str,
+        password: str,
+        request_id: str | None,
+    ) -> UserIdentity:
+        """Create an administrator without accepting role or permission input."""
+        normalized = normalize_login(login)
+        await self.repository.lock_administrator_membership()
+        await self.repository.lock_login(normalized)
+        if await self.repository.find_user_by_login(normalized) is not None:
+            raise UserAlreadyExistsError
+        now = datetime.now(UTC)
+        user = await self.repository.create_user(
+            login=normalized,
+            display_name=normalized,
+            password_hash=self.passwords.hash(password),
+            roles=frozenset({Role.ADMINISTRATOR}),
+            actor_id=actor.user_id,
+            now=now,
+        )
+        await self.repository.audit(
+            now=now,
+            actor_user_id=actor.user_id,
+            action="identity.administrator_created",
+            object_type="user",
+            object_id=user.id,
+            request_id=request_id,
+            outcome="success",
+            details={"roles": [Role.ADMINISTRATOR.value]},
+        )
+        return user
+
+    async def reset_password(
+        self,
+        *,
+        actor: Principal,
+        user_id: UUID,
+        password: str,
+        request_id: str | None,
+    ) -> None:
+        """Replace a local password, revoke sessions, and record no credential material."""
+        user = await self._existing_user(user_id)
+        now = datetime.now(UTC)
+        password_hash = self.passwords.hash(password)
+        await self.repository.set_password(user.id, password_hash, now)
+        await self.repository.revoke_user_sessions(user.id, now)
+        await self.repository.audit(
+            now=now,
+            actor_user_id=actor.user_id,
+            action="identity.password_reset",
+            object_type="user",
+            object_id=user.id,
+            request_id=request_id,
+            outcome="success",
+        )
 
     async def grant_editor(
         self,
@@ -341,9 +455,21 @@ class AuthService:
             raise RoleGrantPolicyError
 
     def _throttle_keys(self, login: str, client_identifier: str) -> tuple[str, str]:
+        return self._throttle_key("account", login), self._throttle_key("client", client_identifier)
+
+    def _throttle_key(self, kind: str, value: str) -> str:
         pepper = self.settings.auth_throttle_pepper.get_secret_value().encode()
+        return hmac.new(pepper, f"{kind}:{value}".encode(), hashlib.sha256).hexdigest()
 
-        def keyed(kind: str, value: str) -> str:
-            return hmac.new(pepper, f"{kind}:{value}".encode(), hashlib.sha256).hexdigest()
-
-        return keyed("account", login), keyed("client", client_identifier)
+    async def _start_session(self, user: UserIdentity, now: datetime) -> LoginResult:
+        raw_session = secrets.token_urlsafe(32)
+        raw_csrf = secrets.token_urlsafe(32)
+        expires_at = now + timedelta(minutes=self.settings.session_ttl_minutes)
+        principal = await self.repository.create_session(
+            user,
+            token_hash=token_hash(raw_session),
+            csrf_hash=token_hash(raw_csrf),
+            now=now,
+            expires_at=expires_at,
+        )
+        return LoginResult(principal, raw_session, raw_csrf)

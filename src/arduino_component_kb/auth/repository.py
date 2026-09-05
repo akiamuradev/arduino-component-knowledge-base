@@ -123,7 +123,7 @@ class AuthRepository:
         """Serialize changes that can remove the final active administrator."""
         await self.session.execute(select(func.pg_advisory_xact_lock(0x41434B42, 0x41444D49)))
 
-    async def is_blocked(self, key_hashes: tuple[str, str], now: datetime) -> bool:
+    async def is_blocked(self, key_hashes: tuple[str, ...], now: datetime) -> bool:
         result = await self.session.scalar(
             select(func.count())
             .select_from(AuthThrottle)
@@ -137,7 +137,7 @@ class AuthRepository:
 
     async def register_failure(
         self,
-        key_hashes: tuple[str, str],
+        key_hashes: tuple[str, ...],
         now: datetime,
         *,
         window_seconds: int,
@@ -173,7 +173,7 @@ class AuthRepository:
             if throttle.failure_count >= failure_limit:
                 throttle.blocked_until = now + timedelta(seconds=block_seconds)
 
-    async def clear_failures(self, key_hashes: tuple[str, str]) -> None:
+    async def clear_failures(self, key_hashes: tuple[str, ...]) -> None:
         await self.session.execute(
             delete(AuthThrottle).where(AuthThrottle.key_hash.in_(key_hashes))
         )
@@ -256,6 +256,14 @@ class AuthRepository:
         if password_hash is not None:
             values["password_hash"] = password_hash
         await self.session.execute(update(User).where(User.id == user_id).values(**values))
+
+    async def set_password(self, user_id: UUID, password_hash: str, now: datetime) -> None:
+        """Replace one credential hash; session revocation remains an explicit service action."""
+        await self.session.execute(
+            update(User)
+            .where(User.id == user_id)
+            .values(password_hash=password_hash, updated_at=now)
+        )
 
     async def create_user(
         self,

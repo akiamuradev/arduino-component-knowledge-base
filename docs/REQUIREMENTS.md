@@ -9,7 +9,7 @@
 и публикации карточек.
 Основной режим эксплуатации — корпоративная сеть колледжа.
 
-В MVP не входят публичная регистрация, публичный SaaS, YouTube, автоматическая публикация,
+В MVP не входят публичный SaaS, YouTube, автоматическая публикация,
 автоматическое объединение дубликатов и произвольный web crawler.
 
 ## Источники импорта
@@ -95,8 +95,9 @@ Permissions задаются единым backend enum: `components.view`,
 `users.manage`, `roles.assign`, `audit.view`, `system.settings`,
 `system.diagnostics`. Роль формирует только серверный набор permissions.
 
-REQ-AUTH-001. Неаутентифицированный запрос не получает данные каталога; deployment может
-использовать колледжный SSO либо локальные учётные записи, но публичная регистрация запрещена.
+REQ-AUTH-001. Неаутентифицированный запрос не получает данные каталога. Публичная регистрация
+локальной учётной записи принимает только login/password, всегда создаёт роль `student` и сразу
+открывает обычную server-side session; profile, role и permissions от клиента запрещены.
 
 REQ-AUTH-002. Проверка разрешения выполняется backend для каждого API action и каждого
 объекта. Отсутствующее разрешение даёт `403`, отсутствующая аутентификация — `401`.
@@ -106,15 +107,28 @@ REQ-AUTH-003. Worker использует отдельную service identity с
 
 REQ-AUTH-004. MVP использует локальные Argon2id credentials и opaque server-side sessions.
 Raw session/CSRF tokens не хранятся в PostgreSQL; state-changing запрос требует CSRF token,
-привязанный к сессии. Public registration отсутствует.
+привязанный к сессии. Исключения — первичный login и same-origin public registration, когда
+аутентифицированной сессии ещё нет.
 
-REQ-AUTH-005. Login failures имеют persistent account/client throttling и единый ответ для
+REQ-AUTH-005. Login failures имеют persistent account/client throttling, public registration —
+persistent client throttling, и единый ответ для
 неизвестного login, неверного пароля и disabled user. Login/logout и управление identity
 создают audit events без credentials, raw tokens и client address.
 
 REQ-AUTH-006. Только administrator создаёт пользователей, меняет роли и отключает аккаунты.
 Role change и disable отзывают активные сессии. Система не допускает удаления роли или
 отключения последнего active administrator.
+
+REQ-AUTH-006A. Administrator может сбросить локальный пароль существующего пользователя через
+отдельный CSRF-protected endpoint, принимающий только новый пароль. Пароль хешируется Argon2id,
+все сессии пользователя отзываются, audit не содержит пароль или hash. Self-service recovery,
+email, телефон, 2FA и recovery codes отсутствуют.
+
+REQ-AUTH-006B. `/admin/administrators` показывает active administrator accounts. Новый
+administrator создаётся только действующим administrator через запрос login/password; роль и
+display name назначает backend, а client-controlled role/permissions отклоняются. Generic user
+creation не создаёт administrator. Создание и отключение журналируются, последний active
+administrator защищён существующей блокировкой.
 
 REQ-AUTH-007. Роль `editor` всегда имеет обязательный будущий `expires_at`. Просроченный
 или явно отозванный grant немедленно перестаёт давать permissions, но остаётся в
@@ -138,7 +152,8 @@ plain-text предложение длиной 10–4000 символов при
 teacher не получает `components.edit`. Автор карточки с editor grant либо administrator может
 однократно отметить предложение `applied` или `dismissed`; создание и решение журналируются.
 
-Журнал покрывает вход, выход и ограниченные rate-limit политикой неудачные входы; создание и
+Журнал покрывает вход, выход, self-registration и ограниченные rate-limit политикой запросы;
+создание administrator и административный сброс пароля; создание и
 блокировку пользователя; назначение, отзыв и изменение срока роли; создание, изменение,
 переход состояния, публикацию и архивирование карточки; предложение исправления и решение по
 нему; физическую retention-очистку; загрузку компонента и файлов; повторную обработку; изменение
@@ -395,7 +410,7 @@ REQ-UI-005. Шапка показывает имя пользователя и �
 backend; название роли используется для представления, но не для решения о доступе.
 
 REQ-UI-006. Ученик видит только пользовательские разделы, редактор — материалы и загрузку
-компонентов, администратор дополнительно — управление пользователями и диагностику.
+компонентов, администратор дополнительно — управление пользователями, администраторами и диагностику.
 Сервер повторно защищает каждый маршрут независимо от скрытия ссылки на клиенте.
 
 REQ-UI-007. Основная навигация остаётся доступной на узком экране, а редакционные разделы
@@ -418,8 +433,9 @@ REQ-UI-010. Основные страницы доступны с клавиат
 - REQ-SEC-001: каждый sensitive route имеет backend role dependency; object ID не расширяет
   видимость. Foreign media/import object возвращается как not found, administrator scope
   задаётся явно.
-- REQ-SEC-002: все authenticated mutations, кроме первичного login, требуют session-bound
-  double-submit CSRF. Cross-origin Origin/preflight отклоняется, permissive CORS не включается.
+- REQ-SEC-002: все authenticated mutations требуют session-bound double-submit CSRF. Первичный
+  login и public registration выполняются без существующей session, но остаются same-origin.
+  Cross-origin Origin/preflight отклоняется, permissive CORS не включается.
 - REQ-SEC-003: FastAPI и reverse proxy возвращают CSP, clickjacking, MIME-sniffing, referrer,
   opener и permissions headers; CSP допускает production assets только same-origin.
 - REQ-SEC-004: parser сохраняет exact HTTPS allowlist, all-address DNS validation, connection
@@ -427,10 +443,11 @@ REQ-UI-010. Основные страницы доступны с клавиат
 - REQ-SEC-005: media processing отделён от parser egress. `edge` и `data` — internal networks;
   только reverse proxy дополнительно подключён к host-facing `ingress`,
   наружу опубликован только reverse proxy, отдельный parser worker обслуживает `imports`.
-- REQ-SEC-006: login принимает только login/password. Текущие роли и permissions вычисляются
+- REQ-SEC-006: login и registration принимают только login/password. Текущие роли и permissions вычисляются
   backend из активных grants и возвращаются authenticated API; клиентские query, form, cookie
   и localStorage не могут расширить principal. Editor создаётся только с непросроченным grant
-  и безопасной базовой ролью.
+  и безопасной базовой ролью. Registration всегда создаёт только `student`; dedicated admin
+  creation назначает `administrator` исключительно на backend.
 - REQ-SEC-007: executable route contract перечисляет точное permission set каждого защищённого
   HTTP method/path, включая подключённые FastAPI routers. Прямой API без разрешения получает
   единый `permission_denied`; object-scoped media/import operations проверяют владельца и

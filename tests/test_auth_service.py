@@ -17,6 +17,7 @@ from arduino_component_kb.auth.domain import (
     Role,
     RoleGrantPolicyError,
     TooManyAttemptsError,
+    UserAlreadyExistsError,
     UserIdentity,
     UserStatus,
 )
@@ -188,6 +189,183 @@ def administrator_principal(user: UserIdentity) -> Principal:
         csrf_hash="not-used",
         expires_at=datetime.now(UTC),
     )
+
+
+async def test_public_registration_creates_only_student_and_starts_session() -> None:
+    passwords = PasswordManager()
+    credential_input = "safe-student-password"
+    user = UserIdentity(
+        id=uuid4(),
+        login="new-student",
+        display_name="new-student",
+        password_hash=passwords.hash(credential_input),
+        status=UserStatus.ACTIVE,
+        roles=frozenset({Role.STUDENT}),
+    )
+    principal = Principal(
+        user_id=user.id,
+        login=user.login,
+        display_name=user.display_name,
+        roles=user.roles,
+        session_id=uuid4(),
+        csrf_hash="stored-csrf",
+        expires_at=datetime.now(UTC) + timedelta(hours=1),
+    )
+    repository = repository_mock()
+    repository.is_blocked = AsyncMock(return_value=False)
+    repository.register_failure = AsyncMock()
+    repository.lock_login = AsyncMock()
+    repository.find_user_by_login = AsyncMock(return_value=None)
+    repository.create_user = AsyncMock(return_value=user)
+    repository.create_session = AsyncMock(return_value=principal)
+    repository.mark_login = AsyncMock()
+    repository.audit = AsyncMock()
+    service = AuthService(repository, settings(), passwords)
+
+    result = await service.register(
+        login=" New-Student ",
+        password=credential_input,
+        client_identifier="127.0.0.1",
+        request_id="request-register",
+    )
+
+    create_call = repository.create_user.await_args
+    assert create_call is not None
+    assert create_call.kwargs["login"] == "new-student"
+    assert create_call.kwargs["display_name"] == "new-student"
+    assert create_call.kwargs["roles"] == frozenset({Role.STUDENT})
+    assert create_call.kwargs["actor_id"] is None
+    assert result.principal.roles == frozenset({Role.STUDENT})
+    repository.create_session.assert_awaited_once()
+    audit_call = repository.audit.await_args
+    assert audit_call is not None
+    assert audit_call.kwargs["action"] == "identity.self_registered"
+    assert audit_call.kwargs["details"] == {"roles": ["student"]}
+    assert "password" not in str(audit_call)
+
+
+async def test_public_registration_rejects_duplicate_login() -> None:
+    existing = administrator_identity()
+    credential_input = "safe-student-password"
+    repository = repository_mock()
+    repository.is_blocked = AsyncMock(return_value=False)
+    repository.register_failure = AsyncMock()
+    repository.lock_login = AsyncMock()
+    repository.find_user_by_login = AsyncMock(return_value=existing)
+    repository.create_user = AsyncMock()
+    service = AuthService(repository, settings(), PasswordManager())
+
+    with pytest.raises(UserAlreadyExistsError):
+        await service.register(
+            login=existing.login,
+            password=credential_input,
+            client_identifier="127.0.0.1",
+            request_id="request-duplicate",
+        )
+
+    repository.create_user.assert_not_awaited()
+
+
+async def test_public_registration_reuses_persistent_client_throttling() -> None:
+    credential_input = "safe-student-password"
+    repository = repository_mock()
+    repository.is_blocked = AsyncMock(return_value=True)
+    repository.register_failure = AsyncMock()
+    repository.create_user = AsyncMock()
+    repository.audit = AsyncMock()
+    service = AuthService(repository, settings(), PasswordManager())
+
+    with pytest.raises(TooManyAttemptsError):
+        await service.register(
+            login="new-student",
+            password=credential_input,
+            client_identifier="127.0.0.1",
+            request_id="request-register-throttled",
+        )
+
+    checked_keys = repository.is_blocked.await_args.args[0]
+    assert len(checked_keys) == 1
+    assert len(checked_keys[0]) == 64
+    repository.register_failure.assert_not_awaited()
+    repository.create_user.assert_not_awaited()
+    audit_call = repository.audit.await_args
+    assert audit_call is not None
+    assert audit_call.kwargs["outcome"] == "blocked"
+
+
+async def test_administrator_creation_assigns_role_only_on_server() -> None:
+    actor = administrator_identity()
+    created = UserIdentity(
+        id=uuid4(),
+        login="second-admin",
+        display_name="second-admin",
+        password_hash=uuid4().hex,
+        status=UserStatus.ACTIVE,
+        roles=frozenset({Role.ADMINISTRATOR}),
+    )
+    repository = repository_mock()
+    repository.lock_administrator_membership = AsyncMock()
+    repository.lock_login = AsyncMock()
+    repository.find_user_by_login = AsyncMock(return_value=None)
+    repository.create_user = AsyncMock(return_value=created)
+    repository.audit = AsyncMock()
+    service = AuthService(repository, settings(), PasswordManager())
+    credential_input = "safe-admin-password"
+
+    result = await service.create_administrator(
+        actor=administrator_principal(actor),
+        login="Second-Admin",
+        password=credential_input,
+        request_id="request-create-admin",
+    )
+
+    create_call = repository.create_user.await_args
+    assert create_call is not None
+    assert create_call.kwargs["roles"] == frozenset({Role.ADMINISTRATOR})
+    assert create_call.kwargs["display_name"] == "second-admin"
+    assert result.roles == frozenset({Role.ADMINISTRATOR})
+    audit_call = repository.audit.await_args
+    assert audit_call is not None
+    assert audit_call.kwargs["action"] == "identity.administrator_created"
+
+
+async def test_administrator_password_reset_hashes_password_and_revokes_sessions() -> None:
+    actor = administrator_identity()
+    target = UserIdentity(
+        id=uuid4(),
+        login="student",
+        display_name="student",
+        password_hash=uuid4().hex,
+        status=UserStatus.ACTIVE,
+        roles=frozenset({Role.STUDENT}),
+    )
+    repository = repository_mock()
+    repository.find_user = AsyncMock(return_value=target)
+    repository.set_password = AsyncMock()
+    repository.revoke_user_sessions = AsyncMock()
+    repository.audit = AsyncMock()
+    passwords = PasswordManager()
+    service = AuthService(repository, settings(), passwords)
+    credential_input = "replacement-password"
+
+    await service.reset_password(
+        actor=administrator_principal(actor),
+        user_id=target.id,
+        password=credential_input,
+        request_id="request-password-reset",
+    )
+
+    password_call = repository.set_password.await_args
+    assert password_call is not None
+    stored_hash = password_call.args[1]
+    assert stored_hash != credential_input
+    assert passwords.verify(stored_hash, credential_input)
+    repository.revoke_user_sessions.assert_awaited_once_with(target.id, password_call.args[2])
+    audit_call = repository.audit.await_args
+    assert audit_call is not None
+    assert audit_call.kwargs["action"] == "identity.password_reset"
+    assert "details" not in audit_call.kwargs
+    assert credential_input not in str(audit_call)
 
 
 async def test_removing_last_administrator_is_checked_under_global_lock() -> None:

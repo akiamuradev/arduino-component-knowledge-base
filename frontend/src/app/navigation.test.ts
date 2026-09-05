@@ -95,6 +95,7 @@ describe("permission-based navigation", () => {
   it("shows user management and diagnostics to an administrator", () => {
     expect(labels(administrator, "administration")).toEqual([
       "Пользователи",
+      "Администраторы",
       "Диагностика",
       "Журнал действий",
     ]);

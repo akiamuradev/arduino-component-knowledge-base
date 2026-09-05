@@ -108,7 +108,16 @@ describe("temporary editor management", () => {
     expect(screen.getByText("Администратор изменяется отдельным защищённым действием.")).toBeVisible();
     expect(screen.getByText(/Доступ истёк:/)).toBeVisible();
     expect(screen.getByText("Заблокирован")).toBeVisible();
-    expect(within(articleFor("Главный администратор")).queryByRole("button")).not.toBeInTheDocument();
+    expect(
+      within(articleFor("Главный администратор")).getByRole("button", {
+        name: "Сбросить пароль",
+      }),
+    ).toBeVisible();
+    expect(
+      within(articleFor("Главный администратор")).queryByRole("button", {
+        name: "Заблокировать",
+      }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /назначить администратором/i })).not.toBeInTheDocument();
   });
 
@@ -138,6 +147,12 @@ describe("temporary editor management", () => {
       }
       if (url.endsWith("/00000000-0000-0000-0000-000000000002/disable")) {
         return jsonResponse({ status: "disabled" });
+      }
+      if (
+        url.endsWith("/00000000-0000-0000-0000-000000000003/password") &&
+        init?.method === "PUT"
+      ) {
+        return jsonResponse({ status: "password_reset" });
       }
       throw new Error(`Unexpected request: ${url}`);
     });
@@ -177,6 +192,27 @@ describe("temporary editor management", () => {
     expect(typeof parsedCreateBody.editor_expires_at).toBe("string");
     expect(createBody).not.toContain("administrator");
     expect(new Headers(createCall?.[1]?.headers).get("X-CSRF-Token")).toBe("csrf-value");
+
+    const expiredArticle = articleFor("Бывший редактор");
+    await user.click(within(expiredArticle).getByRole("button", { name: "Сбросить пароль" }));
+    await user.type(within(expiredArticle).getByLabelText("Новый пароль"), "replacement-password");
+    await user.type(
+      within(expiredArticle).getByLabelText("Подтверждение пароля"),
+      "replacement-password",
+    );
+    await user.click(
+      within(expiredArticle).getByRole("button", { name: "Сохранить новый пароль" }),
+    );
+    expect(
+      await screen.findByText("Пароль изменён. Все прежние сеансы пользователя завершены."),
+    ).toBeVisible();
+    const passwordCall = fetchMock.mock.calls.find(
+      ([request, options]) =>
+        requestUrl(request).endsWith("/00000000-0000-0000-0000-000000000003/password") &&
+        options?.method === "PUT",
+    );
+    expect(JSON.parse(callBody(passwordCall))).toEqual({ password: "replacement-password" });
+    expect(new Headers(passwordCall?.[1]?.headers).get("X-CSRF-Token")).toBe("csrf-value");
 
     await user.click(
       within(articleFor("Активный редактор")).getByRole("button", {

@@ -161,6 +161,19 @@ function renderRoute(path: string, user: User) {
   queryClient.setQueryData(duplicateKeys.all, { items: [], total: 0 });
   queryClient.setQueryData(importReviewKeys.all, { items: [] });
   queryClient.setQueryData(["administration", "users"], { items: [], total: 0 });
+  queryClient.setQueryData(["administration", "administrators"], {
+    items: [
+      {
+        id: administrator.id,
+        login: administrator.login,
+        display_name: administrator.display_name,
+        status: "active",
+        roles: ["administrator"],
+        editor_expires_at: null,
+      },
+    ],
+    total: 1,
+  });
   queryClient.setQueryData(
     auditKeys.list({
       userId: undefined,
@@ -218,6 +231,15 @@ describe("application routes", () => {
     expect(screen.getByRole("link", { name: "Пользователи" })).toBeVisible();
     view.unmount();
     renderRoute("/admin/users", editor);
+    expect(await screen.findByRole("heading", { name: "Недостаточно прав" })).toBeVisible();
+  });
+
+  it("exposes administrator management only with the server permission", async () => {
+    const view = renderRoute("/admin/administrators", administrator);
+    expect(await screen.findByRole("heading", { name: "Администраторы" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "Администраторы" })).toBeVisible();
+    view.unmount();
+    renderRoute("/admin/administrators", editor);
     expect(await screen.findByRole("heading", { name: "Недостаточно прав" })).toBeVisible();
   });
 

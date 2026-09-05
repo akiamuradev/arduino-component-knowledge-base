@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { type ChangeEvent, type SyntheticEvent, useState } from "react";
-import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 
 import { api, ApiError } from "../api/client";
 import { currentUserQueryKey, useCurrentUser } from "../auth/queries";
@@ -110,6 +110,7 @@ export function LoginPage() {
             {mutation.isPending ? "Проверяем…" : "Войти"}
           </button>
         </form>
+          <p className="auth-switch">Нет учётной записи? <Link to="/register">Создать аккаунт</Link></p>
           <p className="login-security"><span aria-hidden="true">●</span> Роль и права загружаются с сервера после входа.</p>
         </div>
         <footer className="login-footer">
