@@ -259,6 +259,21 @@ test("inactive source cards keep names, badges and facts inside responsive colum
   await expectNoAccessibilityViolations(page, "inactive sources dark mobile");
 });
 
+test("catalog uses a wide desktop workspace without changing other page widths", async ({ page }) => {
+  await mockCatalog(page);
+  for (const [width, height] of [[1366, 768], [1440, 900], [1920, 1080], [2560, 1440]]) {
+    await page.setViewportSize({ width, height });
+    await page.goto("/");
+    await expect(page.getByRole("heading", { name: "Каталог компонентов", exact: true })).toBeVisible();
+    expect(await page.locator("main").evaluate((main) => main.getBoundingClientRect().width)).toBe(Math.min(width, 2000));
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: `/tmp/ackb-catalog-${String(width)}.png` });
+  }
+  await page.goto("/about");
+  await expect(page.locator("main")).not.toHaveClass(/page--catalog/);
+  expect(await page.locator("main").evaluate((main) => main.getBoundingClientRect().width)).toBeLessThanOrEqual(1440);
+});
+
 test("catalog card content stays inside narrow cards", async ({ page }) => {
   const longCard = {
     ...component,
@@ -299,7 +314,7 @@ test("student browses the catalog, switches theme and opens sourced learning con
   });
   await mockCatalog(page);
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Исследуйте мир Arduino-компонентов" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Каталог компонентов" })).toBeVisible();
   await expect(page.locator(".brand__copy strong")).toHaveText("База компонентов Arduino");
   await expect(page.locator(".brand__copy small")).toHaveText("Справочник электронных компонентов");
   await expect(page.locator(".account__copy strong")).toHaveText("Мария Студентова");
@@ -311,7 +326,7 @@ test("student browses the catalog, switches theme and opens sourced learning con
   await expect(themeTrigger).toHaveCSS("height", "44px");
   await expect(themeTrigger).toHaveCSS("width", "44px");
   await expect(page.locator(".hero__splat")).toHaveAttribute("aria-hidden", "true");
-  await expect(page.getByText("Проверенный источник · GPL-3.0-only")).toBeVisible();
+  await expect(page.getByText("Источник: Seeed Studio Wiki · GPL-3.0-only")).toBeVisible();
   await expect(page.getByRole("link", { name: /Добавить компонент/ })).toHaveCount(0);
   await expect(page.getByRole("img", { name: "Основной вид DHT22" })).toBeVisible();
   await expectNoAccessibilityViolations(page, "catalog light theme");
@@ -403,7 +418,7 @@ test("captures approved responsive theme views", async ({ page }) => {
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-  await expect(page.getByRole("heading", { name: "Исследуйте мир Arduino-компонентов" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Каталог компонентов" })).toBeVisible();
   await page.screenshot({ fullPage: true, path: "../docs/screenshots/frontend-dark-desktop.png" });
 
   await page.unrouteAll({ behavior: "wait" });

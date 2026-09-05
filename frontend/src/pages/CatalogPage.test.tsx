@@ -109,7 +109,7 @@ describe("student catalog", () => {
     expect(await screen.findByRole("link", { name: /Датчик температуры/ })).toHaveAttribute("href", "/components/temperature-sensor");
     expect(screen.getByRole("searchbox", { name: "Поиск" })).toBeVisible();
     expect(screen.getAllByRole("combobox")).toHaveLength(2);
-    expect(screen.getByText("Проверенный источник · GPL-3.0-only")).toBeVisible();
+    expect(screen.getByText("Источник: Seeed Studio Wiki · GPL-3.0-only")).toBeVisible();
     expect(screen.getByRole("img", { name: "Основной вид датчика" })).toBeVisible();
   });
 

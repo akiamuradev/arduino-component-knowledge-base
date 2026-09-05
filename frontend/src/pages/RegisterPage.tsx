@@ -63,9 +63,9 @@ export function RegisterPage() {
       <section className="login-hero">
         <div className="login-brand"><BrandMark /><strong>{PRODUCT_BRAND.shortName}</strong></div>
         <div className="login-copy__content">
-          <p className="eyebrow">Учебная база знаний</p>
-          <h1>Создайте доступ к каталогу</h1>
-          <p>Новая учётная запись получает только безопасный доступ студента.</p>
+          <p className="eyebrow">ACKB</p>
+          <h1>Регистрация</h1>
+          <p>Новая учётная запись получает доступ к просмотру каталога.</p>
         </div>
         <OledLoginDisplay state={oledState} />
       </section>

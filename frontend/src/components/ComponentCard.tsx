@@ -46,7 +46,7 @@ export function ComponentCard({ component }: { component: CatalogComponent }) {
   const sourceLabel = component.sources.length === 0
     ? null
     : component.sources.length === 1
-      ? `Проверенный источник · ${component.sources[0]?.license_spdx ?? ""}`
+      ? `Источник: ${component.sources[0]?.display_name ?? ""} · ${component.sources[0]?.license_spdx ?? ""}`
       : `Несколько источников · ${String(component.sources.length)}`;
   return (
     <Link className="catalog-card" to={`/components/${component.slug}`}>
