@@ -38,8 +38,9 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-Vitest проверяет компоненты, маршруты, русский интерфейс, permission-based navigation, обработку
-ошибок, редактор, импорт, медиа и audit read model. Playwright запускает production frontend
+Vitest проверяет компоненты, маршруты, русский интерфейс, public registration, административный
+reset password и создание administrator без client-owned roles, permission-based navigation,
+обработку ошибок, редактор, импорт, медиа и audit read model. Playwright запускает production frontend
 через Vite preview и проверяет вход, каталог, карточки, роли, multiple-image lifecycle,
 repository import, клавиатурную навигацию, темы и ширину 320 px. `@axe-core/playwright`
 блокирует нарушения WCAG в основных пользовательских потоках.
@@ -73,7 +74,10 @@ uv run pytest -m integration --strict-markers
 
 Контур проверяет:
 
-- Argon2id login, opaque sessions, CSRF и backend RBAC всех ролей;
+- Argon2id login/registration, student-only self-registration, opaque sessions, CSRF и backend
+  RBAC всех ролей;
+- admin-only password reset с отзывом сессий, server-owned administrator creation и защита
+  последнего active administrator;
 - PostgreSQL constraints, migrations, lifecycle карточек и immutable revisions;
 - ownership и одинаковый `404` для чужих и отсутствующих объектов;
 - transactional job dispatch, Redis failure/recovery, retry, cancel и lease takeover;

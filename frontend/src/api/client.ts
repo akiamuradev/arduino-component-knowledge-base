@@ -16,6 +16,7 @@ import type {
   ComponentListResponse,
   ComponentStatus,
   ComponentUpdateInput,
+  CreateAdministratorInput,
   CreateEditorInput,
   CreateUserInput,
   DuplicateCandidate,
@@ -43,6 +44,8 @@ import type {
   RepositoryEntryDiscoveryResponse,
   RepositoryImportInput,
   RepositoryPreview,
+  RegisterInput,
+  ResetPasswordInput,
   SetRolesInput,
   UploadConfirmation,
   UploadReservation,
@@ -235,6 +238,11 @@ export const api = {
       method: "POST",
       body: JSON.stringify(input),
     }),
+  register: (input: RegisterInput): Promise<LoginResponse> =>
+    apiRequest<LoginResponse>("/auth/register", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
   logout: (): Promise<LogoutResponse> =>
     apiRequest<LogoutResponse>("/auth/logout", { method: "POST", csrf: true }),
   createUser: (input: CreateUserInput): Promise<User> =>
@@ -261,6 +269,20 @@ export const api = {
   createEditor: (input: CreateEditorInput): Promise<User> =>
     apiRequest<User>("/admin/users/editors", {
       method: "POST",
+      body: JSON.stringify(input),
+      csrf: true,
+    }),
+  listAdministrators: (): Promise<ManagedUserListResponse> =>
+    apiRequest<ManagedUserListResponse>("/admin/users/administrators"),
+  createAdministrator: (input: CreateAdministratorInput): Promise<User> =>
+    apiRequest<User>("/admin/users/administrators", {
+      method: "POST",
+      body: JSON.stringify(input),
+      csrf: true,
+    }),
+  resetPassword: (userId: string, input: ResetPasswordInput): Promise<MutationResponse> =>
+    apiRequest<MutationResponse>(`/admin/users/${encodeURIComponent(userId)}/password`, {
+      method: "PUT",
       body: JSON.stringify(input),
       csrf: true,
     }),

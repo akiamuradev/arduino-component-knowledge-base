@@ -11,7 +11,7 @@ from fastapi import Request, Response
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from arduino_component_kb.api.auth import LoginRequest, login
+from arduino_component_kb.api.auth import LoginRequest, RegisterRequest, login
 from arduino_component_kb.auth.domain import (
     LoginResult,
     Principal,
@@ -87,3 +87,24 @@ def test_login_request_rejects_client_supplied_role_or_permissions() -> None:
                 "permissions": ["system.settings"],
             }
         )
+
+
+@pytest.mark.parametrize("field", ["role", "roles", "permissions", "display_name"])
+def test_register_request_rejects_identity_or_authorization_spoofing(field: str) -> None:
+    payload: dict[str, object] = {
+        "login": "new-student",
+        "password": "safe-student-password",
+        field: ["administrator"] if field.endswith("s") else "administrator",
+    }
+    with pytest.raises(ValidationError):
+        RegisterRequest.model_validate(payload)
+
+
+def test_register_request_normalizes_login_and_accepts_only_credentials() -> None:
+    request = RegisterRequest.model_validate(
+        {"login": "  New.Student  ", "password": "safe-student-password"}
+    )
+    assert request.model_dump() == {
+        "login": "new.student",
+        "password": "safe-student-password",
+    }

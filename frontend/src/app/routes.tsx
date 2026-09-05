@@ -4,6 +4,7 @@ import { AdminLayout } from "../layouts/AdminLayout";
 import { StudentLayout } from "../layouts/StudentLayout";
 import { AdminDashboardPage } from "../pages/AdminDashboardPage";
 import { AdminJobsPage } from "../pages/AdminJobsPage";
+import { AdministratorManagementPage } from "../pages/AdministratorManagementPage";
 import { AdminImportPage } from "../pages/AdminImportPage";
 import { AuditLogPage } from "../pages/AuditLogPage";
 import { AboutPage } from "../pages/AboutPage";
@@ -13,6 +14,7 @@ import { ComponentEditorPage } from "../pages/ComponentEditorPage";
 import { ComponentListPage } from "../pages/ComponentListPage";
 import { DuplicateReviewPage } from "../pages/DuplicateReviewPage";
 import { LoginPage } from "../pages/LoginPage";
+import { RegisterPage } from "../pages/RegisterPage";
 import { ImportReviewPage } from "../pages/ImportReviewPage";
 import { UserManagementPage } from "../pages/UserManagementPage";
 import { SourcesPage } from "../pages/SourcesPage";
@@ -26,6 +28,11 @@ export const routes: RouteObject[] = [
   {
     path: "/login",
     element: <LoginPage />,
+    errorElement: <RouteErrorPage />,
+  },
+  {
+    path: "/register",
+    element: <RegisterPage />,
     errorElement: <RouteErrorPage />,
   },
   {
@@ -67,6 +74,12 @@ export const routes: RouteObject[] = [
                 element: <RequirePermission permission="users.view" />,
                 children: [
                   { path: "users", element: <UserManagementPage /> },
+                ],
+              },
+              {
+                element: <RequirePermission permission="users.manage" />,
+                children: [
+                  { path: "administrators", element: <AdministratorManagementPage /> },
                 ],
               },
               {

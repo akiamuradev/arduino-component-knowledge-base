@@ -16,6 +16,12 @@
   Отключение пользователя и изменение роли отзывают его сессии.
 - Login throttling хранится в PostgreSQL по HMAC-псевдонимам account и client. Пароли, tokens и
   client address не попадают в audit.
+- Public registration принимает только login/password, ограничивается тем же persistent
+  throttling по HMAC client key и назначает только `student`. Profile и authorization input
+  отклоняются.
+- Administrator создаётся отдельным server-owned действием. Административный reset password
+  использует Argon2id, отзывает все сессии цели и журналируется без password/hash. Self-service
+  recovery и дополнительные персональные идентификаторы отсутствуют.
 - Default deny применяется и к маршруту, и к объекту. Чужой и отсутствующий UUID возвращают
   одинаковый `404`, если подтверждение существования объекта раскрыло бы данные.
 
@@ -34,7 +40,8 @@
 
 ## Browser и API
 
-- State-changing cookie request требует session-bound double-submit CSRF cookie/header.
+- Authenticated state-changing cookie request требует session-bound double-submit CSRF
+  cookie/header. Первичный login и registration выполняются без существующей session.
 - API работает только same-origin; permissive CORS отсутствует, Origin и trusted Host проверяются
   до маршрутизации.
 - CSP разрешает production assets только same-origin; также заданы `nosniff`, frame protection,

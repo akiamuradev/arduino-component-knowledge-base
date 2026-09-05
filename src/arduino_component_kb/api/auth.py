@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from arduino_component_kb.api.dependencies import (
@@ -19,10 +19,13 @@ from arduino_component_kb.api.dependencies import (
 from arduino_component_kb.auth.domain import (
     InvalidCredentialsError,
     LoginResult,
+    PasswordPolicyError,
     Permission,
     Principal,
     Role,
     TooManyAttemptsError,
+    UserAlreadyExistsError,
+    normalize_login,
 )
 from arduino_component_kb.auth.service import AuthService
 from arduino_component_kb.config import Settings
@@ -38,6 +41,23 @@ class LoginRequest(BaseModel):
 
     login: str = Field(min_length=1, max_length=100)
     password: str = Field(min_length=1, max_length=128)
+
+
+class RegisterRequest(BaseModel):
+    """Public student registration input without profile or authorization fields."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    login: str = Field(min_length=3, max_length=100)
+    password: str = Field(min_length=12, max_length=128)
+
+    @field_validator("login")
+    @classmethod
+    def _normalize_login(cls, value: str) -> str:
+        try:
+            return normalize_login(value)
+        except InvalidCredentialsError as error:
+            raise ValueError("login contains unsupported characters") from error
 
 
 class UserResponse(BaseModel):
@@ -106,6 +126,45 @@ async def login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"code": "invalid_credentials"},
         )
+    _set_session_cookies(response, result, service.settings)
+    response.headers["Cache-Control"] = "no-store"
+    return LoginResponse(
+        user=user_response(result.principal),
+        expires_at=result.principal.expires_at.isoformat(),
+    )
+
+
+@router.post("/register", response_model=LoginResponse, status_code=status.HTTP_201_CREATED)
+async def register(
+    payload: RegisterRequest,
+    request: Request,
+    response: Response,
+    service: Annotated[AuthService, Depends(auth_service)],
+    session: Annotated[AsyncSession, Depends(database_session)],
+) -> LoginResponse:
+    """Create a student-only account and start its ordinary browser session."""
+    error: Exception | None = None
+    result: LoginResult | None = None
+    try:
+        result = await service.register(
+            login=payload.login,
+            password=payload.password,
+            client_identifier=request.client.host if request.client else "unknown",
+            request_id=current_request_id(),
+        )
+    except (UserAlreadyExistsError, PasswordPolicyError, TooManyAttemptsError) as caught:
+        error = caught
+    await session.commit()
+    if isinstance(error, TooManyAttemptsError):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={"code": "registration_rate_limited"},
+            headers={"Retry-After": str(service.settings.auth_block_seconds)},
+        )
+    if isinstance(error, UserAlreadyExistsError):
+        raise HTTPException(status_code=409, detail={"code": "login_already_exists"})
+    if error is not None or result is None:
+        raise HTTPException(status_code=422, detail={"code": "password_policy_failed"})
     _set_session_cookies(response, result, service.settings)
     response.headers["Cache-Control"] = "no-store"
     return LoginResponse(

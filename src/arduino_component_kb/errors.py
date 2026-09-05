@@ -31,6 +31,14 @@ _CODE_MESSAGES: Final[dict[str, str]] = {
     "import_not_cancellable": "Эту загрузку уже нельзя отменить.",
     "import_not_retryable": "Эту загрузку нельзя запустить повторно.",
     "invalid_credentials": "Неверный логин или пароль.",
+    "login_already_exists": "Этот логин уже занят.",
+    "registration_rate_limited": "Слишком много регистраций. Подождите и попробуйте снова.",
+    "password_policy_failed": "Пароль должен содержать от 12 до 128 символов.",
+    "password_reset_conflict": "Не удалось сбросить пароль пользователя.",
+    "administrator_creation_conflict": "Не удалось создать администратора.",
+    "administrator_creation_requires_dedicated_action": (
+        "Создавайте администратора через отдельное защищённое действие."
+    ),
     "job_not_found": "Задача не найдена.",
     "job_not_retryable": "Эту задачу нельзя запустить повторно.",
     "media_enqueue_failed": "Обработка файла временно недоступна. Попробуйте снова.",
