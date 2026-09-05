@@ -1,5 +1,6 @@
 import {
   type KeyboardEvent,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -52,33 +53,121 @@ function fallback(alt: string, compact = false) {
 
 function GalleryImage({
   active,
+  onOpen,
+  fullscreen = false,
 }: {
   active: CatalogMedia;
+  onOpen?: () => void;
+  fullscreen?: boolean;
 }) {
   const [failedUrl, setFailedUrl] = useState<string>();
   const variants = safeVariants(active);
   const largest = variants.at(-1);
+  const content = largest === undefined || failedUrl === largest.safeUrl
+    ? fallback(active.alt_text)
+    : (
+        <img
+          alt={active.alt_text}
+          decoding="async"
+          fetchPriority="high"
+          height={active.height ?? undefined}
+          onError={() => { setFailedUrl(largest.safeUrl); }}
+          sizes={fullscreen ? undefined : "(max-width: 767px) 100vw, 42vw"}
+          src={largest.safeUrl}
+          srcSet={fullscreen ? undefined : variants
+            .map((variant) => `${variant.safeUrl} ${String(variant.width)}w`)
+            .join(", ") || undefined}
+          width={active.width ?? undefined}
+        />
+      );
   return (
-    <figure className="media-gallery__primary">
-      {largest === undefined || failedUrl === largest.safeUrl
-        ? fallback(active.alt_text)
-        : (
-            <img
-              alt={active.alt_text}
-              decoding="async"
-              fetchPriority="high"
-              height={active.height ?? undefined}
-              onError={() => { setFailedUrl(largest.safeUrl); }}
-              sizes="(max-width: 767px) 100vw, 42vw"
-              src={largest.safeUrl}
-              srcSet={variants
-                .map((variant) => `${variant.safeUrl} ${String(variant.width)}w`)
-                .join(", ") || undefined}
-              width={active.width ?? undefined}
-            />
-          )}
+    <figure className={fullscreen ? "media-lightbox__figure" : "media-gallery__primary"}>
+      {fullscreen ? content : (
+        <button
+          className="media-gallery__viewport"
+          type="button"
+          aria-label={`Открыть изображение крупнее: ${active.alt_text}`}
+          onClick={(event) => { event.currentTarget.focus(); onOpen?.(); }}
+        >
+          {content}
+          <span className="media-gallery__zoom-hint" aria-hidden="true">⛶</span>
+        </button>
+      )}
       {active.caption === null ? null : <figcaption>{active.caption}</figcaption>}
     </figure>
+  );
+}
+
+function ImageLightbox({
+  active,
+  count,
+  index,
+  onClose,
+  onMove,
+}: {
+  active: CatalogMedia;
+  count: number;
+  index: number;
+  onClose: () => void;
+  onMove: (direction: -1 | 1) => void;
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const opener = document.activeElement;
+    const dialog = dialogRef.current;
+    const previousOverflow = document.body.style.overflow;
+    dialog?.showModal();
+    document.body.style.overflow = "hidden";
+    return () => {
+      dialog?.close();
+      document.body.style.overflow = previousOverflow;
+      if (opener instanceof HTMLElement) opener.focus();
+    };
+  }, []);
+
+  return (
+    <dialog
+      ref={dialogRef}
+      className="media-lightbox"
+      aria-label="Просмотр изображения"
+      aria-modal="true"
+      onCancel={(event) => { event.preventDefault(); onClose(); }}
+      onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}
+      onKeyDown={(event) => {
+        event.stopPropagation();
+        if (event.key === "Tab") {
+          const buttons = event.currentTarget.querySelectorAll<HTMLButtonElement>("button");
+          const first = buttons[0];
+          const last = buttons[buttons.length - 1];
+          const focused = document.activeElement;
+          if (event.shiftKey && (focused === first || focused === event.currentTarget)) {
+            event.preventDefault();
+            last?.focus();
+          } else if (!event.shiftKey && focused === last) {
+            event.preventDefault();
+            first?.focus();
+          }
+        } else if (event.key === "Escape") {
+          event.preventDefault();
+          onClose();
+        } else if (count > 1 && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
+          event.preventDefault();
+          onMove(event.key === "ArrowLeft" ? -1 : 1);
+        }
+      }}
+    >
+      <div className="media-lightbox__controls">
+        <button type="button" aria-label="Закрыть просмотр изображения" onClick={onClose}>✕</button>
+        {count > 1 ? (
+          <>
+            <button type="button" aria-label="Предыдущее изображение" onClick={() => { onMove(-1); }}>←</button>
+            <span aria-live="polite">{index + 1} / {count}</span>
+            <button type="button" aria-label="Следующее изображение" onClick={() => { onMove(1); }}>→</button>
+          </>
+        ) : null}
+      </div>
+      <GalleryImage active={active} fullscreen />
+    </dialog>
   );
 }
 
@@ -155,6 +244,7 @@ export function MediaGallery({ items }: { items: CatalogMedia[] }) {
     [items],
   );
   const [activeId, setActiveId] = useState<string>();
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const activeIndex = Math.max(
     0,
@@ -198,7 +288,18 @@ export function MediaGallery({ items }: { items: CatalogMedia[] }) {
       className="media-gallery"
       onKeyDown={active === undefined ? undefined : keyboard}
     >
-      {active === undefined ? null : <GalleryImage active={active} />}
+      {active === undefined ? null : (
+        <GalleryImage active={active} onOpen={() => { setLightboxOpen(true); }} />
+      )}
+      {active !== undefined && lightboxOpen ? (
+        <ImageLightbox
+          active={active}
+          count={images.length}
+          index={activeIndex}
+          onClose={() => { setLightboxOpen(false); }}
+          onMove={move}
+        />
+      ) : null}
       {active === undefined || images.length < 2 ? null : (
         <>
           <div className="media-gallery__navigation">

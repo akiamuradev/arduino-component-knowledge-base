@@ -45,6 +45,11 @@ reset password и создание administrator без client-owned roles, perm
 repository import, клавиатурную навигацию, темы и ширину 320 px. `@axe-core/playwright`
 блокирует нарушения WCAG в основных пользовательских потоках.
 
+Регрессия MediaGallery использует фото 1200×1600 и схему 1800×600: Playwright сравнивает
+размеры viewport и hero до и после переключения на desktop и mobile. Также проверяются
+lightbox, Escape, стрелки, возврат фокуса и блокировка прокрутки; Vitest покрывает fallback
+при ошибке загрузки и выбор крупнейшего безопасного варианта.
+
 Visual screenshots обновляются только при явном opt-in:
 
 ```bash

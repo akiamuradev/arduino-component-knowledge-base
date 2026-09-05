@@ -77,8 +77,12 @@ same-origin абсолютным path, например `/api/v1`; URL внеш�
 
 Build metadata необязательны и не должны содержать секреты:
 
+Локальная сборка автоматически берёт SHA из Git и текущую дату UTC. При сборке Docker
+каталог `.git` недоступен: задайте `ACKB_COMMIT_SHA` и `ACKB_BUILD_DATE` в окружении Compose
+или соответствующие `VITE_*` build args. Эти значения видны в «О системе» и нижнем баре.
+
 ```bash
-VITE_APP_VERSION=1.0.0 VITE_COMMIT_SHA=<commit> VITE_BUILD_DATE=<ISO-8601> npm run build
+VITE_APP_VERSION=1.0.1 VITE_COMMIT_SHA=<commit> VITE_BUILD_DATE=<ISO-8601> npm run build
 ```
 
 ## Проверки
