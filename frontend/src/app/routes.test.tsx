@@ -196,7 +196,7 @@ function renderRoute(path: string, user: User) {
 describe("application routes", () => {
   it("renders the student layout and empty search result", async () => {
     renderRoute("/", student);
-    expect(await screen.findByRole("heading", { name: "Исследуйте мир Arduino-компонентов" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Каталог компонентов" })).toBeVisible();
     expect(screen.getByText("Ничего не найдено")).toBeVisible();
     expect(screen.queryByRole("link", { name: /Добавить компонент/ })).not.toBeInTheDocument();
   });

@@ -60,9 +60,9 @@ export function LoginPage() {
       <section className="login-hero">
         <div className="login-brand"><BrandMark /><strong>{PRODUCT_BRAND.shortName}</strong></div>
         <div className="login-copy__content">
-          <p className="eyebrow">Учебная база знаний</p>
-          <h1>От детали на столе — к работающему проекту</h1>
-          <p>Проверенные карточки компонентов, совместимость и учебные примеры в едином контуре колледжа.</p>
+          <p className="eyebrow">ACKB</p>
+          <h1>База электронных компонентов</h1>
+          <p>Каталог, техническая документация и редакция компонентов.</p>
         </div>
         <OledLoginDisplay state={oledState} />
       </section>
@@ -72,7 +72,7 @@ export function LoginPage() {
         <div className="login-card__heading">
           <p className="eyebrow">Локальная учётная запись</p>
           <h2 id="login-heading">Вход в систему</h2>
-          <p>Используйте данные, выданные администратором.</p>
+          <p>Введите логин и пароль.</p>
         </div>
         <form onSubmit={submit}>
           <label htmlFor="login">Логин</label>
