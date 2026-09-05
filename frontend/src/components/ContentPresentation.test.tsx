@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import type { CatalogMedia, SourceSnapshot } from "../api/contracts";
 import { MediaGallery } from "./MediaGallery";
@@ -24,6 +24,85 @@ const source: SourceSnapshot = {
 };
 
 describe("content presentation", () => {
+  beforeAll(() => {
+    // JSDOM has no top layer; real modal focus behaviour is covered in Playwright.
+    Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value: function (this: HTMLDialogElement) {
+      this.setAttribute("open", "");
+      this.querySelector<HTMLButtonElement>("button")?.focus();
+    } });
+    Object.defineProperty(HTMLDialogElement.prototype, "close", { configurable: true, value: function (this: HTMLDialogElement) {
+      this.removeAttribute("open");
+    } });
+  });
+  afterAll(() => {
+    Reflect.deleteProperty(HTMLDialogElement.prototype, "showModal");
+    Reflect.deleteProperty(HTMLDialogElement.prototype, "close");
+  });
+
+  it("keeps one viewport for portrait and wide images and supports an accessible lightbox", () => {
+    const items: CatalogMedia[] = [
+      { asset_id: "portrait", width: 1200, height: 1600, alt_text: "Arduino вертикально" },
+      { asset_id: "scheme", width: 1800, height: 600, alt_text: "Широкая схема" },
+    ].map((item, index) => ({
+      ...item, kind: "image", purpose: "detail", caption: null,
+      display_order: index, is_primary: index === 0,
+      variants: [
+        { name: "thumbnail", mime: "image/webp", width: 300, height: 300 * item.height / item.width, sha256: "1".repeat(64), url: `/media-storage/${item.asset_id}-small.webp` },
+        { name: "full", mime: "image/webp", width: item.width, height: item.height, sha256: "2".repeat(64), url: `/media-storage/${item.asset_id}.webp` },
+        { name: "unsafe", mime: "image/webp", width: 4000, height: 4000, sha256: "3".repeat(64), url: "http://untrusted.invalid/unsafe.webp" },
+      ],
+    }));
+    const view = render(<MediaGallery items={items} />);
+    const viewport = screen.getByRole("button", { name: /Открыть изображение крупнее/ });
+    const figure = viewport.parentElement;
+    expect(viewport).toHaveClass("media-gallery__viewport");
+    expect(screen.getByRole("img", { name: "Arduino вертикально" }).parentElement).toBe(viewport);
+    fireEvent.click(screen.getByRole("button", { name: /Показать изображение 2/ }));
+    expect(screen.getByRole("img", { name: "Широкая схема" }).parentElement).toBe(viewport);
+    expect(viewport.parentElement).toBe(figure);
+    expect(viewport).not.toHaveAttribute("style");
+    expect(figure).not.toHaveAttribute("style");
+
+    document.body.style.overflow = "auto";
+    viewport.focus();
+    fireEvent.click(viewport);
+    const dialog = screen.getByRole("dialog", { name: "Просмотр изображения" });
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+    expect(document.body.style.overflow).toBe("hidden");
+    const wide = within(dialog).getByRole("img", { name: "Широкая схема" });
+    expect(wide).toHaveAttribute("src", expect.stringContaining("/scheme.webp"));
+    expect(wide).not.toHaveAttribute("srcset");
+    fireEvent.click(wide);
+    expect(dialog).toBeVisible();
+    const close = within(dialog).getByRole("button", { name: "Закрыть просмотр изображения" });
+    expect(close).toHaveFocus();
+    fireEvent.keyDown(close, { key: "ArrowLeft" });
+    expect(within(dialog).getByRole("img", { name: "Arduino вертикально" })).toBeVisible();
+    expect(close).toHaveFocus();
+    fireEvent.keyDown(close, { key: "ArrowRight" });
+    expect(within(dialog).getByRole("img", { name: "Широкая схема" })).toBeVisible();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Следующее изображение" }));
+    const portrait = within(dialog).getByRole("img", { name: "Arduino вертикально" });
+    fireEvent.error(portrait);
+    expect(within(dialog).getByRole("img", { name: "Arduino вертикально" })).toHaveTextContent("Изображение недоступно");
+    fireEvent.keyDown(close, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(viewport).toHaveFocus();
+    expect(document.body.style.overflow).toBe("auto");
+
+    fireEvent.click(viewport);
+    fireEvent.click(screen.getByRole("button", { name: "Закрыть просмотр изображения" }));
+    expect(viewport).toHaveFocus();
+    fireEvent.click(viewport);
+    fireEvent.click(screen.getByRole("dialog"));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(viewport).toHaveFocus();
+    fireEvent.click(viewport);
+    view.unmount();
+    expect(document.body.style.overflow).toBe("auto");
+    document.body.style.overflow = "";
+  });
+
   it("renders one and multiple real source attributions with safe external links", () => {
     const second: SourceSnapshot = { ...source, display_name: "Official KiCad Libraries", repository_url: "https://gitlab.com/kicad/libraries/kicad-symbols", original_url: "https://gitlab.com/kicad/libraries/kicad-symbols/-/blob/123/Sensor_Temperature.kicad_sym", license_name: "Creative Commons Attribution-ShareAlike 4.0", license_spdx: "CC-BY-SA-4.0", source_tag: "9.0.9.1", source_entry_name: "LM35", parser_name: "kicad_symbols" };
     const view = render(<SourceAttributionBlock sources={[source]} />);

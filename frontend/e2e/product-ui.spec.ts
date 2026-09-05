@@ -146,6 +146,80 @@ async function selectTheme(page: Page, label: "Светлое" | "Тёмное" 
   await page.getByRole("menuitemradio", { name: label }).click();
 }
 
+test("gallery keeps portrait and scheme geometry stable and opens a keyboard lightbox", async ({ page }) => {
+  await mockCatalog(page);
+  const media = [
+    { ...component.media[1], width: 1200, height: 1600 },
+    { ...component.media[0], width: 1800, height: 600 },
+  ].map((item) => ({
+    ...item, caption: "Фото и схема подключения",
+    variants: [{ ...item.variants[0], width: item.width, height: item.height }],
+  }));
+  await page.route("**/api/v1/catalog/components/dht22", (route) =>
+    route.fulfill({ json: { ...component, media } }));
+  await page.route("**/media-storage/**", (route) => {
+    const portrait = route.request().url().includes("primary");
+    const width = portrait ? 1200 : 1800;
+    const height = portrait ? 1600 : 600;
+    return route.fulfill({
+      contentType: "image/svg+xml",
+      body: `<svg xmlns="http://www.w3.org/2000/svg" width="${String(width)}" height="${String(height)}"><rect width="100%" height="100%" fill="#168e52"/></svg>`,
+    });
+  });
+  for (const width of [1440, 1024, 360]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.goto("/components/dht22");
+    const viewport = page.locator(".media-gallery__viewport");
+    await expect(viewport).toBeVisible();
+    await expect.poll(() => viewport.locator("img").evaluate((img: HTMLImageElement) => img.naturalWidth / img.naturalHeight)).toBeCloseTo(1200 / 1600, 2);
+    const before = await viewport.boundingBox();
+    const hero = await page.locator(".student-card__hero").boundingBox();
+    if (before === null) throw new Error("Missing gallery viewport");
+    expect(before.width / before.height).toBeCloseTo(4 / 3, 1);
+    await page.getByRole("button", { name: /Показать изображение 2/ }).click();
+    await expect.poll(() => viewport.locator("img").evaluate((img: HTMLImageElement) => img.naturalWidth / img.naturalHeight)).toBeCloseTo(1800 / 600, 1);
+    const after = await viewport.boundingBox();
+    expect(after?.height).toBe(before.height);
+    expect(after?.width).toBe(before.width);
+    expect((await page.locator(".student-card__hero").boundingBox())?.height).toBe(hero?.height);
+    await expect(viewport.locator("img")).toHaveCSS("object-fit", "contain");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const opener = page.locator(".media-gallery__viewport");
+  await opener.click();
+  const dialog = page.getByRole("dialog", { name: "Просмотр изображения" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toHaveAttribute("aria-modal", "true");
+  await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
+  await expect(dialog.getByRole("button", { name: "Закрыть просмотр изображения" })).toBeFocused();
+  await dialog.getByRole("img").click();
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("ArrowLeft");
+  await expect(dialog.getByRole("img", { name: "Основной вид DHT22" })).toBeVisible();
+  await page.keyboard.press("ArrowRight");
+  await expect(dialog.getByRole("img", { name: "Разъёмы DHT22" })).toBeVisible();
+  await expect(dialog.getByRole("img")).toHaveCSS("object-fit", "contain");
+  expect(await dialog.getByRole("img").evaluate((image) => {
+    const box = image.getBoundingClientRect();
+    return box.width <= innerWidth * 0.9 + 1 && box.height <= innerHeight * 0.9 + 1
+      && box.left >= 0 && box.right <= innerWidth && box.top >= 0 && box.bottom <= innerHeight;
+  })).toBe(true);
+  await expectNoAccessibilityViolations(page, "image lightbox");
+  await page.keyboard.press("Shift+Tab");
+  expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+  await expect(dialog.getByRole("button", { name: "Следующее изображение" })).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(dialog.getByRole("button", { name: "Закрыть просмотр изображения" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(opener).toBeFocused();
+  await opener.click();
+  await page.mouse.click(2, 2);
+  await expect(dialog).toHaveCount(0);
+  await expect(opener).toBeFocused();
+});
+
 test("catalog card content stays inside narrow cards", async ({ page }) => {
   const longCard = {
     ...component,

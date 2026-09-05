@@ -2,7 +2,20 @@
 
 All notable changes to this project are documented here. Versions follow semantic versioning.
 
-## [1.0.1] - Unreleased
+## [1.0.1] - 2026-09-05
+
+### Added
+
+- Image lightbox with keyboard navigation, modal focus handling and the largest safe variant.
+- Student self-registration, administrator password reset with session revocation, and a
+  dedicated administrator account management tab.
+
+### Fixed
+
+- Component gallery and thumbnails keep stable geometry across portrait photos and wide
+  schematics, without cropping or stretching the card hero.
+- Local frontend builds derive the commit and build date from the checkout and build time;
+  deployed builds accept explicit metadata instead of displaying an old release commit.
 
 ### Changed
 
