@@ -274,6 +274,24 @@ test("catalog uses a wide desktop workspace without changing other page widths",
   expect(await page.locator("main").evaluate((main) => main.getBoundingClientRect().width)).toBeLessThanOrEqual(1440);
 });
 
+test("compact hardware intro responds to a pointer and respects reduced motion", async ({ page }) => {
+  await mockCatalog(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  const board = page.locator(".hardware-board");
+  await expect(board).toHaveAttribute("data-motion", "interactive");
+  expect(await page.locator(".catalog-intro").evaluate((element) => element.getBoundingClientRect().height)).toBeLessThanOrEqual(360);
+  const bounds = await board.boundingBox();
+  if (bounds === null) throw new Error("Board is missing");
+  await page.mouse.move(bounds.x + bounds.width * 0.9, bounds.y + bounds.height * 0.1);
+  await expect.poll(() => board.evaluate((element) => element.style.getPropertyValue("--board-ry"))).not.toBe("0deg");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(board).toHaveAttribute("data-motion", "static");
+  await expect(page.locator(".hardware-board__pcb")).toHaveCSS("transform", "none");
+  await page.mouse.move(bounds.x + bounds.width * 0.1, bounds.y + bounds.height * 0.9);
+  expect(await board.evaluate((element) => element.style.getPropertyValue("--board-ry"))).toBe("0deg");
+});
+
 test("workbench filters stay reachable while scrolling and reset existing API filters", async ({ page }) => {
   const items = Array.from({ length: 18 }, (_, index) => ({ ...component, id: String(index), slug: `part-${String(index)}` }));
   await mockCatalog(page, student, items);
@@ -352,7 +370,7 @@ test("student browses the catalog, switches theme and opens sourced learning con
   await expect(themeTrigger).toHaveAttribute("title", "Настроить оформление");
   await expect(themeTrigger).toHaveCSS("height", "44px");
   await expect(themeTrigger).toHaveCSS("width", "44px");
-  await expect(page.locator(".hero__splat")).toHaveAttribute("aria-hidden", "true");
+  await expect(page.locator(".hardware-board")).toHaveAttribute("aria-hidden", "true");
   await expect(page.getByText("Источник: Seeed Studio Wiki · GPL-3.0-only")).toBeVisible();
   await expect(page.getByRole("link", { name: /Добавить компонент/ })).toHaveCount(0);
   await expect(page.getByRole("img", { name: "Основной вид DHT22" })).toBeVisible();
@@ -405,7 +423,7 @@ test("student browses the catalog, switches theme and opens sourced learning con
   }
   await page.goto("/");
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await expect(page.locator(".brand-splat--animated").first()).toHaveCSS("animation-name", "none");
+  await expect(page.locator(".hardware-board__splat")).toHaveCSS("animation-name", "none");
   expect(consoleErrors).toEqual([]);
 });
 
