@@ -14,6 +14,8 @@ Arduino Component Knowledge Base (ACKB) gives students a searchable catalogue wh
 editors, and administrators maintain the material through a controlled review process. The
 current application version is **1.0.1**.
 
+Developed and maintained by [akiamuradev](https://github.com/akiamuradev).
+
 A clean installation contains categories and approved source definitions, but no fabricated or
 automatically published cards. Imported material always starts as a draft; it becomes visible to
 students only after review, approval, and explicit publication.
@@ -202,7 +204,7 @@ An independent fork or derivative remains subject to the
 [PolyForm Noncommercial License 1.0.0](LICENCE): commercial use is not permitted. Imported data
 keeps its own license, attribution, and provenance. Replace all credentials before a public
 deployment, follow the security/deployment requirements, and do not imply affiliation with
-Arduino, Seeed Studio, KiCad, or the original author. Renaming the product requires consistent
+Arduino, Seeed Studio, KiCad, or akiamuradev. Renaming the product requires consistent
 updates to branding, package metadata, Compose image names, frontend metadata, versions, and
 documentation.
 
