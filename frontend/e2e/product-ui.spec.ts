@@ -101,7 +101,7 @@ const component = {
   }],
 };
 
-async function mockCatalog(page: Page, currentUser = student, items = [component]) {
+async function mockCatalog(page: Page, currentUser = student, items = [component], total = items.length) {
   await page.route("**/media-storage/**", async (route) => {
     await route.fulfill({
       status: 200,
@@ -120,7 +120,7 @@ async function mockCatalog(page: Page, currentUser = student, items = [component
       return;
     }
     if (path === "/api/v1/catalog/components") {
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items, total: items.length }) });
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items, total }) });
       return;
     }
     if (path === "/api/v1/catalog/components/dht22") {
@@ -317,6 +317,30 @@ test("workbench filters stay reachable while scrolling and reset existing API fi
   await page.setViewportSize({ width: 360, height: 800 });
   await expect(sidebar).toHaveCSS("position", "static");
   await expect(page.getByRole("combobox")).toHaveCount(2);
+});
+
+test("dense catalog fits six columns at full HD and uses the API result total", async ({ page }) => {
+  const items = Array.from({ length: 18 }, (_, index) => ({ ...component, id: String(index), slug: `part-${String(index)}` }));
+  await mockCatalog(page, student, items, 83);
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.goto("/");
+  await expect(page.locator(".catalog-count")).toHaveText("Найдено: 83");
+  const cards = page.locator(".catalog-card");
+  await expect(cards).toHaveCount(18);
+  const boxes = await cards.evaluateAll((elements) => elements.map((element) => {
+    const box = element.getBoundingClientRect();
+    return { top: box.top, bottom: box.bottom, width: box.width };
+  }));
+  expect(boxes.filter((box) => box.top === boxes[0].top)).toHaveLength(6);
+  expect(boxes[0].width).toBeGreaterThanOrEqual(240);
+  expect(boxes[0].bottom).toBeLessThan(1080);
+  await expect(cards.first()).toContainText("3.3–5.5 В");
+  await expect(cards.first()).toContainText("GPL-3.0-only");
+  await page.screenshot({ path: "/tmp/ackb-dense-1920.png" });
+  await page.route("**/api/v1/catalog/components?*", (route) => route.fulfill({ json: { items: [], total: 0 } }));
+  await page.getByRole("searchbox", { name: "Поиск", exact: true }).fill("missing");
+  await expect(page.locator(".catalog-count")).toHaveText("Найдено: 0");
+  await expect(page.getByRole("heading", { name: "Ничего не найдено" })).toBeVisible();
 });
 
 test("catalog card content stays inside narrow cards", async ({ page }) => {
