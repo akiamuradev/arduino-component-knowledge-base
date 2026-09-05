@@ -14,13 +14,13 @@ export function AboutPage() {
         <section><p className="section-kicker">Автор платформы</p><h2>{PRODUCT_BRAND.authorName}</h2><p>Программный продукт разработан {PRODUCT_BRAND.authorName}.</p><a className="text-link" href={PRODUCT_BRAND.officialRepository} target="_blank" rel="noopener noreferrer">Официальный репозиторий <span aria-hidden="true">↗</span></a></section>
         <section><p className="section-kicker">Лицензия приложения</p><h2>{PRODUCT_BRAND.licenseName}</h2><p>Лицензия PolyForm Noncommercial относится к коду ACKB. Импортированные материалы сохраняют лицензии Seeed Studio Wiki или официальных библиотек KiCad и собственные сведения об авторстве.</p><a className="text-link" href={`${PRODUCT_BRAND.officialRepository}/blob/main/LICENCE`} target="_blank" rel="noopener noreferrer">Открыть текст лицензии <span aria-hidden="true">↗</span></a></section>
 
-        <section><p className="section-kicker">Архитектура</p><h2>Единый защищённый контур</h2><p>Интерфейс, каталог, редакционный процесс и закрытое хранение файлов объединены в одной платформе с разграничением доступа.</p></section>
+        <section><p className="section-kicker">Архитектура</p><h2>Разграничение доступа</h2><p>Доступ к каталогу, редактированию материалов и управлению системой определяется правами учётной записи.</p></section>
       </div>
       <section className="about-sources" id="material-sources">
         <p className="section-kicker">Прозрачность</p>
         <h2>Источники материалов</h2>
         <p>Импортированный материал показывает исходный репозиторий, зафиксированный коммит, файл, версию импорта, лицензию и сведения о преобразованиях. Если подтверждённый снимок источника отсутствует, интерфейс не создаёт его самостоятельно.</p>
-        <p>Действующие источники: Seeed Studio Wiki и официальные библиотеки KiCad. Arduino-Tex, Portal-PK и AlexGyver не используются для импорта; владелец AlexGyver отдельно запретил использование материалов.</p>
+        <p>Материалы могут ссылаться на Seeed Studio Wiki и официальные библиотеки KiCad. Текущий статус каждого источника указан в реестре. Arduino-Tex, Portal-PK и AlexGyver не используются для импорта; владелец AlexGyver отдельно запретил использование материалов.</p>
         <p>Проект не аффилирован с Arduino, Seeed Studio или KiCad. Названия и товарные знаки принадлежат соответствующим правообладателям.</p>
         <Link className="text-link" to="/sources">Открыть реестр источников →</Link>
       </section>
