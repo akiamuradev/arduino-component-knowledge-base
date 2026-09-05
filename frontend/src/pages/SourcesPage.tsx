@@ -15,28 +15,39 @@ function safeUrl(value: string | null): string | null {
   }
 }
 
+const SOURCE_TYPE_LABELS: Record<string, string> = {
+  website: "Веб-сайт",
+  git_repository: "Репозиторий Git",
+  official_library: "Библиотека компонентов",
+};
+const CONTENT_POLICY_LABELS: Record<string, string> = {
+  licensed_content: "Лицензированные материалы",
+  metadata_only: "Только метаданные",
+  structured_metadata: "Структурированные метаданные",
+  facts_and_limited_adaptation: "Факты и ограниченная адаптация",
+};
+const REVISION_POLICY_LABELS: Record<string, string> = {
+  pinned_tag: "Закреплённый тег",
+  release_tag: "Тег релиза",
+  pinned_commit: "Закреплённый коммит",
+  immutable_commit: "Зафиксированный коммит",
+  default_branch: "Основная ветка",
+};
+
 function SourceCard({ source }: { source: CatalogSource }) {
   const repositoryUrl = safeUrl(source.repository_url);
   const licenseUrl = safeUrl(source.license_url);
   const sourceStatus = source.status === "active" ? "Активен" : "Неактивен";
-  const sourceType = source.source_type === "git_repository"
-    ? "Репозиторий Git"
-    : source.source_type;
-  const contentPolicy = source.content_policy === "licensed_content"
-    ? "Лицензированные материалы"
-    : source.content_policy === "metadata_only"
-      ? "Только метаданные"
-      : source.content_policy;
-  const revisionPolicy = source.default_revision_policy === "pinned_tag"
-    ? "Закреплённый тег"
-    : source.default_revision_policy === "pinned_commit"
-      ? "Закреплённый коммит"
-      : source.default_revision_policy === "default_branch"
-        ? "Основная ветка"
-        : source.default_revision_policy;
+  const sourceType = SOURCE_TYPE_LABELS[source.source_type] ?? source.source_type;
+  const contentPolicy = CONTENT_POLICY_LABELS[source.content_policy] ?? source.content_policy;
+  const revisionPolicy = REVISION_POLICY_LABELS[source.default_revision_policy] ?? source.default_revision_policy;
   return (
     <article className="source-card">
-      <div className="section-heading"><div><p className="section-kicker">Тип: {sourceType}</p><h2>{source.display_name}</h2></div><span className={`status-badge status-badge--${source.status}`}>{sourceStatus}</span></div>
+      <header className="source-card__heading">
+        <p className="section-kicker">Тип: {sourceType}</p>
+        <h3>{source.display_name}</h3>
+        <span className={`status-badge status-badge--${source.status}`}>{sourceStatus}</span>
+      </header>
       <dl className="source-facts">
         <div><dt>Назначение</dt><dd>{contentPolicy}</dd></div>
         <div><dt>Лицензия</dt><dd>{source.license_name ?? "Не применяется"}{source.license_spdx === null ? "" : ` · ${source.license_spdx}`}</dd></div>
