@@ -19,6 +19,10 @@ export function CatalogPage() {
   const [difficulty, setDifficulty] = useState<Difficulty | "">("");
   const categories = useQuery(catalogCategoriesQuery);
   const components = useCatalog({ query, categoryId, difficulty });
+  const activeFilters = [
+    categoryId === "" ? null : categories.data?.find((category) => category.id === categoryId)?.name,
+    difficulty === "" ? null : { beginner: "Начальная", intermediate: "Средняя", advanced: "Продвинутая" }[difficulty],
+  ].filter(Boolean);
   const canCreate = currentUser.data === undefined
     ? false
     : hasPermission(currentUser.data, "components.create");
@@ -46,10 +50,12 @@ export function CatalogPage() {
         </div>
         <HardwareBoard />
       </header>
-    <form aria-label="Фильтры каталога" className="catalog-filters" role="search" onSubmit={(event) => { event.preventDefault(); }}>
+    <form aria-label="Поиск по каталогу" className="catalog-toolbar" role="search" onSubmit={(event) => { event.preventDefault(); }}>
       <label>Поиск<input type="search" value={query} maxLength={100} placeholder="Например, датчик температуры" onChange={(event) => { const next = new URLSearchParams(searchParams); const value = event.target.value; if (value === "") next.delete("q"); else next.set("q", value); setSearchParams(next, { replace: true }); }} /></label>
+      <p className="catalog-count" role="status">{components.isSuccess ? <>Найдено: <strong>{components.data.total}</strong></> : components.isPending ? "Загрузка…" : "Каталог недоступен"}</p>
+      {activeFilters.length > 0 ? <p className="catalog-active-filters" aria-label="Активные фильтры">{activeFilters.join(" · ")}</p> : null}
     </form>
-    {components.isPending ? <LoadingState label="Ищем компоненты…" /> : components.isError ? <ErrorState message="Не удалось загрузить каталог." onRetry={() => void components.refetch()} /> : components.data.items.length === 0 ? <SplatEmptyState icon="⌕" title="Ничего не найдено" description="Измените поисковый запрос или фильтры." /> : <><div className="catalog-results"><p className="catalog-count" aria-live="polite">Найдено: <strong>{components.data.total}</strong></p></div><div className="catalog-grid">{components.data.items.map((component) => <ComponentCard component={component} key={component.id} />)}</div></>}
+    {components.isPending ? <LoadingState label="Ищем компоненты…" /> : components.isError ? <ErrorState message="Не удалось загрузить каталог." onRetry={() => void components.refetch()} /> : components.data.items.length === 0 ? <SplatEmptyState icon="⌕" title="Ничего не найдено" description="Измените поисковый запрос или фильтры." /> : <div className="catalog-grid">{components.data.items.map((component) => <ComponentCard component={component} key={component.id} />)}</div>}
     </div>
   </section>;
 }
