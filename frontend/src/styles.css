@@ -337,6 +337,20 @@ code, pre { font-family: var(--font-mono); }
 
 @media (min-width: 1100px) {
   .page.page--catalog { max-width: 2000px; padding: 24px clamp(24px, 2.5vw, 48px); }
+  .catalog-workbench { align-items: start; grid-template-columns: 250px minmax(0, 1fr); }
+  .catalog-workbench .catalog-sidebar { border-bottom: 0; border-right: 1px solid var(--color-border); grid-template-columns: minmax(0, 1fr); max-height: calc(100dvh - 7rem); overflow-y: auto; padding: 0 24px 16px 0; position: sticky; top: 6.25rem; }
+}
+
+.catalog-workbench { display: grid; gap: 24px; min-width: 0; }
+.catalog-workspace { min-width: 0; }
+.catalog-sidebar { align-items: end; border-bottom: 1px solid var(--color-border); display: grid; gap: 16px; grid-template-columns: repeat(2, minmax(0, 1fr)) auto; min-width: 0; padding-bottom: 16px; }
+.catalog-sidebar h2 { font-size: 1rem; grid-column: 1 / -1; margin: 0; }
+.catalog-sidebar label { display: grid; font-size: 0.8rem; font-weight: 700; gap: 8px; min-width: 0; }
+.catalog-sidebar select { background: var(--color-elevated); border: 1px solid var(--color-border); border-radius: var(--radius-sm); min-height: 44px; min-width: 0; padding: 8px; width: 100%; }
+.catalog-sidebar .button { min-width: 0; }
+.catalog-workspace .catalog-filters { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 767px) {
+  .catalog-sidebar { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (max-width: 1023px) {

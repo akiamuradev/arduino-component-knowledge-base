@@ -274,6 +274,33 @@ test("catalog uses a wide desktop workspace without changing other page widths",
   expect(await page.locator("main").evaluate((main) => main.getBoundingClientRect().width)).toBeLessThanOrEqual(1440);
 });
 
+test("workbench filters stay reachable while scrolling and reset existing API filters", async ({ page }) => {
+  const items = Array.from({ length: 18 }, (_, index) => ({ ...component, id: String(index), slug: `part-${String(index)}` }));
+  await mockCatalog(page, student, items);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  const sidebar = page.getByRole("complementary", { name: "Фильтры компонентов" });
+  await expect(sidebar).toHaveCSS("position", "sticky");
+  const request = page.waitForRequest((request) => request.url().includes("category_id="));
+  await page.getByRole("combobox", { name: "Категория", exact: true }).selectOption(category.id);
+  expect((await request).url()).toContain(category.id);
+  await page.getByRole("combobox", { name: "Сложность", exact: true }).selectOption("advanced");
+  await page.getByRole("searchbox", { name: "Поиск", exact: true }).fill("DHT22");
+  await expect(page.locator(".catalog-card")).toHaveCount(18);
+  await page.evaluate(() => { scrollTo(0, 700); });
+  await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(500);
+  await expect(sidebar).toBeVisible();
+  const top = await sidebar.evaluate((element) => element.getBoundingClientRect().top);
+  expect(top).toBeGreaterThanOrEqual(await page.locator(".topbar").evaluate((element) => element.getBoundingClientRect().bottom));
+  await sidebar.getByRole("button", { name: "Сбросить фильтры" }).click();
+  await expect(page.getByRole("combobox", { name: "Категория", exact: true })).toHaveValue("");
+  await expect(page.getByRole("combobox", { name: "Сложность", exact: true })).toHaveValue("");
+  await expect(page.getByRole("searchbox", { name: "Поиск", exact: true })).toHaveValue("");
+  await page.setViewportSize({ width: 360, height: 800 });
+  await expect(sidebar).toHaveCSS("position", "static");
+  await expect(page.getByRole("combobox")).toHaveCount(2);
+});
+
 test("catalog card content stays inside narrow cards", async ({ page }) => {
   const longCard = {
     ...component,
