@@ -51,7 +51,7 @@ export function CatalogPage() {
         <HardwareBoard />
       </header>
     <form aria-label="Поиск по каталогу" className="catalog-toolbar" role="search" onSubmit={(event) => { event.preventDefault(); }}>
-      <label>Поиск<input type="search" value={query} maxLength={100} placeholder="Например, датчик температуры" onChange={(event) => { const next = new URLSearchParams(searchParams); const value = event.target.value; if (value === "") next.delete("q"); else next.set("q", value); setSearchParams(next, { replace: true }); }} /></label>
+      <label>Поиск<input id="catalog-search" type="search" value={query} maxLength={100} placeholder="Например, датчик температуры" onChange={(event) => { const next = new URLSearchParams(searchParams); const value = event.target.value; if (value === "") next.delete("q"); else next.set("q", value); setSearchParams(next, { replace: true }); }} /></label>
       <p className="catalog-count" role="status">{components.isSuccess ? <>Найдено: <strong>{components.data.total}</strong></> : components.isPending ? "Загрузка…" : "Каталог недоступен"}</p>
       {activeFilters.length > 0 ? <p className="catalog-active-filters" aria-label="Активные фильтры">{activeFilters.join(" · ")}</p> : null}
     </form>
