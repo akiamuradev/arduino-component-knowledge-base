@@ -37,14 +37,14 @@ const component = {
   id: "30000000-0000-4000-8000-000000000001",
   slug: "dht22",
   title: "Датчик температуры DHT22",
-  summary: "Цифровой датчик температуры и влажности для учебных Arduino-проектов.",
+  summary: "Цифровой датчик температуры и относительной влажности.",
   primary_category: category,
   aliases: ["AM2302"],
   manufacturer: "Aosong",
   model: "DHT22",
   tags: ["температура", "влажность", "digital"],
   description: "DHT22 измеряет температуру и относительную влажность и передаёт данные по однопроводному цифровому интерфейсу.",
-  purpose: "Измерение параметров микроклимата в учебных проектах.",
+  purpose: "Измерение параметров микроклимата.",
   usage_notes: "Установите подтягивающий резистор между линией данных и питанием.",
   safety_notes: "Перед подключением отключите питание макетной платы.",
   difficulty: "beginner",
@@ -260,14 +260,24 @@ test("inactive source cards keep names, badges and facts inside responsive colum
 });
 
 test("catalog uses a wide desktop workspace without changing other page widths", async ({ page }) => {
-  await mockCatalog(page);
-  for (const [width, height] of [[1366, 768], [1440, 900], [1920, 1080], [2560, 1440]]) {
+  const items = Array.from({ length: 18 }, (_, index) => ({ ...component, id: String(index), slug: `part-${String(index)}` }));
+  await mockCatalog(page, editor, items);
+  for (const [width, height] of [[1366, 768], [1440, 900], [1920, 1080], [2560, 1440], [1100, 900], [1024, 900], [768, 900], [360, 800], [320, 800]]) {
     await page.setViewportSize({ width, height });
     await page.goto("/");
     await expect(page.getByRole("heading", { name: "Каталог компонентов", exact: true })).toBeVisible();
     expect(await page.locator("main").evaluate((main) => main.getBoundingClientRect().width)).toBe(Math.min(width, 2000));
+    await expect(page.getByRole("searchbox")).toHaveCount(1);
+    await expect(page.getByRole("link", { name: /Добавить компонент/ })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: `/tmp/ackb-catalog-${String(width)}.png` });
+    if (width === 1920 || width === 320) {
+      await selectTheme(page, "Тёмное");
+      await expectNoAccessibilityViolations(page, `workbench ${String(width)} dark`);
+      await expectControlTargets(page, `workbench ${String(width)} dark`);
+      await page.screenshot({ path: `/tmp/ackb-catalog-${String(width)}-dark.png` });
+      await selectTheme(page, "Светлое");
+    }
   }
   await page.goto("/about");
   await expect(page.locator("main")).not.toHaveClass(/page--catalog/);
@@ -298,11 +308,18 @@ test("workbench filters stay reachable while scrolling and reset existing API fi
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
   const sidebar = page.getByRole("complementary", { name: "Фильтры компонентов" });
+  await expect(sidebar).toBeVisible();
+  await page.evaluate(() => { document.body.tabIndex = -1; document.body.focus(); });
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("link", { name: "К поиску компонентов" })).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("searchbox", { name: "Поиск", exact: true })).toBeFocused();
   await expect(sidebar).toHaveCSS("position", "sticky");
   const request = page.waitForRequest((request) => request.url().includes("category_id="));
   await page.getByRole("combobox", { name: "Категория", exact: true }).selectOption(category.id);
   expect((await request).url()).toContain(category.id);
   await page.getByRole("combobox", { name: "Сложность", exact: true }).selectOption("advanced");
+  await expect(page.getByLabel("Активные фильтры")).toHaveText("Датчики · Продвинутая");
   await page.getByRole("searchbox", { name: "Поиск", exact: true }).fill("DHT22");
   await expect(page.locator(".catalog-card")).toHaveCount(18);
   await page.evaluate(() => { scrollTo(0, 700); });
@@ -314,6 +331,7 @@ test("workbench filters stay reachable while scrolling and reset existing API fi
   await expect(page.getByRole("combobox", { name: "Категория", exact: true })).toHaveValue("");
   await expect(page.getByRole("combobox", { name: "Сложность", exact: true })).toHaveValue("");
   await expect(page.getByRole("searchbox", { name: "Поиск", exact: true })).toHaveValue("");
+  await expect(page.getByLabel("Активные фильтры")).toHaveCount(0);
   await page.setViewportSize({ width: 360, height: 800 });
   await expect(sidebar).toHaveCSS("position", "static");
   await expect(page.getByRole("combobox")).toHaveCount(2);
@@ -477,8 +495,9 @@ test("editor navigation remains usable at 320px and hides administrator tools", 
 
 test("captures approved responsive theme views", async ({ page }) => {
   test.skip(process.env.ACKB_UPDATE_SCREENSHOTS !== "1", "visual artifacts are updated explicitly");
-  await mockCatalog(page);
-  await page.setViewportSize({ width: 1440, height: 1050 });
+  const items = Array.from({ length: 12 }, (_, index) => ({ ...component, id: String(index), slug: `part-${String(index)}` }));
+  await mockCatalog(page, editor, items);
+  await page.setViewportSize({ width: 1920, height: 1080 });
   await page.goto("/");
   await selectTheme(page, "Светлое");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");

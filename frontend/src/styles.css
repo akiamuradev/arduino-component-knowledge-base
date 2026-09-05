@@ -318,6 +318,7 @@ code, pre { font-family: var(--font-mono); }
 }
 
 @media (min-width: 1100px) {
+  .app-shell--workbench .topbar, .app-shell--workbench .app-footer { padding-inline: max(clamp(24px, 2.5vw, 48px), calc((100vw - 2000px) / 2 + 48px)); }
   .page.page--catalog { max-width: 2000px; padding: 24px clamp(24px, 2.5vw, 48px); }
   .catalog-workbench { align-items: start; grid-template-columns: 250px minmax(0, 1fr); }
   .catalog-workbench .catalog-sidebar { border-bottom: 0; border-right: 1px solid var(--color-border); grid-template-columns: minmax(0, 1fr); max-height: calc(100dvh - 7rem); overflow-y: auto; padding: 0 24px 16px 0; position: sticky; top: 6.25rem; }
@@ -325,6 +326,17 @@ code, pre { font-family: var(--font-mono); }
 
 .catalog-workbench { display: grid; gap: 24px; min-width: 0; }
 .catalog-workspace { min-width: 0; }
+.app-shell--workbench .global-search { display: none; }
+.catalog-skip-link { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 6px; clip-path: inset(50%); height: 1px; left: 16px; overflow: hidden; position: fixed; top: 8px; width: 1px; z-index: 30; }
+.catalog-skip-link:focus { clip-path: none; height: auto; padding: 12px; width: auto; }
+.catalog-workbench :is(input, select, button, a) { scroll-margin-top: 9rem; }
+.catalog-sidebar .button { border-radius: 6px; font-size: 0.85rem; }
+@media (min-width: 768px) {
+  .app-shell--workbench .topbar { grid-template-columns: minmax(0, 1fr) auto auto auto; }
+}
+@media (max-width: 767px) {
+  .app-shell--workbench .topbar__nav { grid-row: 2; }
+}
 .catalog-intro { align-items: center; border-bottom: 1px solid var(--color-border); display: grid; gap: 24px; grid-template-columns: minmax(0, 1fr) minmax(240px, 0.65fr); min-height: 280px; padding: 16px 24px; }
 .catalog-intro h1 { font-size: clamp(1.7rem, 2.3vw, 2.4rem); line-height: 1.15; margin: 0; }
 .catalog-intro p { color: var(--color-text-muted); font-size: 0.9rem; line-height: 1.6; margin: 16px 0; max-width: 60ch; }
@@ -385,6 +397,7 @@ code, pre { font-family: var(--font-mono); }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
+  .hardware-board__pcb { transform: none; transition: none; }
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
   .brand-splat--animated { animation: none; }.oled-board { transform: rotateX(2deg) rotateY(-3deg); will-change: auto; }.oled-highlight { opacity: 0.025; transform: none; }.oled-brand-splat, .oled-reactive-shadow { transform: none; }.oled-cursor { opacity: 0.75; }
 }
