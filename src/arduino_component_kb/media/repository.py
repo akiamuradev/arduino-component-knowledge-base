@@ -145,9 +145,9 @@ class MediaRepository:
         result: dict[UUID, list[ComponentMedia]] = {component_id: [] for component_id in unique_ids}
         if not unique_ids:
             return {}
-        assets = tuple(
-            await self.session.scalars(
-                select(MediaAsset)
+        asset_records = tuple(
+            await self.session.execute(
+                select(MediaAsset.component_id, MediaAsset)
                 .where(
                     MediaAsset.component_id.in_(unique_ids),
                     MediaAsset.kind == MediaKind.IMAGE.value,
@@ -155,8 +155,9 @@ class MediaRepository:
                 .order_by(MediaAsset.component_id, MediaAsset.display_order, MediaAsset.id)
             )
         )
-        if not assets:
+        if not asset_records:
             return {component_id: () for component_id in unique_ids}
+        assets = tuple(item for _, item in asset_records)
         variant_rows = tuple(
             await self.session.scalars(
                 select(MediaVariant)
@@ -167,8 +168,8 @@ class MediaRepository:
         variants_by_asset: dict[UUID, list[MediaVariant]] = {}
         for variant in variant_rows:
             variants_by_asset.setdefault(variant.asset_id, []).append(variant)
-        for asset in assets:
-            component_id = cast(UUID, asset.component_id)
+        for selected_component_id, asset in asset_records:
+            component_id = cast(UUID, selected_component_id)
             result[component_id].append(
                 ComponentMedia(
                     asset_id=asset.id,
