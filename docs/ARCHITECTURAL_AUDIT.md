@@ -16,6 +16,10 @@
   явный rollback при FAILED, поскольку runtime поглощает исключение. Проверены
   SQL/ORM flush/logical failures и success; исходные idempotency tests сохранены.
   Это не решает отдельно длительность транзакции и согласование lease/timeout.
+- CI после первого push выявил известные уязвимости httpx2/httpcore2 2.7.0.
+  Обновлены только эти пакеты до 2.12.0 и связанные lock metadata; минимальная версия
+  httpx2 повышена до 2.12. Strict pip-audit runtime lock теперь проходит, backend
+  regression/static/smoke и PostgreSQL shadow integration повторно прошли.
 - Ниже сохранены исходные findings, чтобы не терять причины изменений. CP3–CP6,
   shadow SQL fault injection, batching и инфраструктурные drills ещё впереди.
 Основа: main `583d83946752bdb820abd03ea088746ec6ad1561` и незакоммиченный
@@ -388,7 +392,7 @@ snapshot visibility, licensing или ownership.
 Это архитектурный аудит, не построчная security-проверка каждого файла, penetration
 test или certification production. Не утверждается, что все дефекты найдены.
 CP2 начат с A1, A3 исправлен; checkpoints 3–6 ещё не выполнены.
-Следующие backend шаги — проверка предупреждений зависимостей, затем query-count
+Следующие backend шаги — query-count
 baseline и batching каталога; длительность shadow/lease остаётся отдельной задачей.
 
 Для продолжения не перечитывать изученные участки без нового вопроса/изменения файла.
