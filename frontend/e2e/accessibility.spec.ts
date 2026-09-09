@@ -166,10 +166,14 @@ test("editor, import and user management pass responsive accessibility checks", 
   await expect(page.getByRole("heading", { name: "Без названия" })).toBeVisible();
   await selectTheme(page, "Тёмное");
   await auditPage(page, "component editor dark mobile", 12);
-  await page.getByRole("button", { name: "Добавить характеристику" }).click();
-  await page.getByRole("button", { name: "Добавить характеристику" }).click();
+  await page.getByLabel("Характеристика 1").fill("Напряжение питания");
+  await page.getByLabel("Значение характеристики 1").fill("5 В");
+  await page.getByLabel("Характеристика 2").fill("Архитектура");
+  await page.getByLabel("Значение характеристики 2").fill("8-bit AVR");
   await expect(page.getByRole("button", { name: "Удалить характеристику 1" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Удалить характеристику 2" })).toBeVisible();
+  await expectNoHorizontalOverflow(page, "specification editor dark mobile");
+  await expectNoAccessibilityViolations(page, "specification editor dark mobile");
   const editorTab = page.getByRole("tab", { name: "Редактор" });
   await editorTab.focus();
   await page.keyboard.press("ArrowRight");

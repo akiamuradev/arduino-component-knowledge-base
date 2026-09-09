@@ -32,7 +32,17 @@ import { CorrectionProposalReview } from "../components/CorrectionProposalReview
 import { LearningExample } from "../components/LearningExample";
 import { MediaGallery } from "../components/MediaGallery";
 import { SourceAttributionBlock } from "../components/SourceAttributionBlock";
+import { TechnicalSpecificationsEditor } from "../components/TechnicalSpecificationsEditor";
 import { COMPONENT_STATUS_LABELS, DIFFICULTY_LABELS } from "../config/uiLabels";
+import {
+  duplicateSpecificationKeys,
+  isEmptySpecification,
+  specificationDisplayValue,
+  specificationError,
+  specificationInputs,
+  specificationKey,
+  withTrailingSpecification,
+} from "../editor/technical-specifications";
 import {
   workspaceCategoriesQuery,
   workspaceComponentQuery,
@@ -100,7 +110,7 @@ function emptyState(categories: Category[]): EditorState {
     difficulty: "beginner",
     teacherNotes: "",
     manualOriginal: true,
-    specifications: [],
+    specifications: withTrailingSpecification([]),
     compatibility: [],
     codeExamples: [],
     images: [],
@@ -124,13 +134,13 @@ function stateFromCard(card: ComponentCard): EditorState {
     difficulty: card.difficulty,
     teacherNotes: card.teacher_notes ?? "",
     manualOriginal: card.manual_original,
-    specifications: card.specifications.map((item) => ({
+    specifications: withTrailingSpecification(card.specifications.map((item) => ({
       key: item.key,
       label: item.label,
       value_text: item.value_text,
       value_number: item.value_number,
       unit: item.unit,
-    })),
+    }))),
     compatibility: card.compatibility.map((item) => ({
       target_type: item.target_type,
       name: item.name,
@@ -157,7 +167,10 @@ const nullable = (value: string): string | null => value.trim() || null;
 const commaList = (value: string): string[] =>
   value.split(",").map((item) => item.trim()).filter(Boolean);
 
-function toDraftInput(state: EditorState): ComponentDraftInput {
+function toDraftInput(
+  state: EditorState,
+  originalSpecifications: readonly TechnicalSpecificationInput[] = [],
+): ComponentDraftInput {
   return {
     slug: state.slug.trim(),
     title: state.title.trim(),
@@ -174,13 +187,7 @@ function toDraftInput(state: EditorState): ComponentDraftInput {
     difficulty: state.difficulty,
     teacher_notes: nullable(state.teacherNotes),
     manual_original: state.manualOriginal,
-    specifications: state.specifications.map((item) => ({
-      key: item.key.trim(),
-      label: item.label.trim(),
-      value_text: item.value_text.trim(),
-      value_number: nullable(item.value_number ?? ""),
-      unit: nullable(item.unit ?? ""),
-    })),
+    specifications: specificationInputs(state.specifications, originalSpecifications),
     compatibility: state.compatibility.map((item) => ({
       target_type: item.target_type,
       name: item.name.trim(),
@@ -312,7 +319,7 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
   const save = useMutation({
     mutationFn: async () => {
       if (mode === "new") return api.createComponentDraft(toCreateInput(state));
-      const input = toDraftInput(state);
+      const input = toDraftInput(state, card?.specifications);
       if (workingCard === undefined) throw new Error("Для редактирования требуется загруженная карточка");
       return api.updateComponentDraft(workingCard.id, {
         ...input,
@@ -356,6 +363,12 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
     (error) => error !== null && error !== conflict,
   );
   const problems = publicationProblems(state);
+  const duplicateSpecificationKeySet = duplicateSpecificationKeys(state.specifications);
+  const invalidSpecificationIndex = state.specifications.findIndex((item) => {
+    if (specificationError(item) !== null) return true;
+    const key = item.key.trim() || specificationKey(item.label);
+    return !isEmptySpecification(item) && duplicateSpecificationKeySet.has(key);
+  });
   const hasUnknownLicense = workingCard?.sources.some(
     (source) => source.license_spdx.trim() === "" || source.license_spdx === "Unknown",
   ) === true;
@@ -378,16 +391,6 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
   const update = <K extends keyof EditorState>(key: K, value: EditorState[K]) => {
     setState((current) => ({ ...current, [key]: value }));
   };
-  const updateSpecification = (
-    index: number,
-    key: keyof TechnicalSpecificationInput,
-    value: string,
-  ) => {
-    update("specifications", state.specifications.map((item, position) =>
-      position === index
-        ? { ...item, [key]: key === "value_number" || key === "unit" ? value || null : value }
-        : item));
-  };
   const updateCompatibility = (
     index: number,
     key: keyof ComponentCompatibilityInput,
@@ -408,6 +411,12 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
   };
   const submit = (event: SyntheticEvent<HTMLFormElement, SubmitEvent>) => {
     event.preventDefault();
+    if (invalidSpecificationIndex >= 0) {
+      document.getElementById(
+        `specification-label-${String(invalidSpecificationIndex)}`,
+      )?.focus();
+      return;
+    }
     save.mutate();
   };
   const reload = async () => {
@@ -524,16 +533,11 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
             <EditorTextArea label="Заметки преподавателя — скрыты от ученика" value={state.teacherNotes} maxLength={10000} onChange={(value) => { update("teacherNotes", value); }} />
             <label className="checkbox"><input type="checkbox" checked={state.manualOriginal} onChange={(event) => { update("manualOriginal", event.target.checked); }} />Материал создан вручную</label>
           </fieldset>
-          <fieldset><legend>Характеристики</legend><p className="field-help">Ключ стабилен между карточками; числовое значение используется будущими фильтрами.</p>
-            <div className="structured-list">{state.specifications.map((item, index) => <div className="structured-row" key={`${item.key}:${String(index)}`}>
-              <EditorField label="Ключ" value={item.key} maxLength={100} required onChange={(value) => { updateSpecification(index, "key", value); }} />
-              <EditorField label="Название" value={item.label} maxLength={160} required onChange={(value) => { updateSpecification(index, "label", value); }} />
-              <EditorField label="Отображаемое значение" value={item.value_text} maxLength={2000} required onChange={(value) => { updateSpecification(index, "value_text", value); }} />
-              <EditorField label="Число (необязательно)" value={item.value_number ?? ""} maxLength={64} onChange={(value) => { updateSpecification(index, "value_number", value); }} />
-              <EditorField label="Единица" value={item.unit ?? ""} maxLength={32} onChange={(value) => { updateSpecification(index, "unit", value); }} />
-              <button aria-label={`Удалить характеристику ${String(index + 1)}`} className="button button--quiet" type="button" onClick={() => { update("specifications", state.specifications.filter((_, position) => position !== index)); }}>Удалить</button>
-            </div>)}</div>
-            <button className="button button--quiet" disabled={state.specifications.length >= 50} type="button" onClick={() => { update("specifications", [...state.specifications, { key: "", label: "", value_text: "", value_number: null, unit: null }]); }}>Добавить характеристику</button>
+          <fieldset><legend>Характеристики</legend><p className="field-help">Заполняйте как таблицу. Число, единица измерения и технический ключ определяются автоматически, когда это безопасно.</p>
+            <TechnicalSpecificationsEditor
+              items={state.specifications}
+              onChange={(items) => { update("specifications", items); }}
+            />
           </fieldset>
           <fieldset><legend>Совместимость</legend>
             <div className="structured-list">{state.compatibility.map((item, index) => <div className="structured-row" key={`${item.target_type}:${item.name}:${String(index)}`}>
@@ -723,7 +727,7 @@ function ComponentPreview({ state, categories, status }: { state: EditorState; c
     <EditorMediaPreview images={state.images} />
     <div className="preview-body"><section><h2>Описание</h2><p>{state.description || "Описание ещё не заполнено."}</p></section>
       {state.purpose ? <section><h2>Назначение</h2><p>{state.purpose}</p></section> : null}
-      {state.specifications.length > 0 ? <section><h2>Характеристики</h2><dl className="specification-list">{state.specifications.map((item) => <div key={item.key}><dt>{item.label}</dt><dd>{item.value_text}{item.unit ? ` ${item.unit}` : ""}</dd></div>)}</dl></section> : null}
+      {state.specifications.some((item) => !isEmptySpecification(item)) ? <section><h2>Характеристики</h2><dl className="specification-list">{state.specifications.filter((item) => !isEmptySpecification(item)).map((item, index) => <div key={item.key || String(index)}><dt>{item.label}</dt><dd>{specificationDisplayValue(item)}</dd></div>)}</dl></section> : null}
       {state.compatibility.length > 0 ? <section><h2>Совместимость</h2><ul className="compatibility-list">{state.compatibility.map((item, index) => <li key={`${item.target_type}:${item.name}:${String(index)}`}><strong>{item.name}</strong>{item.version_constraint ? <span>{item.version_constraint}</span> : null}{item.notes ? <p>{item.notes}</p> : null}</li>)}</ul></section> : null}
       {state.codeExamples.length > 0 ? <section><h2>Практика</h2>{state.codeExamples.map((item, position) => <LearningExample example={{ ...item, libraries: commaList(item.libraries), position }} key={`${String(position)}:${item.title}`} />)}</section> : null}
       {state.safetyNotes ? <section className="safety-callout"><h2>Безопасность</h2><p>{state.safetyNotes}</p></section> : null}

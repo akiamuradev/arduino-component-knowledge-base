@@ -54,6 +54,10 @@ reset password и создание administrator без client-owned roles, perm
 repository import, клавиатурную навигацию, темы и ширину 320 px. `@axe-core/playwright`
 блокирует нарушения WCAG в основных пользовательских потоках.
 
+Тесты редактора характеристик фиксируют двухколоночный ввод, детерминированный key,
+безопасное выделение numeric/unit, сохранение существующих metadata, пустую последнюю
+строку, half-filled validation, удаление, Enter, bulk paste и предел в 50 записей.
+
 Регрессия MediaGallery использует фото 1200×1600 и схему 1800×600: Playwright сравнивает
 размеры viewport и hero до и после переключения на desktop и mobile. Также проверяются
 lightbox, Escape, стрелки, возврат фокуса и блокировка прокрутки; Vitest покрывает fallback

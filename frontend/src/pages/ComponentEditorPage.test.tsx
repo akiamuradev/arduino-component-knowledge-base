@@ -215,6 +215,67 @@ describe("component editor", () => {
     }));
   });
 
+  it("maps two visible specification fields and omits the trailing row", async () => {
+    document.cookie = "ackb_csrf=csrf-value; Path=/";
+    const saved = { ...card, revision: 1, specifications: [] };
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse(saved, 201));
+    vi.stubGlobal("fetch", fetchMock);
+    renderNewEditor();
+
+    await userEvent.type(screen.getByLabelText("Характеристика 1"), "Напряжение питания");
+    await userEvent.type(screen.getByLabelText("Значение характеристики 1"), "5 В");
+    await userEvent.click(screen.getByRole("button", { name: "Сохранить черновик" }));
+
+    const body = JSON.parse(requestBody(fetchMock.mock.calls[0]?.[1])) as {
+      specifications: unknown[];
+    };
+    expect(body.specifications).toEqual([{
+      key: "napryazhenie-pitaniya",
+      label: "Напряжение питания",
+      value_text: "5 В",
+      value_number: "5",
+      unit: "В",
+    }]);
+  });
+
+  it("preserves an untouched existing specification when saving", async () => {
+    document.cookie = "ackb_csrf=csrf-value; Path=/";
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({
+      ...card, revision: 8,
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    renderEditor();
+
+    expect(screen.getByLabelText("Характеристика 1")).toHaveValue("Частота");
+    expect(screen.getByLabelText("Значение характеристики 1")).toHaveValue("16");
+    expect(screen.queryByLabelText("Ключ")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Сохранить черновик" }));
+
+    const body = JSON.parse(requestBody(fetchMock.mock.calls[0]?.[1])) as {
+      specifications: unknown[];
+    };
+    expect(body.specifications).toEqual([{
+      key: "clock-frequency",
+      label: "Частота",
+      value_text: "16",
+      value_number: "16",
+      unit: "МГц",
+    }]);
+  });
+
+  it("does not submit a half-filled specification", async () => {
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetchMock);
+    renderNewEditor();
+    await userEvent.type(screen.getByLabelText("Значение характеристики 1"), "5 В");
+
+    await userEvent.click(screen.getByRole("button", { name: "Сохранить черновик" }));
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.getByText("Укажите название характеристики.")).toBeVisible();
+    expect(screen.getByLabelText("Характеристика 1")).toHaveFocus();
+  });
+
   it("places the persistent image editor between identification and learning content", () => {
     renderEditor();
 

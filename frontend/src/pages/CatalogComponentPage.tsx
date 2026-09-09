@@ -10,6 +10,7 @@ import { LearningExample } from "../components/LearningExample";
 import { MediaGallery } from "../components/MediaGallery";
 import { SourceAttributionBlock } from "../components/SourceAttributionBlock";
 import { DIFFICULTY_LABELS } from "../config/uiLabels";
+import { specificationDisplayValue } from "../editor/technical-specifications";
 
 const targetLabels = { board: "Плата", library: "Библиотека", platform: "Платформа" };
 export function CatalogComponentPage() {
@@ -30,7 +31,7 @@ export function CatalogComponentPage() {
       <div className="student-card__main">
         <section><p className="section-kicker">01 / О компоненте</p><h2>Описание</h2><p className="preserve-lines">{card.description}</p></section>
         {card.purpose ? <section><p className="section-kicker">02 / Задача</p><h2>Назначение</h2><p>{card.purpose}</p></section> : null}
-        {card.specifications.length > 0 ? <section><p className="section-kicker">03 / Параметры</p><h2>Характеристики</h2><dl className="specification-list">{card.specifications.map((item) => <div key={item.key}><dt>{item.label}</dt><dd>{item.value_text}{item.unit ? ` ${item.unit}` : ""}</dd></div>)}</dl></section> : null}
+        {card.specifications.length > 0 ? <section><p className="section-kicker">03 / Параметры</p><h2>Характеристики</h2><dl className="specification-list">{card.specifications.map((item) => <div key={item.key}><dt>{item.label}</dt><dd>{specificationDisplayValue(item)}</dd></div>)}</dl></section> : null}
         {card.compatibility.length > 0 ? <section><p className="section-kicker">04 / Подключение</p><h2>Совместимость</h2><ul className="compatibility-list">{card.compatibility.map((item) => <li key={`${item.target_type}:${item.name}:${item.version_constraint ?? ""}`}><strong>{targetLabels[item.target_type]}: {item.name}</strong>{item.version_constraint ? <span>{item.version_constraint}</span> : null}{item.notes ? <p>{item.notes}</p> : null}</li>)}</ul></section> : null}
         {card.usage_notes ? <section><h2>Использование</h2><p className="preserve-lines">{card.usage_notes}</p></section> : null}
         {card.safety_notes ? <section className="safety-callout"><p className="section-kicker">Важно</p><h2>Безопасность</h2><p className="preserve-lines">{card.safety_notes}</p></section> : null}
