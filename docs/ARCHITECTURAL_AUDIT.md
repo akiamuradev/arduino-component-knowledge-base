@@ -20,8 +20,9 @@
   Обновлены только эти пакеты до 2.12.0 и связанные lock metadata; минимальная версия
   httpx2 повышена до 2.12. Strict pip-audit runtime lock теперь проходит, backend
   regression/static/smoke и PostgreSQL shadow integration повторно прошли.
-- Ниже сохранены исходные findings, чтобы не терять причины изменений. CP3–CP6,
-  shadow SQL fault injection, batching и инфраструктурные drills ещё впереди.
+- Ниже сохранены исходные findings, чтобы не терять причины изменений. Checkpoints
+  CP3–CP6 целиком ещё не завершены: batching, lease/timeout и полный эксплуатационный
+  verification остаются в плане; SQL fault injection A2 уже выполнен.
 Основа: main `583d83946752bdb820abd03ea088746ec6ad1561` и незакоммиченный
 frontend branding WIP. Выводы о WIP нельзя автоматически относить к main.
 Изменения с другого компьютера в доступном origin/main не обнаружены.
