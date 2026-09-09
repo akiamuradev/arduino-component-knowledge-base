@@ -8,10 +8,10 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from hashlib import sha256
-from typing import cast
+from typing import TypeVar, cast
 from uuid import UUID, uuid4
 
-from sqlalchemy import delete, func, literal_column, or_, select, update
+from sqlalchemy import and_, delete, func, literal_column, or_, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
@@ -66,10 +66,11 @@ from arduino_component_kb.media.domain import (
     MediaKind,
     MediaStatus,
 )
-from arduino_component_kb.media.models import MediaAsset
+from arduino_component_kb.media.models import MediaAsset, MediaVariant
 from arduino_component_kb.media.repository import MediaRepository
 
 _SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+_MediaGroupKey = TypeVar("_MediaGroupKey")
 
 
 def _normalized(value: str) -> str:
@@ -196,7 +197,7 @@ class CatalogService:
             )
         else:
             base = base.order_by(PublishedSearchDocument.published_at.desc(), Component.id)
-        rows = await self.session.scalars(base.limit(limit))
+        component_ids = tuple(await self.session.scalars(base.limit(limit)))
         total = await self.session.scalar(
             select(func.count())
             .select_from(PublishedSearchDocument)
@@ -204,12 +205,77 @@ class CatalogService:
             .join(Category, Category.id == PublishedSearchDocument.category_id)
             .where(*conditions)
         )
-        cards = [
-            card
-            for component_id in rows
-            if (card := await self._published_card(component_id)) is not None
-        ]
+        cards = await self._published_cards(component_ids)
         return cards, int(total or 0)
+
+    async def _published_cards(self, component_ids: tuple[UUID, ...]) -> list[CatalogCard]:
+        """Assemble a catalog page with a fixed number of aggregate queries."""
+        if not component_ids:
+            return []
+        latest_revisions = (
+            select(
+                ComponentRevision.component_id.label("component_id"),
+                func.max(ComponentRevision.revision).label("revision"),
+            )
+            .where(
+                ComponentRevision.component_id.in_(component_ids),
+                ComponentRevision.status == ComponentStatus.PUBLISHED.value,
+            )
+            .group_by(ComponentRevision.component_id)
+            .subquery()
+        )
+        snapshots = tuple(
+            await self.session.scalars(
+                select(ComponentRevision).join(
+                    latest_revisions,
+                    and_(
+                        ComponentRevision.component_id == latest_revisions.c.component_id,
+                        ComponentRevision.revision == latest_revisions.c.revision,
+                    ),
+                )
+            )
+        )
+        if not snapshots:
+            return []
+        snapshots_by_component = {item.component_id: item for item in snapshots}
+        category_ids_by_component = {
+            item.component_id: UUID(str(item.content_json["primary_category_id"]))
+            for item in snapshots
+        }
+        categories = tuple(
+            await self.session.scalars(
+                select(Category).where(
+                    Category.id.in_(set(category_ids_by_component.values())),
+                    Category.is_active.is_(True),
+                )
+            )
+        )
+        categories_by_id = {item.id: item for item in categories}
+        media_records = {
+            item.component_id: _snapshot_records(item.content_json.get("media", []))
+            for item in snapshots
+            if category_ids_by_component[item.component_id] in categories_by_id
+        }
+        media_by_component = await self._published_media_batch(media_records)
+
+        cards: list[CatalogCard] = []
+        for component_id in component_ids:
+            snapshot = snapshots_by_component.get(component_id)
+            if snapshot is None:
+                continue
+            category_id = category_ids_by_component[component_id]
+            category = categories_by_id.get(category_id)
+            if category is None:
+                continue
+            cards.append(
+                self._published_card_from_snapshot(
+                    component_id,
+                    snapshot,
+                    category,
+                    media_by_component[component_id],
+                )
+            )
+        return cards
 
     async def get_published(self, slug: str) -> CatalogCard:
         row = await self.session.scalar(
@@ -1471,11 +1537,27 @@ class CatalogService:
         category = await self.session.get(Category, category_id)
         if category is None or not category.is_active:
             return None
+        media_records = _snapshot_records(content.get("media", []))
+        return self._published_card_from_snapshot(
+            component_id,
+            snapshot,
+            category,
+            await self._published_media(media_records),
+        )
+
+    def _published_card_from_snapshot(
+        self,
+        component_id: UUID,
+        snapshot: ComponentRevision,
+        category: Category,
+        media: tuple[ComponentMedia, ...],
+    ) -> CatalogCard:
+        content = snapshot.content_json
+        category_id = UUID(str(content["primary_category_id"]))
         specifications = _snapshot_records(content.get("specifications", []))
         compatibility = _snapshot_records(content.get("compatibility", []))
         code_examples = _snapshot_records(content.get("code_examples", []))
         source_records = _snapshot_records(content.get("sources", []))
-        media_records = _snapshot_records(content.get("media", []))
         data = DraftData(
             slug=str(content["slug"]),
             title=str(content["title"]),
@@ -1542,7 +1624,7 @@ class CatalogService:
             snapshot.created_at,
             snapshot.created_at,
             tuple(self._source_snapshot_from_dict(item) for item in source_records),
-            await self._published_media(media_records),
+            media,
         )
 
     async def _validate_publish_media(self, component_id: UUID) -> None:
@@ -1628,18 +1710,58 @@ class CatalogService:
     async def _published_media(
         self, records: list[dict[str, object]]
     ) -> tuple[ComponentMedia, ...]:
+        return (await self._published_media_batch({None: records}))[None]
+
+    async def _published_media_batch(
+        self,
+        records_by_component: dict[_MediaGroupKey, list[dict[str, object]]],
+    ) -> dict[_MediaGroupKey, tuple[ComponentMedia, ...]]:
+        asset_ids: set[UUID] = set()
+        try:
+            for records in records_by_component.values():
+                asset_ids.update(UUID(str(item["asset_id"])) for item in records)
+        except (KeyError, TypeError, ValueError) as error:
+            raise CatalogValidationError("published_media_snapshot_invalid") from error
+        if not asset_ids:
+            return {key: () for key in records_by_component}
+
+        assets = tuple(
+            await self.session.scalars(
+                select(MediaAsset).where(
+                    MediaAsset.id.in_(asset_ids),
+                    MediaAsset.status == MediaStatus.READY.value,
+                )
+            )
+        )
+        variants = tuple(
+            await self.session.scalars(
+                select(MediaVariant).where(MediaVariant.asset_id.in_(asset_ids))
+            )
+        )
+        assets_by_id = {item.id: item for item in assets}
+        variants_by_asset: dict[UUID, dict[str, MediaVariant]] = {}
+        for variant in variants:
+            variants_by_asset.setdefault(variant.asset_id, {})[variant.variant] = variant
+        return {
+            key: self._published_media_from_rows(records, assets_by_id, variants_by_asset)
+            for key, records in records_by_component.items()
+        }
+
+    def _published_media_from_rows(
+        self,
+        records: list[dict[str, object]],
+        assets_by_id: dict[UUID, MediaAsset],
+        variants_by_asset: dict[UUID, dict[str, MediaVariant]],
+    ) -> tuple[ComponentMedia, ...]:
         result: list[ComponentMedia] = []
         for position, item in enumerate(records):
             try:
                 asset_id = UUID(str(item["asset_id"]))
-                asset = await self.session.get(MediaAsset, asset_id)
-                if asset is None or asset.status != MediaStatus.READY.value:
+                asset = assets_by_id.get(asset_id)
+                if asset is None:
                     continue
                 variants = _snapshot_records(item.get("variants", []))
-                current = {
-                    value.variant: value
-                    for value in await MediaRepository(self.session).variants(asset_id)
-                }
+                current = variants_by_asset.get(asset_id, {})
                 verified: list[ComponentMediaVariant] = []
                 for variant in variants:
                     name = str(variant["name"])
