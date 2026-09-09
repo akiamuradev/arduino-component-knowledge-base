@@ -11,6 +11,11 @@
   сессию. Добавлены tests identity switch, late query response, logout и expiry.
 - После исправлений frontend lint/typecheck/unit/build и полный обязательный
   Playwright suite прошли; opt-in обновление скриншотов не запускалось.
+- A2 SQL isolation: fault injection на отдельном PostgreSQL 17 воспроизвёл aborted
+  outer transaction до исправления. Worker bridge теперь использует savepoint и
+  явный rollback при FAILED, поскольку runtime поглощает исключение. Проверены
+  SQL/ORM flush/logical failures и success; исходные idempotency tests сохранены.
+  Это не решает отдельно длительность транзакции и согласование lease/timeout.
 - Ниже сохранены исходные findings, чтобы не терять причины изменений. CP3–CP6,
   shadow SQL fault injection, batching и инфраструктурные drills ещё впереди.
 Основа: main `583d83946752bdb820abd03ea088746ec6ad1561` и незакоммиченный
@@ -383,7 +388,8 @@ snapshot visibility, licensing или ownership.
 Это архитектурный аудит, не построчная security-проверка каждого файла, penetration
 test или certification production. Не утверждается, что все дефекты найдены.
 CP2 начат с A1, A3 исправлен; checkpoints 3–6 ещё не выполнены.
-Следующий backend шаг — regression/fault injection A2 перед изменением транзакций.
+Следующие backend шаги — проверка предупреждений зависимостей, затем query-count
+baseline и batching каталога; длительность shadow/lease остаётся отдельной задачей.
 
 Для продолжения не перечитывать изученные участки без нового вопроса/изменения файла.
 Читать только изменяемую функцию и её непосредственные contracts/tests. Остались
