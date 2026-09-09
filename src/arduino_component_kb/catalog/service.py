@@ -147,7 +147,7 @@ class CatalogService:
         query = select(Component).order_by(Component.updated_at.desc())
         if status is not None:
             query = query.where(Component.status == status.value)
-        return [await self._card(row) for row in await self.session.scalars(query)]
+        return await self._cards(tuple(await self.session.scalars(query)))
 
     async def list_published(
         self,
@@ -1321,61 +1321,55 @@ class CatalogService:
             )
 
     async def _data(self, row: Component) -> DraftData:
-        aliases = await self.session.scalars(
-            select(ComponentAlias.alias)
-            .where(ComponentAlias.component_id == row.id)
-            .order_by(ComponentAlias.position)
+        return (await self._data_batch((row,)))[row.id]
+
+    async def _data_batch(self, rows: tuple[Component, ...]) -> dict[UUID, DraftData]:
+        if not rows:
+            return {}
+        component_ids = tuple(row.id for row in rows)
+        alias_records = await self.session.execute(
+            select(ComponentAlias.component_id, ComponentAlias.alias)
+            .where(ComponentAlias.component_id.in_(component_ids))
+            .order_by(ComponentAlias.component_id, ComponentAlias.position)
         )
-        tags = await self.session.scalars(
-            select(Tag.name)
+        tag_records = await self.session.execute(
+            select(ComponentTag.component_id, Tag.name)
             .join(ComponentTag, ComponentTag.tag_id == Tag.id)
-            .where(ComponentTag.component_id == row.id)
-            .order_by(Tag.name)
+            .where(ComponentTag.component_id.in_(component_ids))
+            .order_by(ComponentTag.component_id, Tag.name)
         )
         specification_rows = await self.session.execute(
             select(ComponentProperty, PropertyDefinition, Unit)
             .join(PropertyDefinition, PropertyDefinition.id == ComponentProperty.definition_id)
             .outerjoin(Unit, Unit.id == PropertyDefinition.unit_id)
-            .where(ComponentProperty.component_id == row.id)
-            .order_by(ComponentProperty.position)
+            .where(ComponentProperty.component_id.in_(component_ids))
+            .order_by(ComponentProperty.component_id, ComponentProperty.position)
         )
-        compatibility_rows = await self.session.scalars(
-            select(ComponentCompatibility)
-            .where(ComponentCompatibility.component_id == row.id)
-            .order_by(ComponentCompatibility.position)
+        compatibility_records = await self.session.execute(
+            select(ComponentCompatibility.component_id, ComponentCompatibility)
+            .where(ComponentCompatibility.component_id.in_(component_ids))
+            .order_by(ComponentCompatibility.component_id, ComponentCompatibility.position)
         )
-        example_rows = list(
-            await self.session.scalars(
-                select(CodeExampleRow)
-                .where(CodeExampleRow.component_id == row.id)
-                .order_by(CodeExampleRow.position)
+        example_records = await self.session.execute(
+            select(CodeExampleRow, CodeExampleHint)
+            .outerjoin(CodeExampleHint, CodeExampleHint.example_id == CodeExampleRow.id)
+            .where(CodeExampleRow.component_id.in_(component_ids))
+            .order_by(
+                CodeExampleRow.component_id,
+                CodeExampleRow.position,
+                CodeExampleHint.position,
             )
         )
-        code_examples: list[CodeExample] = []
-        for example in example_rows:
-            hints = await self.session.scalars(
-                select(CodeExampleHint.body)
-                .where(CodeExampleHint.example_id == example.id)
-                .order_by(CodeExampleHint.position)
-            )
-            code_examples.append(
-                CodeExample(
-                    title=example.title,
-                    language=example.language,
-                    practical_task=example.practical_task,
-                    hints=tuple(hints),
-                    body=example.body,
-                    libraries=tuple(example.libraries_json),
-                    explanation=example.explanation,
-                    visibility=CodeExampleVisibility(example.visibility),
-                    position=example.position,
-                )
-            )
-        return DraftData(
-            difficulty=Difficulty(row.difficulty),
-            aliases=tuple(aliases),
-            tags=tuple(tags),
-            specifications=tuple(
+
+        aliases_by_component: dict[UUID, list[str]] = {}
+        for component_id, alias in alias_records:
+            aliases_by_component.setdefault(component_id, []).append(alias)
+        tags_by_component: dict[UUID, list[str]] = {}
+        for component_id, tag in tag_records:
+            tags_by_component.setdefault(component_id, []).append(tag)
+        specifications_by_component: dict[UUID, list[TechnicalSpecification]] = {}
+        for property_row, definition, unit in specification_rows:
+            specifications_by_component.setdefault(property_row.component_id, []).append(
                 TechnicalSpecification(
                     key=definition.key,
                     label=definition.label,
@@ -1388,9 +1382,10 @@ class CatalogService:
                     unit=unit.symbol if unit is not None else None,
                     position=property_row.position,
                 )
-                for property_row, definition, unit in specification_rows
-            ),
-            compatibility=tuple(
+            )
+        compatibility_by_component: dict[UUID, list[CompatibilityItem]] = {}
+        for component_id, item in compatibility_records:
+            compatibility_by_component.setdefault(component_id, []).append(
                 CompatibilityItem(
                     target_type=item.target_type,
                     name=item.name,
@@ -1398,42 +1393,117 @@ class CatalogService:
                     notes=item.notes,
                     position=item.position,
                 )
-                for item in compatibility_rows
-            ),
-            code_examples=tuple(code_examples),
-            **{
-                key: getattr(row, key)
-                for key in (
-                    "slug",
-                    "title",
-                    "manufacturer",
-                    "model",
-                    "primary_category_id",
-                    "summary",
-                    "description",
-                    "purpose",
-                    "usage_notes",
-                    "safety_notes",
-                    "teacher_notes",
-                    "manual_original",
-                )
-            },
-        )
+            )
+        example_rows_by_component: dict[UUID, list[CodeExampleRow]] = {}
+        hints_by_example: dict[UUID, list[str]] = {}
+        seen_examples: set[UUID] = set()
+        for example, hint in example_records:
+            if example.id not in seen_examples:
+                seen_examples.add(example.id)
+                example_rows_by_component.setdefault(example.component_id, []).append(example)
+            if hint is not None:
+                hints_by_example.setdefault(example.id, []).append(hint.body)
+
+        return {
+            row.id: DraftData(
+                difficulty=Difficulty(row.difficulty),
+                aliases=tuple(aliases_by_component.get(row.id, ())),
+                tags=tuple(tags_by_component.get(row.id, ())),
+                specifications=tuple(specifications_by_component.get(row.id, ())),
+                compatibility=tuple(compatibility_by_component.get(row.id, ())),
+                code_examples=tuple(
+                    CodeExample(
+                        title=example.title,
+                        language=example.language,
+                        practical_task=example.practical_task,
+                        hints=tuple(hints_by_example.get(example.id, ())),
+                        body=example.body,
+                        libraries=tuple(example.libraries_json),
+                        explanation=example.explanation,
+                        visibility=CodeExampleVisibility(example.visibility),
+                        position=example.position,
+                    )
+                    for example in example_rows_by_component.get(row.id, ())
+                ),
+                **{
+                    key: getattr(row, key)
+                    for key in (
+                        "slug",
+                        "title",
+                        "manufacturer",
+                        "model",
+                        "primary_category_id",
+                        "summary",
+                        "description",
+                        "purpose",
+                        "usage_notes",
+                        "safety_notes",
+                        "teacher_notes",
+                        "manual_original",
+                    )
+                },
+            )
+            for row in rows
+        }
 
     async def _card(self, row: Component) -> CatalogCard:
         category = await self.session.get(Category, row.primary_category_id)
         if category is None:
             raise CatalogValidationError
+        return self._card_from_parts(
+            row,
+            await self._data(row),
+            category,
+            await self._source_snapshots(row.id),
+            await MediaRepository(self.session).component_media(row.id),
+        )
+
+    async def _cards(self, rows: tuple[Component, ...]) -> list[CatalogCard]:
+        if not rows:
+            return []
+        category_ids = {row.primary_category_id for row in rows}
+        categories = tuple(
+            await self.session.scalars(select(Category).where(Category.id.in_(category_ids)))
+        )
+        categories_by_id = {item.id: item for item in categories}
+        data_by_component = await self._data_batch(rows)
+        component_ids = tuple(row.id for row in rows)
+        sources_by_component = await self._source_snapshots_batch(component_ids)
+        media_by_component = await MediaRepository(self.session).components_media(component_ids)
+        cards: list[CatalogCard] = []
+        for row in rows:
+            category = categories_by_id.get(row.primary_category_id)
+            if category is None:
+                raise CatalogValidationError
+            cards.append(
+                self._card_from_parts(
+                    row,
+                    data_by_component[row.id],
+                    category,
+                    sources_by_component[row.id],
+                    media_by_component[row.id],
+                )
+            )
+        return cards
+
+    def _card_from_parts(
+        self,
+        row: Component,
+        data: DraftData,
+        category: Category,
+        sources: tuple[SourceSnapshot, ...],
+        media: tuple[ComponentMedia, ...],
+    ) -> CatalogCard:
         return CatalogCard(
             row.id,
             ComponentStatus(row.status),
-            await self._data(row),
+            data,
             CategoryItem(category.id, category.key, category.name),
             row.revision,
             row.updated_at,
             row.published_at,
-            await self._source_snapshots(row.id),
-            await MediaRepository(self.session).component_media(row.id),
+            sources,
+            media,
             (
                 ComponentStatus(row.archived_from_status)
                 if row.archived_from_status is not None
@@ -1847,10 +1917,28 @@ class CatalogService:
                 raise CatalogValidationError("source_modifications_notice_missing")
 
     async def _source_snapshots(self, component_id: UUID) -> tuple[SourceSnapshot, ...]:
+        return (await self._source_snapshots_batch((component_id,)))[component_id]
+
+    async def _source_snapshots_batch(
+        self, component_ids: tuple[UUID, ...]
+    ) -> dict[UUID, tuple[SourceSnapshot, ...]]:
         from arduino_component_kb.imports.models import ComponentSource, Source
 
-        result: list[SourceSnapshot] = []
-        for raw_relation, raw_source in await self._component_source_rows(component_id):
+        unique_ids = tuple(dict.fromkeys(component_ids))
+        result: dict[UUID, list[SourceSnapshot]] = {component_id: [] for component_id in unique_ids}
+        if not unique_ids:
+            return {}
+        rows = await self.session.execute(
+            select(ComponentSource, Source)
+            .join(Source, Source.id == ComponentSource.source_id)
+            .where(ComponentSource.component_id.in_(unique_ids))
+            .order_by(
+                ComponentSource.component_id,
+                ComponentSource.imported_at,
+                ComponentSource.id,
+            )
+        )
+        for raw_relation, raw_source in rows:
             relation = cast(ComponentSource, raw_relation)
             source = cast(Source, raw_source)
             if not all(
@@ -1868,7 +1956,7 @@ class CatalogService:
                 )
             ):
                 continue
-            result.append(
+            result[relation.component_id].append(
                 SourceSnapshot(
                     display_name=source.display_name,
                     original_url=relation.original_url,
@@ -1887,7 +1975,7 @@ class CatalogService:
                     parser_version=cast(str, relation.parser_version),
                 )
             )
-        return tuple(result)
+        return {component_id: tuple(items) for component_id, items in result.items()}
 
     def _source_snapshot_dict(self, item: SourceSnapshot) -> dict[str, object]:
         return {

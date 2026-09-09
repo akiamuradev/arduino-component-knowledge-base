@@ -20,13 +20,13 @@
   Обновлены только эти пакеты до 2.12.0 и связанные lock metadata; минимальная версия
   httpx2 повышена до 2.12. Strict pip-audit runtime lock теперь проходит, backend
   regression/static/smoke и PostgreSQL shadow integration повторно прошли.
-- A5 public catalog read: последовательная сборка snapshots/media заменена пакетными
-  запросами без изменения snapshot visibility и API. PostgreSQL regression фиксирует
-  бюджет в 6 SQL-запросов для страницы из трёх карточек с изображениями; дальнейшая
-  работа A5 относится к workspace `_data`, а не к уже исправленному public path.
+- A5 catalog reads: public snapshots/media и workspace collections/sources/media
+  загружаются пакетно без изменения visibility или API. PostgreSQL regression
+  фиксирует 6 запросов для public page и 10 для workspace page из трёх карточек
+  с изображениями; `_data` читает подсказки всех примеров одним join-запросом.
 - Ниже сохранены исходные findings, чтобы не терять причины изменений. Checkpoints
-  CP3–CP6 целиком ещё не завершены: batching, lease/timeout и полный эксплуатационный
-  verification остаются в плане; SQL fault injection A2 уже выполнен.
+  CP3–CP6 целиком ещё не завершены: commands, lease/timeout и полный эксплуатационный
+  verification остаются в плане; SQL isolation и read batching уже выполнены.
 Основа: main `583d83946752bdb820abd03ea088746ec6ad1561` и незакоммиченный
 frontend branding WIP. Выводы о WIP нельзя автоматически относить к main.
 Изменения с другого компьютера в доступном origin/main не обнаружены.
@@ -68,9 +68,9 @@ idempotency test, frontend e2e failure. Документация: ARCHITECTURE, 
 - CatalogService (1810 строк) совмещает lifecycle, snapshots/search, media,
   corrections, merge duplicates и чтение DTO. Нужны осмысленные внутренние границы,
   а не repository для каждой таблицы.
-- list_published последовательно вызывает _published_card; workspace _data
-  делает отдельные запросы коллекций и hints на каждый example. Нужен query-count
-  baseline и пакетное чтение, прежде чем заявлять измеренное ускорение.
+- Исходные list_published/_data делали per-card/per-hint запросы. После аудита
+  добавлены PostgreSQL query budgets и пакетное чтение public/workspace страниц;
+  latency отдельно не измерялась.
 - API catalog/imports совмещают schemas, projections, assembly и transactions.
 - Principal объединяет application identity/permissions с session_id/csrf_hash;
   будущая auth boundary может разделить эти обязанности без SSO сейчас.
@@ -156,7 +156,7 @@ Backend paths ниже относительны к `src/arduino_component_kb/`.
 | A2 P1 REFACTOR | `imports/processor.py:203`, pipeline/worker_shadow, `pipeline/runtime.py:214`: shadow использует ту же SQL session/transaction, runtime превращает исключение в FAILED, savepoint отсутствует | SQL failure может оставить общую транзакцию aborted и сорвать legacy import. Риск выведен из кода, fault injection ещё нужен. Изолировать SQL shadow; catch без rollback недостаточен. Риск изменения atomicity/idempotency |
 | A3 P1 REFACTOR, WIP | styles.css/OledLoginDisplay; Playwright login at 320px падает на `.oled-pins > span` | Воспроизведён контраст 1.29:1 вместо 4.5:1. Точечный fix baseline, не redesign. Риск затронуть обе темы/mobile |
 | A4 P2 REFACTOR / MOVE | catalog/service 1810 строк, api/catalog 1221: reads/lifecycle/media/search/dedup/projections | Отделить read assembly, затем осмысленные write operations. Риск изменить snapshot visibility, locking и audit/commit order |
-| A5 P2 REFACTOR, public path DONE | catalog/service list_published, _data, _published_card; media/repository variants | Public list читает snapshots/categories/media/variants пакетно: 6 запросов для трёх карточек с media вместо per-card роста. Workspace `_data` всё ещё читает hints по одному example; latency не измерена. Риск смешать draft/snapshot или изменить порядок/лимиты |
+| A5 P2 REFACTOR, DONE | catalog/service list_published, list_cards, _data, snapshots; media/repository variants | Public list использует 6, workspace list — 10 запросов для трёх карточек с media без per-card роста. Snapshot/current-draft пути остаются раздельными; порядок и payload покрыты regression tests. Latency не измерялась |
 | A6 P2 MOVE / REFACTOR | api/imports admission/commit; catalog handlers; auth/repository audit используется другими доменами | Перенести workflow из HTTP и выделить узкий audit writer с session вызывающего кода. Риск откатить failure audit/throttle, которые намеренно сохраняются при отказе |
 | A7 P2 REFACTOR | broker, dispatch/reconciler, db, api/dependencies | Broker/Settings при import; engine пересоздаётся каждый reconcile cycle; DatabaseGateway не описывает используемые sessions. Явный resource lifetime. Риск переиспользовать async pool между разными asyncio.run у Dramatiq |
 | A8 P2 REFACTOR | auth/passwords и async auth/service вызывают синхронный Argon2 hash/verify | CPU work занимает event loop; нагрузочный эффект не измерен. Bounded thread offload, без ослабления Argon2. Риск роста памяти при неограниченной конкурентности и нарушения dummy verify |
@@ -368,7 +368,7 @@ Controller → Service → Manager → Repository. Разделение catalog 
 | 1a. CP2 foundations | A1: единый identity transition, cancel/clear sensitive cache | Admin → student + delayed response не оставляют старых данных; меньше полного key redesign |
 | 1b. CP2 ownership | Sessions contract, reconciler resource lifetime, audit writer, commit ownership | Auth/error/dispatch и failure audit tests; broker factory только для реального import coupling, не новый DI |
 | 2a. CP3 shadow | Fault injection A2 → SQL isolation; отдельно long transaction/lease | Shadow failure не портит legacy result, retry без duplicates; не переключать весь pipeline |
-| 2b. CP3 reads | Query assembly/batching A4/A5 без изменения writes | Bounded query count, одинаковые payloads/visibility; начать с batch helper, если отдельный модуль не нужен |
+| 2b. CP3 reads — DONE | Query assembly/batching A4/A5 без изменения writes | PostgreSQL budgets фиксируют public/workspace query count; payloads/visibility сохранены, writes не менялись |
 | 2c. CP3 commands | По одной lifecycle operation вынести workflow из handlers; убрать обратный media → CatalogService вызов | Revisions/corrections/dedup/ownership/rollback/audit tests; не переписывать все services |
 | 2d. CP3 workers/auth | Убрать повтор failure handling, bounded Argon2 offload | Concurrency/memory/lease checks; per-message engine сохранить при разных event loops |
 | 3. CP4 frontend | Pure editor state, domain invalidation, users query ownership, точечный CSS cleanup | Draft/photos/admin workflows/e2e стабильны; lazy routes отдельно и после измерений |
