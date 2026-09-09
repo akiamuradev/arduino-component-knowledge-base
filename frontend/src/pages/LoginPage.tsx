@@ -3,7 +3,8 @@ import { type ChangeEvent, type SyntheticEvent, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 
 import { api, ApiError } from "../api/client";
-import { currentUserQueryKey, useCurrentUser } from "../auth/queries";
+import { useCurrentUser } from "../auth/queries";
+import { replaceSessionCache } from "../auth/session-cache";
 import { BrandMark } from "../components/BrandMark";
 import { type OledState, OledLoginDisplay } from "../components/OledLoginDisplay";
 import { ThemeToggle } from "../components/ThemeToggle";
@@ -28,7 +29,7 @@ export function LoginPage() {
   const mutation = useMutation({
     mutationFn: api.login,
     onSuccess: async ({ user }) => {
-      queryClient.setQueryData(currentUserQueryKey, user);
+      await replaceSessionCache(queryClient, user);
       await navigate(target, { replace: true });
     },
   });

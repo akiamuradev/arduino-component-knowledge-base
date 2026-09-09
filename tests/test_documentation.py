@@ -34,7 +34,7 @@ def test_data_licenses_are_separate_from_application_license() -> None:
     notices = (ROOT / "THIRD_PARTY_NOTICES.md").read_text(encoding="utf-8")
     manifest = (ROOT / "MANIFEST.in").read_text(encoding="utf-8")
     project = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    for token in ("PolyForm Noncommercial", "GPL-3.0-only", "CC-BY-SA-4.0"):
+    for token in ("GNU General Public License v3.0 or later", "GPL-3.0-only", "CC-BY-SA-4.0"):
         assert token in licensing
         assert token in notices
     assert "owner_denied_usage" in licensing
@@ -95,10 +95,38 @@ def test_readme_languages_and_contributor_workflows_stay_discoverable() -> None:
     assert "[English](README.md)" in russian
     for content in (english, russian, contributing):
         assert "upstream/main" in content
-        assert "PolyForm Noncommercial License 1.0.0" in content
+        assert "GNU General Public License v3.0 or later" in content
     for forbidden in ("ACKB_1.0.0_STAGE_", "MULTIPLE_IMAGES_STAGE_", "XRAY_AUDIT_"):
         assert forbidden not in english
         assert forbidden not in russian
+
+
+def test_readme_badges_describe_current_license_stack_and_test_availability() -> None:
+    for name in ("README.md", "README.ru.md"):
+        content = (ROOT / name).read_text(encoding="utf-8")
+        assert "License-GPL--3.0--or--later-blue" in content
+        assert "Tests-included-success" in content
+        assert "badge.svg?branch=main" in content
+        for technology in (
+            "Python",
+            "React",
+            "TypeScript",
+            "Vite",
+            "FastAPI",
+            "Pydantic",
+            "SQLAlchemy",
+            "asyncpg",
+            "PostgreSQL",
+            "Alembic",
+            "Redis",
+            "Dramatiq",
+            "MinIO",
+            "Pillow",
+            "FFmpeg",
+            "nginx",
+            "Docker Compose",
+        ):
+            assert f"![{technology}]" in content
 
 
 def test_media_limits_are_unambiguous() -> None:

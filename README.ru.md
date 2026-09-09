@@ -1,7 +1,27 @@
 # Arduino Component Knowledge Base
 
-[![Quality](https://github.com/akiamuradev/arduino-component-knowledge-base/actions/workflows/quality.yml/badge.svg?branch=release%2F1.0.0)](https://github.com/akiamuradev/arduino-component-knowledge-base/actions/workflows/quality.yml?query=branch%3Arelease%2F1.0.0)
-[![Лицензия: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-4c566a)](LICENCE)
+[![Quality](https://github.com/akiamuradev/arduino-component-knowledge-base/actions/workflows/quality.yml/badge.svg?branch=main)](https://github.com/akiamuradev/arduino-component-knowledge-base/actions/workflows/quality.yml?query=branch%3Amain)
+[![Лицензия: GNU GPL v3.0 or later](https://img.shields.io/badge/License-GPL--3.0--or--later-blue)](LICENCE)
+
+[![Тесты: есть](https://img.shields.io/badge/Tests-included-success)](docs/TESTING.md)
+
+![Python](https://img.shields.io/badge/Python-3776AB)
+![React](https://img.shields.io/badge/React-149ECA)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6)
+![Vite](https://img.shields.io/badge/Vite-646CFF)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688)
+![Pydantic](https://img.shields.io/badge/Pydantic-E92063)
+![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-D71F00)
+![asyncpg](https://img.shields.io/badge/asyncpg-336791)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1)
+![Alembic](https://img.shields.io/badge/Alembic-555555)
+![Redis](https://img.shields.io/badge/Redis-DC382D)
+![Dramatiq](https://img.shields.io/badge/Dramatiq-555555)
+![MinIO](https://img.shields.io/badge/MinIO-C72E49)
+![Pillow](https://img.shields.io/badge/Pillow-3776AB)
+![FFmpeg](https://img.shields.io/badge/FFmpeg-007808)
+![nginx](https://img.shields.io/badge/nginx-009639)
+![Docker Compose](https://img.shields.io/badge/Docker%20Compose-2496ED)
 
 **[English](README.md) · Русский**
 
@@ -129,6 +149,8 @@ docker compose run --rm backend ackb-bootstrap-admin \
 
 ## Разработка и проверки
 
+В проекте есть автоматические backend, frontend, интеграционные и браузерные тесты; см. [Тестирование](docs/TESTING.md).
+
 Используйте Python 3.12 или новее, [uv](https://docs.astral.sh/uv/), Node.js `>=22.12 <26`, npm и
 Docker.
 
@@ -197,7 +219,7 @@ git switch -c feature/<short-name> upstream/main
 данные.
 
 Независимый fork или производный проект остаётся под
-[PolyForm Noncommercial License 1.0.0](LICENCE): коммерческое использование не разрешено.
+[GNU General Public License v3.0 or later](LICENCE).
 Импортированные данные сохраняют собственные лицензии, attribution и provenance. Перед публичным
 deployment замените credentials и выполните требования безопасности и развёртывания. Не создавайте
 впечатление официальной связи с Arduino, Seeed Studio, KiCad или akiamuradev. При переименовании
@@ -216,8 +238,7 @@ network policy, monitoring и production preflight.
 ## Лицензия и сторонние материалы
 
 Код приложения распространяется по
-[PolyForm Noncommercial License 1.0.0](LICENCE). Коммерческое использование этой лицензией не
-разрешено.
+[GNU General Public License v3.0 or later](LICENCE). SPDX: `GPL-3.0-or-later`. Автор: akiamuradev.
 
 Импортированные сторонние материалы не перелицензируются как код приложения. Требования к
 лицензиям, attribution и provenance описаны в

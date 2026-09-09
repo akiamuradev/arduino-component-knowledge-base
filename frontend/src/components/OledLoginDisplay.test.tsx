@@ -62,13 +62,10 @@ describe("OLED login display", () => {
     expect(requestFrame).not.toHaveBeenCalled();
   });
 
-  it("keeps the decorative brand splat behind the board", () => {
+  it("keeps the OLED without the retired brand decoration", () => {
     const view = render(<OledLoginDisplay state="idle" />);
     const splat = view.container.querySelector<HTMLElement>(".oled-brand-splat");
-    const board = view.getByTestId("oled-board");
-    if (splat === null) throw new Error("OLED brand splat is missing");
-    expect(splat).toHaveAttribute("alt", "");
-    expect(splat).toHaveAttribute("aria-hidden", "true");
-    expect(splat.compareDocumentPosition(board) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(view.getByTestId("oled-board")).toBeVisible();
+    expect(splat).toBeNull();
   });
 });

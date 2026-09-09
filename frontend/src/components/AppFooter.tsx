@@ -13,7 +13,7 @@ export function AppFooter() {
       <nav aria-label="Служебная навигация">
         <Link to="/about">О системе</Link>
         <Link to="/sources">Источники материалов</Link>
-        <a href={`${PRODUCT_BRAND.officialRepository}/blob/main/LICENCE`} target="_blank" rel="noopener noreferrer">Лицензия</a>
+        <a href={PRODUCT_BRAND.licenseUrl} target="_blank" rel="noopener noreferrer">{PRODUCT_BRAND.licenseName}</a>
       </nav>
       <BuildInfo compact />
     </footer>

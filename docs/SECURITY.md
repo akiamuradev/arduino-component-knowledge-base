@@ -8,6 +8,9 @@
 
 - Backend является единственным источником истины для authentication, permissions и object
   visibility; frontend guards влияют только на интерфейс.
+- После login/register/logout frontend отменяет старые query-запросы и очищает кэш
+  предыдущей сессии. Query-ответ 401 удаляет приватные данные и обновляет auth state;
+  403 не считается завершением сессии. Это защита браузерного кэша, не замена backend RBAC.
 - Локальные пароли хешируются Argon2id. Неизвестный login проходит dummy verification и получает
   тот же ответ, что неверный пароль.
 - Browser получает opaque server-side session и отдельный CSRF token. PostgreSQL хранит только

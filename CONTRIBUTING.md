@@ -44,7 +44,7 @@ Keep shared commands synchronized between [README.md](README.md) and
 ### Independent forks and derivative projects
 
 Application code is licensed under the
-[PolyForm Noncommercial License 1.0.0](LICENCE). The license does not permit commercial use.
+[GNU General Public License v3.0 or later](LICENCE). SPDX: `GPL-3.0-or-later`. Copyright © 2026 akiamuradev.
 Review the license text before distributing a fork or derivative.
 
 Imported third-party data does not become part of the application-code license. Preserve the
@@ -104,8 +104,7 @@ pull request должен решать одну ограниченную зад�
 ### Независимый fork или производный проект
 
 Код приложения распространяется по
-[PolyForm Noncommercial License 1.0.0](LICENCE). Эта лицензия не разрешает коммерческое
-использование. Перед распространением fork или производного проекта изучите полный текст лицензии.
+[GNU General Public License v3.0 or later](LICENCE). SPDX: `GPL-3.0-or-later`. Автор: akiamuradev. Перед распространением fork или производного проекта изучите полный текст лицензии.
 
 Импортированные сторонние данные не становятся частью лицензии кода приложения. Сохраняйте
 лицензию источника, attribution, provenance, upstream revision и описание преобразований.

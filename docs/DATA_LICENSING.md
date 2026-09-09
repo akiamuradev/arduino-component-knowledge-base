@@ -5,7 +5,7 @@
 Автор кода ACKB — [akiamuradev](https://github.com/akiamuradev).
 
 Код Arduino Component Knowledge Base распространяется по
-[PolyForm Noncommercial License 1.0.0](../LICENCE). Эта лицензия не заменяет и не расширяет
+[GNU General Public License v3.0 or later](../LICENCE). Эта лицензия не заменяет и не расширяет
 лицензии сторонних данных. Импортированный материал остаётся под условиями, записанными для его
 источника. Сводка используемых upstream-проектов находится в
 [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).

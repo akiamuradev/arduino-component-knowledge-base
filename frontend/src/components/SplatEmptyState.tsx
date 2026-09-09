@@ -1,7 +1,5 @@
 import type { ReactNode } from "react";
 
-import { BrandSplat } from "./BrandSplat";
-
 export function SplatEmptyState({
   icon,
   title,
@@ -16,7 +14,7 @@ export function SplatEmptyState({
   return (
     <div className="empty-panel">
       <div className="empty-panel__brand" aria-hidden="true">
-        <BrandSplat size="clamp(7rem, 13vw, 10rem)" opacity={0.68} rotation={-5} variant="muted" />
+
         <span>{icon}</span>
       </div>
       <h2>{title}</h2>

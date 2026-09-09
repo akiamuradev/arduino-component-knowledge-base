@@ -13,13 +13,19 @@ const administrator = {
   ],
 };
 
-test("an administrator signs in and reaches the protected dashboard", async ({ page }) => {
+test("an administrator signs in, reaches the dashboard and signs out", async ({ page }) => {
   let authenticated = false;
   let submittedPayload: Record<string, unknown> | undefined;
 
   await page.route("**/api/v1/**", async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
+    if (path === "/api/v1/auth/logout" && request.method() === "POST") {
+      expect(request.headers()["x-csrf-token"]).toBe("e2e-csrf");
+      authenticated = false;
+      await route.fulfill({ json: { status: "logged_out" } });
+      return;
+    }
     if (path === "/api/v1/auth/me") {
       await route.fulfill(
         authenticated
@@ -39,6 +45,7 @@ test("an administrator signs in and reaches the protected dashboard", async ({ p
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({ user: administrator, expires_at: "2026-07-17T12:00:00Z" }),
+        headers: { "Set-Cookie": "ackb_csrf=e2e-csrf; Path=/; SameSite=Lax" },
       });
       return;
     }
@@ -71,4 +78,9 @@ test("an administrator signs in and reaches the protected dashboard", async ({ p
     login: "administrator",
     password: "local-test-passphrase",
   });
+  await page.getByLabel("Меню пользователя: Integration Administrator").click();
+  await page.getByRole("button", { name: "Выйти", exact: true }).click();
+  await expect(page).toHaveURL(/\/login$/);
+  await expect(page.getByRole("heading", { name: "Вход в систему" })).toBeVisible();
+  await expect(page.getByText("Integration Administrator", { exact: true })).toHaveCount(0);
 });

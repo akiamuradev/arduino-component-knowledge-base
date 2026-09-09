@@ -1,7 +1,27 @@
 # Arduino Component Knowledge Base
 
-[![Quality](https://github.com/akiamuradev/arduino-component-knowledge-base/actions/workflows/quality.yml/badge.svg?branch=release%2F1.0.0)](https://github.com/akiamuradev/arduino-component-knowledge-base/actions/workflows/quality.yml?query=branch%3Arelease%2F1.0.0)
-[![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-4c566a)](LICENCE)
+[![Quality](https://github.com/akiamuradev/arduino-component-knowledge-base/actions/workflows/quality.yml/badge.svg?branch=main)](https://github.com/akiamuradev/arduino-component-knowledge-base/actions/workflows/quality.yml?query=branch%3Amain)
+[![License: GNU GPL v3.0 or later](https://img.shields.io/badge/License-GPL--3.0--or--later-blue)](LICENCE)
+
+[![Tests: included](https://img.shields.io/badge/Tests-included-success)](docs/TESTING.md)
+
+![Python](https://img.shields.io/badge/Python-3776AB)
+![React](https://img.shields.io/badge/React-149ECA)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6)
+![Vite](https://img.shields.io/badge/Vite-646CFF)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688)
+![Pydantic](https://img.shields.io/badge/Pydantic-E92063)
+![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-D71F00)
+![asyncpg](https://img.shields.io/badge/asyncpg-336791)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1)
+![Alembic](https://img.shields.io/badge/Alembic-555555)
+![Redis](https://img.shields.io/badge/Redis-DC382D)
+![Dramatiq](https://img.shields.io/badge/Dramatiq-555555)
+![MinIO](https://img.shields.io/badge/MinIO-C72E49)
+![Pillow](https://img.shields.io/badge/Pillow-3776AB)
+![FFmpeg](https://img.shields.io/badge/FFmpeg-007808)
+![nginx](https://img.shields.io/badge/nginx-009639)
+![Docker Compose](https://img.shields.io/badge/Docker%20Compose-2496ED)
 
 **English · [Русский](README.ru.md)**
 
@@ -135,6 +155,8 @@ there is no self-service recovery or collection of email, phone, 2FA, or recover
 
 ## Development and checks
 
+Automated backend, frontend, integration and browser tests are included; see [Testing](docs/TESTING.md).
+
 Use Python 3.12 or newer, [uv](https://docs.astral.sh/uv/), Node.js `>=22.12 <26`, npm, and Docker.
 
 Backend and documentation checks:
@@ -201,7 +223,7 @@ one task, synchronize with `git fetch upstream`, and run the relevant checks abo
 a PR. Never commit `.env`, credentials, generated build output, or user data.
 
 An independent fork or derivative remains subject to the
-[PolyForm Noncommercial License 1.0.0](LICENCE): commercial use is not permitted. Imported data
+[GNU General Public License v3.0 or later](LICENCE). Imported data
 keeps its own license, attribution, and provenance. Replace all credentials before a public
 deployment, follow the security/deployment requirements, and do not imply affiliation with
 Arduino, Seeed Studio, KiCad, or akiamuradev. Renaming the product requires consistent
@@ -220,7 +242,7 @@ policy, monitoring, and the production preflight checks.
 ## License and third-party material
 
 Application code is distributed under the
-[PolyForm Noncommercial License 1.0.0](LICENCE). Commercial use is not permitted by this license.
+[GNU General Public License v3.0 or later](LICENCE). SPDX: `GPL-3.0-or-later`. Copyright © 2026 akiamuradev.
 
 Imported third-party material is not relicensed as application code. See
 [Data licensing](docs/DATA_LICENSING.md) and [Third-party notices](THIRD_PARTY_NOTICES.md) for

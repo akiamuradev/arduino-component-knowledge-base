@@ -1,7 +1,7 @@
 # Third-party notices / Уведомления о сторонних материалах
 
 This file records external data sources supported by Arduino Component Knowledge Base (ACKB).
-It does not change the [PolyForm Noncommercial License 1.0.0](LICENCE) that applies to ACKB code,
+It does not change the [GNU General Public License v3.0 or later](LICENCE) that applies to ACKB code,
 and it does not relicense third-party material.
 
 Этот файл перечисляет внешние источники данных, поддерживаемые ACKB. Он не изменяет лицензию

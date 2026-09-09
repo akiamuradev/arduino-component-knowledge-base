@@ -2,7 +2,9 @@ import { queryOptions, useQuery } from "@tanstack/react-query";
 
 import { api, ApiError } from "../api/client";
 
-export const currentUserQueryKey = ["auth", "current-user"] as const;
+import { currentUserQueryKey } from "./session-cache";
+
+export { currentUserQueryKey } from "./session-cache";
 
 export const currentUserQuery = queryOptions({
   queryKey: currentUserQueryKey,

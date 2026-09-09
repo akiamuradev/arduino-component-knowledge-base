@@ -41,6 +41,17 @@ def main() -> None:
         require(label, match is not None and match.group(1) == version, failures)
 
     require("frontend package version", frontend_package["version"] == version, failures)
+    for label, metadata in (
+        ("backend", project),
+        ("frontend", frontend_package),
+        ("frontend lock", frontend_lock["packages"][""]),
+    ):
+        require(f"{label} license", metadata.get("license") == "GPL-3.0-or-later", failures)
+    require("backend author", project.get("authors") == [{"name": "akiamuradev"}], failures)
+    require("frontend author", frontend_package.get("author") == "akiamuradev", failures)
+    require(
+        "website license text", read("frontend/public/LICENCE.txt") == read("LICENCE"), failures
+    )
     require("frontend Node range", frontend_package["engines"]["node"] == ">=22.12 <26", failures)
     require("frontend lock root version", frontend_lock["version"] == version, failures)
     require(
@@ -63,7 +74,7 @@ def main() -> None:
         ],
         "CONTRIBUTING.md": [
             "upstream/main",
-            "PolyForm Noncommercial License 1.0.0",
+            "GNU General Public License v3.0 or later",
         ],
         "MANIFEST.in": ["include CONTRIBUTING.md", "include README.ru.md"],
         ".env.example": [f"ACKB_APP_VERSION={version}"],

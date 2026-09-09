@@ -25,7 +25,7 @@ React + strict TypeScript приложение на Vite. Оно обращае�
   записываются; внешний blocking script применяет тему до старта React;
 - оформление выбирается одной доступной кнопкой с меню, единым набором SVG-иконок и вариантами
   «Светлое», «Тёмное», «Как на устройстве»; меню поддерживает клавиатурную навигацию;
-- `/about` показывает автора `akiamuradev`, фактическую PolyForm Noncommercial License,
+- `/about` показывает автора `akiamuradev`, фактическую GNU GPL v3.0 or later License,
   репозиторий и build info;
 - login OLED собран из HTML/CSS/SVG, использует один `requestAnimationFrame`, CSS variables,
   reduced-motion и не участвует в проверке credentials или roles;

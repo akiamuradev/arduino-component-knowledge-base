@@ -219,13 +219,17 @@ def test_linux_bootstrap_is_fail_closed_and_does_not_print_secrets() -> None:
 
 def test_project_declares_exact_requested_license() -> None:
     license_text = (ROOT / "LICENCE").read_text(encoding="utf-8")
-    assert license_text.startswith("# PolyForm Noncommercial License 1.0.0")
-    assert "https://polyformproject.org/licenses/noncommercial/1.0.0" in license_text
-    assert "Any noncommercial purpose is a permitted purpose." in license_text
-    assert "## No Liability" in license_text
+    assert "Copyright (C) 2026 akiamuradev" in license_text
+    assert "SPDX-License-Identifier: GPL-3.0-or-later" in license_text
+    assert "(at your option) any later version." in license_text
+    assert "GNU GENERAL PUBLIC LICENSE" in license_text
+    assert "Version 3, 29 June 2007" in license_text
+    assert "END OF TERMS AND CONDITIONS" in license_text
+    assert license_text == (ROOT / "frontend/public/LICENCE.txt").read_text(encoding="utf-8")
 
     project = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    assert 'license = "PolyForm-Noncommercial-1.0.0"' in project
+    assert 'license = "GPL-3.0-or-later"' in project
+    assert 'authors = [{ name = "akiamuradev" }]' in project
     assert 'license-files = ["LICENCE"]' in project
 
     backend_dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")

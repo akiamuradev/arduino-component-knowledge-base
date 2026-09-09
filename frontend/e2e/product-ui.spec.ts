@@ -465,7 +465,7 @@ test("student browses the catalog, switches theme and opens sourced learning con
   }
   await page.goto("/");
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await expect(page.locator(".hardware-board__splat")).toHaveCSS("animation-name", "none");
+  await expect(page.locator(".hardware-board__pcb")).toHaveCSS("transform", "none");
   expect(consoleErrors).toEqual([]);
 });
 

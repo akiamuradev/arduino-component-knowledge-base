@@ -9,10 +9,13 @@ if (!existsSync(indexPath)) {
 }
 
 const html = readFileSync(indexPath, "utf8");
-for (const publicAsset of ["theme-init.js", "manifest.webmanifest"]) {
+for (const publicAsset of ["theme-init.js", "manifest.webmanifest", "LICENCE.txt"]) {
   if (!existsSync(resolve(root, "dist", publicAsset))) {
     throw new Error(`frontend public asset is missing: ${publicAsset}`);
   }
+}
+if (readFileSync(resolve(root, "dist", "LICENCE.txt"), "utf8") !== readFileSync(resolve(root, "..", "LICENCE"), "utf8")) {
+  throw new Error("frontend license differs from the project license");
 }
 if (!html.includes("theme-init.js") || !html.includes("manifest.webmanifest")) {
   throw new Error("frontend entry point is missing theme bootstrap or manifest");
@@ -31,8 +34,11 @@ for (const match of assetMatches) {
   }
 }
 const bundledAssets = readdirSync(resolve(root, "dist", "assets"));
-if (!bundledAssets.some((asset) => asset.startsWith("green-splat-") && asset.endsWith(".svg"))) {
-  throw new Error("frontend build is missing the standalone green splat brand asset");
+if (bundledAssets.some((asset) => asset.startsWith("green-splat-"))) {
+  throw new Error("frontend build contains retired branding");
+}
+for (const asset of ["favicon.svg", "branding/ackb-primary.svg", "branding/ackb-monochrome.svg"]) {
+  if (!existsSync(resolve(root, "dist", asset))) throw new Error(`missing brand asset: ${asset}`);
 }
 if (/AKIA[0-9A-Z]{16}|BEGIN (?:RSA|OPENSSH|EC) PRIVATE KEY/.test(html)) {
   throw new Error("secret-like material found in frontend entry point");
