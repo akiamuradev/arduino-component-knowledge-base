@@ -17,6 +17,7 @@ from arduino_component_kb.imports.pipeline.enrichment import (
 )
 from arduino_component_kb.imports.pipeline.models import (
     OrchestratorPolicy,
+    PipelineExecutionStatus,
     PipelineRunRequest,
     ShadowComparisonReport,
     SourceArtifact,
@@ -77,15 +78,21 @@ async def run_repository_shadow(
         PostgresImportPersistenceGateway(session),
         policy=policy,
     )
-    result = await ShadowImportRunner(orchestrator).run(
-        PipelineRunRequest(
-            job.id,
-            source.id,
-            artifact,
-            kicad.index,
-        ),
-        legacy,
-    )
+    # The runtime converts stage exceptions (including SQL failures) into FAILED.
+    # A caught exception does not repair PostgreSQL's aborted transaction state.
+    # Keep both failed SQL and partial successful writes inside this savepoint.
+    async with session.begin_nested() as shadow_transaction:
+        result = await ShadowImportRunner(orchestrator).run(
+            PipelineRunRequest(
+                job.id,
+                source.id,
+                artifact,
+                kicad.index,
+            ),
+            legacy,
+        )
+        if result.outcome.status is PipelineExecutionStatus.FAILED:
+            await shadow_transaction.rollback()
     report = result.comparison
     logger.info(
         "shadow_import_compared",
