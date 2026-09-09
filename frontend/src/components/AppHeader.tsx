@@ -4,10 +4,11 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 
 import { api } from "../api/client";
 import { navigationFor } from "../app/navigation";
-import { currentUserQueryKey, useCurrentUser } from "../auth/queries";
+import { useCurrentUser } from "../auth/queries";
+import { replaceSessionCache } from "../auth/session-cache";
 import { PRODUCT_BRAND } from "../config/brand";
 import { primaryRoleLabel } from "../config/uiLabels";
-import { BrandMark } from "./BrandMark";
+import { LogoHeader } from "./branding/Logo";
 import { ThemeToggle } from "./ThemeToggle";
 
 export function AppHeader() {
@@ -19,7 +20,7 @@ export function AppHeader() {
   const logout = useMutation({
     mutationFn: api.logout,
     onSuccess: async () => {
-      queryClient.removeQueries({ queryKey: currentUserQueryKey });
+      await replaceSessionCache(queryClient);
       await navigate("/login", { replace: true });
     },
   });
@@ -40,8 +41,7 @@ export function AppHeader() {
     <>
       <header className="topbar">
         <NavLink className="brand" to="/" aria-label={`${PRODUCT_BRAND.shortName}: каталог`}>
-          <BrandMark />
-          <span className="brand__copy"><strong>{PRODUCT_BRAND.shortName}</strong><small>Справочник электронных компонентов</small></span>
+          <LogoHeader />
         </NavLink>
         <form aria-label="Глобальный поиск" className="global-search" role="search" onSubmit={submitSearch}>
           <span aria-hidden="true">⌕</span>

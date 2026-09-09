@@ -7,8 +7,9 @@ name = "arduino-component-knowledge-base"
 version = "1.0.1"
 description = "Backend for the Arduino Component Knowledge Base"
 readme = "README.md"
-license = "PolyForm-Noncommercial-1.0.0"
+license = "GPL-3.0-or-later"
 license-files = ["LICENCE"]
+authors = [{ name = "akiamuradev" }]
 requires-python = ">=3.12"
 dependencies = [
   "alembic>=1.14,<2",

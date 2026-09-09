@@ -1,7 +1,5 @@
 import { type CSSProperties, type PointerEvent as ReactPointerEvent, useEffect, useRef } from "react";
 
-import { BrandSplat } from "./BrandSplat";
-
 export type OledState =
   | "idle"
   | "submitting"
@@ -137,7 +135,7 @@ export function OledLoginDisplay({ state }: { state: OledState }) {
       style={{ "--oled-highlight-opacity": 0.025 } as CSSProperties}
     >
       <div className="oled-reactive-shadow" data-testid="oled-shadow" />
-      <BrandSplat className="oled-brand-splat" loading="eager" rotation={-3} size="84%" variant="glow" />
+
       <div className="oled-board" data-testid="oled-board">
         <span className="oled-hole oled-hole--one" /><span className="oled-hole oled-hole--two" /><span className="oled-hole oled-hole--three" /><span className="oled-hole oled-hole--four" />
         <div className="oled-traces"><span /><span /><span /><span /></div>

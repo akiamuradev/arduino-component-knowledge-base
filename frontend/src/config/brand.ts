@@ -5,15 +5,10 @@ export const PRODUCT_BRAND = Object.freeze({
   authorUrl: "https://github.com/akiamuradev",
   officialRepository: "https://github.com/akiamuradev/arduino-component-knowledge-base",
   copyright: "© 2026 akiamuradev",
-  licenseName: "PolyForm Noncommercial License 1.0.0",
+  licenseName: "GNU GPL v3.0 или новее",
+  licenseSpdx: "GPL-3.0-or-later",
+  licenseUrl: "/LICENCE.txt",
 });
-
-export interface OrganizationBranding {
-  organizationName?: string;
-  organizationLogoUrl?: string;
-  supportEmail?: string;
-  supportPhone?: string;
-}
 
 function environmentValue(value: string | undefined, fallback: string): string {
   const trimmed = value?.trim();

@@ -1,10 +1,9 @@
-import { BrandSplat } from "./BrandSplat";
+import { LogoCompact } from "./branding/Logo";
 
 export function BrandMark() {
   return (
     <span className="brand-mark" aria-hidden="true">
-      <BrandSplat loading="eager" rotation={-6} size="100%" />
-      <span className="brand-mark__core">A</span>
+      <LogoCompact />
     </span>
   );
 }

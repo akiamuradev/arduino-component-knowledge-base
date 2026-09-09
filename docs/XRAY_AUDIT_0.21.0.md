@@ -80,7 +80,7 @@ Release gates added by this audit:
 
 - Existing GitHub quality run for the pre-release baseline passed backend, frontend, integration,
   containers and e2e jobs.
-- Local unit run: 254 passed, 3 integration tests skipped; the repository-policy test fails only
+- Local unit tests passed, integration tests were skipped; the repository-policy test fails only
   while the intentionally ignored developer `.env` file exists.
 - Python `pip-audit`: no known vulnerabilities. npm audit (production and full tree): zero known
   vulnerabilities. Bandit: no medium/high finding in `src/arduino_component_kb`.
