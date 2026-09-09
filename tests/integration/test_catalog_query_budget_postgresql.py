@@ -14,10 +14,12 @@ from arduino_component_kb.auth.models import User
 from arduino_component_kb.catalog.domain import ComponentChangeAction, ComponentStatus, Difficulty
 from arduino_component_kb.catalog.models import (
     Category,
+    CodeExampleHint,
     Component,
     ComponentRevision,
     PublishedSearchDocument,
 )
+from arduino_component_kb.catalog.models import CodeExample as CodeExampleRow
 from arduino_component_kb.catalog.service import CatalogService
 from arduino_component_kb.config import Settings
 from arduino_component_kb.db import Database
@@ -249,6 +251,230 @@ async def test_catalog_page_query_count_does_not_grow_per_card(
             assert len(cards) == 3
             assert all(len(card.media) == 1 for card in cards)
             assert len(statements) == 6
+            await transaction.rollback()
+    finally:
+        await database.dispose()
+
+
+async def test_workspace_cards_use_batched_data_hints_sources_and_media(
+    integration_settings: Settings,
+) -> None:
+    database = Database(integration_settings)
+    try:
+        async with database.sessions() as session:
+            transaction = await session.begin()
+            now = datetime.now(UTC)
+            suffix = uuid4().hex
+            user_id = uuid4()
+            category_id = uuid4()
+            component_id = uuid4()
+            session.add(
+                User(
+                    id=user_id,
+                    login=f"workspace-query-budget-{suffix}",
+                    display_name="Workspace query budget",
+                    password_hash=f"integration-{suffix}",
+                    status="active",
+                    created_at=now,
+                    updated_at=now,
+                    last_login_at=None,
+                )
+            )
+            session.add(
+                Category(
+                    id=category_id,
+                    key=f"workspace-query-budget-{suffix}",
+                    name="Workspace query budget",
+                    description=None,
+                    parent_id=None,
+                    position=9901,
+                    is_active=True,
+                )
+            )
+            component = Component(
+                id=component_id,
+                slug=f"workspace-query-budget-{suffix}",
+                status=ComponentStatus.DRAFT.value,
+                archived_from_status=None,
+                title="Workspace query budget component",
+                manufacturer=None,
+                model=None,
+                normalized_manufacturer=None,
+                normalized_model=None,
+                summary="Draft component used to verify the workspace query budget.",
+                description="Stable draft data for the aggregate workspace reader.",
+                purpose=None,
+                usage_notes=None,
+                safety_notes=None,
+                difficulty=Difficulty.BEGINNER.value,
+                teacher_notes=None,
+                primary_category_id=category_id,
+                manual_original=True,
+                created_by=user_id,
+                updated_by=user_id,
+                published_at=None,
+                created_at=now,
+                updated_at=now,
+                revision=1,
+            )
+            session.add(component)
+            await session.flush()
+            components = [component]
+            for component_position in range(1, 3):
+                extra_component = Component(
+                    id=uuid4(),
+                    slug=f"workspace-query-budget-{suffix}-{component_position}",
+                    status=ComponentStatus.DRAFT.value,
+                    archived_from_status=None,
+                    title=f"Workspace query budget component {component_position}",
+                    manufacturer=None,
+                    model=None,
+                    normalized_manufacturer=None,
+                    normalized_model=None,
+                    summary="Draft component used to verify the workspace query budget.",
+                    description="Stable draft data for the aggregate workspace reader.",
+                    purpose=None,
+                    usage_notes=None,
+                    safety_notes=None,
+                    difficulty=Difficulty.BEGINNER.value,
+                    teacher_notes=None,
+                    primary_category_id=category_id,
+                    manual_original=True,
+                    created_by=user_id,
+                    updated_by=user_id,
+                    published_at=None,
+                    created_at=now,
+                    updated_at=now + timedelta(seconds=component_position),
+                    revision=1,
+                )
+                session.add(extra_component)
+                components.append(extra_component)
+            await session.flush()
+            for component_position, component_row in enumerate(components):
+                asset_id = uuid4()
+                session.add(
+                    MediaAsset(
+                        id=asset_id,
+                        owner_user_id=user_id,
+                        component_id=component_row.id,
+                        kind="image",
+                        purpose="product",
+                        alt_text=f"Workspace component {component_position}",
+                        caption=None,
+                        display_order=0,
+                        is_primary=True,
+                        attribution=None,
+                        status="ready",
+                        bucket="workspace-query-budget-originals",
+                        object_key=f"{suffix}/{component_position}.png",
+                        declared_mime="image/png",
+                        declared_size_bytes=100,
+                        detected_mime="image/png",
+                        size_bytes=100,
+                        sha256=f"{component_position + 30:064x}",
+                        phash=f"{component_position + 30:016x}",
+                        width=1200,
+                        height=900,
+                        duration_ms=None,
+                        video_codec=None,
+                        audio_codec=None,
+                        frame_rate=None,
+                        failure_code=None,
+                        upload_expires_at=now + timedelta(minutes=15),
+                        created_at=now,
+                        updated_at=now,
+                        storage_cleaned_at=None,
+                    )
+                )
+                await session.flush()
+                session.add(
+                    MediaVariant(
+                        id=uuid4(),
+                        asset_id=asset_id,
+                        variant="800w",
+                        bucket="workspace-query-budget-variants",
+                        object_key=f"{suffix}/{component_position}-800w.webp",
+                        mime="image/webp",
+                        size_bytes=80,
+                        sha256=f"{component_position + 40:064x}",
+                        width=800,
+                        height=600,
+                        duration_ms=None,
+                        video_codec=None,
+                        audio_codec=None,
+                        frame_rate=None,
+                    )
+                )
+            for example_position in range(3):
+                example_id = uuid4()
+                session.add(
+                    CodeExampleRow(
+                        id=example_id,
+                        component_id=component_id,
+                        title=f"Example {example_position}",
+                        language="arduino",
+                        practical_task="Connect the component and inspect its output.",
+                        body=f"void setup{example_position}() {{}}",
+                        libraries_json=[],
+                        explanation=None,
+                        visibility="student",
+                        position=example_position,
+                        created_by=user_id,
+                        updated_at=now,
+                    )
+                )
+                await session.flush()
+                session.add_all(
+                    [
+                        CodeExampleHint(
+                            id=uuid4(),
+                            example_id=example_id,
+                            body=f"Hint {example_position}.{hint_position}",
+                            position=hint_position,
+                        )
+                        for hint_position in range(2)
+                    ]
+                )
+            await session.flush()
+
+            statements: list[str] = []
+
+            def record_query(
+                _connection: object,
+                _cursor: object,
+                statement: str,
+                _parameters: object,
+                _context: object,
+                _executemany: bool,
+            ) -> None:
+                statements.append(statement)
+
+            listener = cast(Callable[..., None], record_query)
+            event.listen(database.engine.sync_engine, "before_cursor_execute", listener)
+            try:
+                data = await CatalogService(session)._data(component)
+            finally:
+                event.remove(database.engine.sync_engine, "before_cursor_execute", listener)
+
+            assert [item.title for item in data.code_examples] == [
+                "Example 0",
+                "Example 1",
+                "Example 2",
+            ]
+            assert data.code_examples[2].hints == ("Hint 2.0", "Hint 2.1")
+            assert len(statements) == 5
+
+            statements.clear()
+            event.listen(database.engine.sync_engine, "before_cursor_execute", listener)
+            try:
+                cards = await CatalogService(session).list_cards(ComponentStatus.DRAFT)
+            finally:
+                event.remove(database.engine.sync_engine, "before_cursor_execute", listener)
+
+            assert len(cards) == 3
+            assert sum(len(card.data.code_examples) for card in cards) == 3
+            assert all(len(card.media) == 1 for card in cards)
+            assert len(statements) == 10
             await transaction.rollback()
     finally:
         await database.dispose()

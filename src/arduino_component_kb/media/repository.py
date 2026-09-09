@@ -135,14 +135,41 @@ class MediaRepository:
         return tuple(await self.session.scalars(statement))
 
     async def component_media(self, component_id: UUID) -> tuple[ComponentMedia, ...]:
-        assets = await self.component_assets(
-            component_id,
-            kind=MediaKind.IMAGE,
+        return (await self.components_media((component_id,)))[component_id]
+
+    async def components_media(
+        self, component_ids: tuple[UUID, ...]
+    ) -> dict[UUID, tuple[ComponentMedia, ...]]:
+        """Load image assets and their variants for multiple components in two queries."""
+        unique_ids = tuple(dict.fromkeys(component_ids))
+        result: dict[UUID, list[ComponentMedia]] = {component_id: [] for component_id in unique_ids}
+        if not unique_ids:
+            return {}
+        assets = tuple(
+            await self.session.scalars(
+                select(MediaAsset)
+                .where(
+                    MediaAsset.component_id.in_(unique_ids),
+                    MediaAsset.kind == MediaKind.IMAGE.value,
+                )
+                .order_by(MediaAsset.component_id, MediaAsset.display_order, MediaAsset.id)
+            )
         )
-        result: list[ComponentMedia] = []
+        if not assets:
+            return {component_id: () for component_id in unique_ids}
+        variant_rows = tuple(
+            await self.session.scalars(
+                select(MediaVariant)
+                .where(MediaVariant.asset_id.in_(tuple(item.id for item in assets)))
+                .order_by(MediaVariant.asset_id, MediaVariant.width)
+            )
+        )
+        variants_by_asset: dict[UUID, list[MediaVariant]] = {}
+        for variant in variant_rows:
+            variants_by_asset.setdefault(variant.asset_id, []).append(variant)
         for asset in assets:
-            variants = await self.variants(asset.id)
-            result.append(
+            component_id = cast(UUID, asset.component_id)
+            result[component_id].append(
                 ComponentMedia(
                     asset_id=asset.id,
                     kind=MediaKind(asset.kind),
@@ -162,12 +189,12 @@ class MediaRepository:
                             height=item.height,
                             sha256=item.sha256,
                         )
-                        for item in variants
+                        for item in variants_by_asset.get(asset.id, ())
                         if item.variant in {"320w", "800w", "1600w"}
                     ),
                 )
             )
-        return tuple(result)
+        return {component_id: tuple(items) for component_id, items in result.items()}
 
     async def retention_candidates(
         self, cutoff: datetime, limit: int, *, lock: bool
