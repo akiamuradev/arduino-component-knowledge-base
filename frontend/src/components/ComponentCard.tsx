@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import type { CatalogComponent, CatalogMedia, Difficulty } from "../api/contracts";
+import { specificationDisplayValue } from "../editor/technical-specifications";
 
 const difficultyLabels: Record<Difficulty, string> = {
   beginner: "Начальный",
@@ -33,7 +34,7 @@ function specification(component: CatalogComponent, patterns: RegExp[]): string 
   const item = component.specifications.find((candidate) =>
     patterns.some((pattern) => pattern.test(`${candidate.key} ${candidate.label}`)),
   );
-  return item === undefined ? undefined : `${item.value_text}${item.unit ? ` ${item.unit}` : ""}`;
+  return item === undefined ? undefined : specificationDisplayValue(item);
 }
 
 export function ComponentCard({ component }: { component: CatalogComponent }) {

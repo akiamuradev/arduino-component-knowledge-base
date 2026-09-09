@@ -201,8 +201,11 @@ REQ-CARD-004. Каждый учебный пример содержит practica
 
 ### Технические данные
 
-- до 50 структурированных specifications: key, label, value, optional numeric value, unit и
-  display order;
+- до 50 структурированных specifications: storage contract сохраняет key, label, value,
+  optional numeric value, unit и display order; обычный редактор показывает только
+  «Характеристика» и «Значение», сохраняет существующий key и безопасно выводит metadata;
+- редактор держит одну пустую строку, не отправляет её, поддерживает последовательный
+  ввод с клавиатуры и bulk paste строк, разделённых Tab, двоеточием или дефисом;
 - pins: label, number, mode, voltage и description;
 - interfaces: например GPIO, ADC, PWM, UART, I2C, SPI, CAN;
 - supply/logic voltage как specifications, без потери исходного текста;
