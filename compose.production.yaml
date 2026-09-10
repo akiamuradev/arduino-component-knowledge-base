@@ -141,9 +141,10 @@ services:
     command:
       - |
         mc alias set ackb-root https://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}" >/dev/null
-        mc mb --ignore-existing ackb-root/ackb-media-quarantine ackb-root/ackb-media-variants
+        mc mb --ignore-existing ackb-root/ackb-media-quarantine ackb-root/ackb-media-variants ackb-root/ackb-legacy-bundles
         mc anonymous set none ackb-root/ackb-media-quarantine
         mc anonymous set none ackb-root/ackb-media-variants
+        mc anonymous set none ackb-root/ackb-legacy-bundles
         mc admin user add ackb-root "$${ACKB_MINIO_ACCESS_KEY}" "$${ACKB_MINIO_SECRET_KEY}"
         mc admin policy create ackb-root ackb-media-runtime /etc/ackb/ackb-media-policy.json
         mc admin policy attach ackb-root ackb-media-runtime --user "$${ACKB_MINIO_ACCESS_KEY}"
@@ -208,6 +209,15 @@ services:
     depends_on:
       database-permissions:
         condition: service_completed_successfully
+
+  legacy-worker:
+    <<: *production-app
+    depends_on:
+      database-permissions:
+        condition: service_completed_successfully
+      minio-identity-init:
+        condition: service_completed_successfully
+    networks: [data]
 
   job-reconciler:
     <<: *production-app

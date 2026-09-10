@@ -11,7 +11,8 @@
       ],
       "Resource": [
         "arn:aws:s3:::ackb-media-quarantine",
-        "arn:aws:s3:::ackb-media-variants"
+        "arn:aws:s3:::ackb-media-variants",
+        "arn:aws:s3:::ackb-legacy-bundles"
       ]
     },
     {
@@ -25,7 +26,8 @@
       ],
       "Resource": [
         "arn:aws:s3:::ackb-media-quarantine/*",
-        "arn:aws:s3:::ackb-media-variants/*"
+        "arn:aws:s3:::ackb-media-variants/*",
+        "arn:aws:s3:::ackb-legacy-bundles/*"
       ]
     }
   ]

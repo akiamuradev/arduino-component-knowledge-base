@@ -72,6 +72,7 @@ class MinioStorage:
         for bucket in (
             self.settings.minio_quarantine_bucket,
             self.settings.minio_variants_bucket,
+            self.settings.minio_legacy_bucket,
         ):
             exists = await self._run(partial(self.client.bucket_exists, bucket))
             if not exists:
