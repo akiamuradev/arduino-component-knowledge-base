@@ -161,8 +161,9 @@ revision `20260716_11`.
 `allow_text_import(none|limited|full)`, отдельные allow flags для facts/media/code/attachments,
 `is_enabled`, `created_by`, `updated_at`.
 
-`seeed_wiki` и `kicad_symbols` активны и имеют immutable repository/license policy.
-`alexgyver` disabled/denied с `owner_denied_usage`; `arduino_tex` и `portal_pk` inactive/unknown.
+`seeed_wiki` и `kicad_symbols` имеют immutable repository/license policy, но находятся в
+`status=inactive` с `is_enabled=false`. `alexgyver` disabled/denied с `owner_denied_usage`;
+`arduino_tex` и `portal_pk` inactive/unknown. Новые import jobs недоступны для всех источников.
 Исторические rows не удаляются. Partial unique index защищает `repository_url`.
 
 ### `component_sources`

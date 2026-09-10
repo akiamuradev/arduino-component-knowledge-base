@@ -47,7 +47,7 @@ hosts, проверяет все DNS answers и каждый redirect.
   firewall должны быть проверены в целевом Linux deployment.
 - CSP рассчитан на production bundle со скриптами и стилями same-origin; opt-in Swagger UI
   не является production UI и может потребовать отдельной административной policy.
-- Старые website sources деактивированы; AlexGyver explicitly denied. Seeed/KiCad imports
-  сохраняют собственные license snapshots и остаются draft до ручной проверки.
+- Все зарегистрированные sources деактивированы для новых jobs; AlexGyver explicitly denied.
+  Исторические Seeed/KiCad материалы сохраняют собственные license snapshots.
 - Реальные penetration test и container vulnerability scan выполняются отдельно от CI;
   dependency audit и restore drill входят в обязательный release gate.
