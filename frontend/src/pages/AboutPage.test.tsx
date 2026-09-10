@@ -23,7 +23,7 @@ describe("about page", () => {
     expect(screen.getByRole("link", { name: /Открыть текст лицензии/ })).toHaveAttribute("href", "/LICENCE.txt");
     expect(screen.getByText(/подтверждённый снимок источника отсутствует/i)).toBeVisible();
     expect(screen.getByText(/Seeed Studio Wiki и официальные библиотеки KiCad/i)).toBeVisible();
-    expect(screen.getByText(/Текущий статус каждого источника указан в реестре/)).toBeVisible();
+    expect(screen.getByText(/все зарегистрированные источники неактивны/i)).toBeVisible();
     expect(screen.queryByText(/Действующие источники:/)).not.toBeInTheDocument();
     const repository = screen.getByRole("link", { name: /Официальный репозиторий/ });
     expect(repository).toHaveAttribute("href", PRODUCT_BRAND.officialRepository);

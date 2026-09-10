@@ -15,14 +15,17 @@
 
 ## Источники импорта
 
-Активные источники являются только заранее зарегистрированными immutable Git repositories:
+В реестре сохранены заранее зарегистрированные immutable Git repositories:
 
 | Код | Repository | Тип | Лицензия | Политика |
 |---|---|---|---|---|
 | `seeed_wiki` | <https://github.com/Seeed-Studio/wiki-documents> | `git_repository` | `GPL-3.0-only` | факты и ограниченная адаптация текста |
 | `kicad_symbols` | <https://gitlab.com/kicad/libraries/kicad-symbols> | `official_library` | `CC-BY-SA-4.0` | структурированные свойства и выводы |
 
-Исторические website sources не удаляются. `alexgyver` имеет `status=disabled`,
+Все источники сейчас недоступны для новых import jobs. `seeed_wiki` и `kicad_symbols` имеют
+`status=inactive`, `is_enabled=false`; их adapters и license metadata сохраняются для проверки
+исторического provenance. Исторические website sources не удаляются. `alexgyver` имеет
+`status=disabled`,
 `permission_status=denied`, `disable_reason=owner_denied_usage`. `arduino_tex` и `portal_pk`
 имеют `status=inactive`, `permission_status=unknown`. Для них запрещены новые jobs и
 публикация старых draft до появления разрешённого license snapshot.

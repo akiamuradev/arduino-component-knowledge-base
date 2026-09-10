@@ -55,6 +55,7 @@ backend. Ручная карточка без стороннего матери�
 
 ## Поддерживаемые источники
 
-Новый импорт разрешён только из Seeed Studio Wiki (`GPL-3.0-only`) и Official KiCad Symbols
-(`CC-BY-SA-4.0`). Arduino-Tex и Portal-PK неактивны. AlexGyver отключён с причиной
-`owner_denied_usage`; материалы этого источника нельзя импортировать.
+Seeed Studio Wiki (`GPL-3.0-only`) и Official KiCad Symbols (`CC-BY-SA-4.0`) сохранены в
+реестре вместе с license policy, но неактивны. Arduino-Tex и Portal-PK также неактивны.
+AlexGyver отключён с причиной `owner_denied_usage`; новые import jobs недоступны для всех
+источников.

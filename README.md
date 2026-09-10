@@ -48,7 +48,7 @@ students only after review, approval, and explicit publication.
 - student-only public registration plus administrator-controlled password reset and admin creation;
 - draft, review, approval, publication, hide, archive, and immutable revision history;
 - teacher correction proposals that never overwrite published content directly;
-- bounded Seeed Studio Wiki and KiCad Symbols imports with provenance and license snapshots;
+- versioned Seeed Studio Wiki and KiCad Symbols adapters with preserved provenance and license snapshots; all sources are currently inactive for new imports;
 - exact and fuzzy duplicate detection with administrator-only merge decisions;
 - private MinIO media, validated image/video processing, and durable Redis/Dramatiq jobs;
 - audit events, Argon2id passwords, opaque sessions, CSRF protection, and throttling;
@@ -145,8 +145,10 @@ there is no self-service recovery or collection of email, phone, 2FA, or recover
 
 ## Content workflow
 
-1. An editor or administrator creates a manual draft or a bounded Seeed/KiCad import preview.
-2. The selected import entry becomes a draft; it is never published automatically.
+1. An editor or administrator creates a manual draft. Registered Seeed/KiCad adapters remain
+   available for controlled validation, but their sources are inactive for new import jobs.
+2. If a source is explicitly reactivated under an approved policy, the selected import entry
+   becomes a draft and is never published automatically.
 3. The editor completes the card and resolves duplicate candidates.
 4. The editor submits it for review; an administrator requests changes or approves it.
 5. An administrator explicitly publishes the approved revision.

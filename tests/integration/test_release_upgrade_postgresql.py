@@ -215,8 +215,24 @@ async def _assert_migrated_data(database_url: str) -> None:
         async with engine.connect() as connection:
             assert (
                 await connection.scalar(text("SELECT version_num FROM alembic_version"))
-                == "20260729_28"
+                == "20260910_29"
             )
+            source_states = (
+                await connection.execute(
+                    text(
+                        """
+                        SELECT key, status, is_enabled, allow_text_import, allow_facts_import
+                        FROM sources
+                        WHERE key IN ('seeed_wiki', 'kicad_symbols')
+                        ORDER BY key
+                        """
+                    )
+                )
+            ).all()
+            assert [tuple(row) for row in source_states] == [
+                ("kicad_symbols", "inactive", False, "none", False),
+                ("seeed_wiki", "inactive", False, "none", False),
+            ]
             users = await connection.scalar(
                 text("SELECT count(*) FROM users WHERE id IN (:admin_id, :student_id)"),
                 {"admin_id": ADMIN_ID, "student_id": STUDENT_ID},
@@ -474,8 +490,8 @@ def test_release_upgrade_preserves_data_and_supports_critical_api_flows(
                     "entry_name": None,
                 },
             )
-            assert submitted_import.status_code == 202
-            assert submitted_import.json()["status"] == "queued"
+            assert submitted_import.status_code == 422
+            assert submitted_import.json()["error"]["code"] == "source_disabled"
 
             created_card = client.post(
                 "/api/v1/workspace/components",
