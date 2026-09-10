@@ -36,6 +36,16 @@ class MediaQueue(Protocol):
     def enqueue(self, job_id: UUID, kind: MediaKind) -> None: ...
 
 
+class ComponentAttachmentWriter(Protocol):
+    async def touch_media_attachment(
+        self,
+        component_id: UUID,
+        expected_revision: int,
+        actor_id: UUID,
+        now: datetime,
+    ) -> int: ...
+
+
 @dataclass(frozen=True, slots=True)
 class PresignedUpload:
     reservation: UploadReservation
@@ -50,11 +60,14 @@ class MediaService:
         audit: AuthRepository,
         storage: MediaStorage,
         settings: Settings,
+        *,
+        component_attachments: ComponentAttachmentWriter | None = None,
     ) -> None:
         self.repository = repository
         self.audit = audit
         self.storage = storage
         self.settings = settings
+        self.component_attachments = component_attachments
 
     async def reserve_upload(
         self,
@@ -72,6 +85,7 @@ class MediaService:
     ) -> PresignedUpload:
         allowed_mimes = ALLOWED_IMAGE_MIMES if kind is MediaKind.IMAGE else ALLOWED_VIDEO_MIMES
         max_bytes = MAX_IMAGE_BYTES if kind is MediaKind.IMAGE else MAX_VIDEO_BYTES
+        component_attachments = self.component_attachments
         if declared_mime not in allowed_mimes:
             raise MediaValidationError(f"{kind.value}_declared_mime_not_allowed")
         if not 0 < declared_size_bytes <= max_bytes:
@@ -117,6 +131,8 @@ class MediaService:
             is_primary = kind is MediaKind.IMAGE and not await self.repository.component_has_images(
                 component_id
             )
+            if component_attachments is None:
+                raise RuntimeError("component attachment writer is not configured")
         else:
             display_order = 0
             is_primary = False
@@ -143,17 +159,14 @@ class MediaService:
         )
         resulting_component_revision: int | None = None
         if component_id is not None:
-            from arduino_component_kb.catalog.service import CatalogService
-
-            if expected_component_revision is None:
+            if expected_component_revision is None or component_attachments is None:
                 raise RuntimeError("component revision validation was skipped")
-            card = await CatalogService(self.repository.session).touch_media_attachment(
+            resulting_component_revision = await component_attachments.touch_media_attachment(
                 component_id,
                 expected_component_revision,
                 actor.user_id,
                 now,
             )
-            resulting_component_revision = card.revision
         url = await self.storage.presigned_put(
             reservation.bucket,
             reservation.object_key,

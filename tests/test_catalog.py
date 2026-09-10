@@ -24,6 +24,7 @@ from arduino_component_kb.auth.models import AuditEvent
 from arduino_component_kb.catalog.domain import (
     COMPONENT_CHANGE_SUMMARIES,
     EDITABLE_COMPONENT_STATUSES,
+    LIFECYCLE_TRANSITION_ACTIONS,
     LIFECYCLE_TRANSITION_SOURCES,
     CatalogCard,
     CatalogValidationError,
@@ -238,6 +239,14 @@ def test_component_lifecycle_state_and_transition_matrix_is_exact() -> None:
         ComponentStatus.ARCHIVED: frozenset(
             status for status in ComponentStatus if status is not ComponentStatus.ARCHIVED
         ),
+    }
+    assert LIFECYCLE_TRANSITION_ACTIONS == {
+        ComponentStatus.IN_REVIEW: ComponentChangeAction.SUBMITTED_FOR_REVIEW,
+        ComponentStatus.CHANGES_REQUESTED: ComponentChangeAction.CHANGES_REQUESTED,
+        ComponentStatus.APPROVED: ComponentChangeAction.APPROVED,
+        ComponentStatus.PUBLISHED: ComponentChangeAction.PUBLISHED,
+        ComponentStatus.HIDDEN: ComponentChangeAction.HIDDEN,
+        ComponentStatus.ARCHIVED: ComponentChangeAction.ARCHIVED,
     }
     assert EDITABLE_COMPONENT_STATUSES == frozenset(
         {

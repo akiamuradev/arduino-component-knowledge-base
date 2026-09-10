@@ -155,9 +155,9 @@ Backend paths ниже относительны к `src/arduino_component_kb/`.
 | A1 P1 REFACTOR | `frontend/src/components/AppHeader.tsx:19`, LoginPage/RegisterPage, app/query-client: logout удаляет только current-user query; остальные keys не привязаны к identity | Устранить остаточные данные между сессиями SPA. Сохранение кэша подтверждено кодом; показ чужих данных требует regression scenario, это не обход backend RBAC. Cancel/clear при identity transition; риск позднего ответа старого запроса |
 | A2 P1 REFACTOR | `imports/processor.py:203`, pipeline/worker_shadow, `pipeline/runtime.py:214`: shadow использует ту же SQL session/transaction, runtime превращает исключение в FAILED, savepoint отсутствует | SQL failure может оставить общую транзакцию aborted и сорвать legacy import. Риск выведен из кода, fault injection ещё нужен. Изолировать SQL shadow; catch без rollback недостаточен. Риск изменения atomicity/idempotency |
 | A3 P1 REFACTOR, WIP | styles.css/OledLoginDisplay; Playwright login at 320px падает на `.oled-pins > span` | Воспроизведён контраст 1.29:1 вместо 4.5:1. Точечный fix baseline, не redesign. Риск затронуть обе темы/mobile |
-| A4 P2 REFACTOR / MOVE | catalog/service 1810 строк, api/catalog 1221: reads/lifecycle/media/search/dedup/projections | Отделить read assembly, затем осмысленные write operations. Риск изменить snapshot visibility, locking и audit/commit order |
+| A4 P2 REFACTOR / MOVE, PARTIAL | catalog/service остаётся крупным: reads/media/search/dedup и низкоуровневые mutations; lifecycle transaction coordination вынесена в catalog/operations, HTTP больше не владеет lifecycle audit/commit | Дальше отделять только осмысленные операции. Snapshot visibility, locking и revision/audit order защищены тестами; массовый split не нужен |
 | A5 P2 REFACTOR, DONE | catalog/service list_published, list_cards, _data, snapshots; media/repository variants | Public list использует 6, workspace list — 10 запросов для трёх карточек с media без per-card роста. Snapshot/current-draft пути остаются раздельными; порядок и payload покрыты regression tests. Latency не измерялась |
-| A6 P2 MOVE / REFACTOR | api/imports admission/commit; catalog handlers; auth/repository audit используется другими доменами | Перенести workflow из HTTP и выделить узкий audit writer с session вызывающего кода. Риск откатить failure audit/throttle, которые намеренно сохраняются при отказе |
+| A6 P2 MOVE / REFACTOR, PARTIAL | Lifecycle workflow перенесён из catalog handlers; api/imports admission/commit и часть других catalog writes ещё координируются в HTTP; auth/repository audit используется другими доменами | Следующими переносить только доказанные workflow и выделить узкий audit writer с session вызывающего кода. Не откатить failure audit/throttle, которые намеренно сохраняются при отказе |
 | A7 P2 REFACTOR | broker, dispatch/reconciler, db, api/dependencies | Broker/Settings при import; engine пересоздаётся каждый reconcile cycle; DatabaseGateway не описывает используемые sessions. Явный resource lifetime. Риск переиспользовать async pool между разными asyncio.run у Dramatiq |
 | A8 P2 REFACTOR | auth/passwords и async auth/service вызывают синхронный Argon2 hash/verify | CPU work занимает event loop; нагрузочный эффект не измерен. Bounded thread offload, без ослабления Argon2. Риск роста памяти при неограниченной конкурентности и нарушения dummy verify |
 | A9 P2 MOVE / REFACTOR | ComponentEditorPage, user/admin pages, workspace/import review queries | Смешаны mapping/form/server state/mutations/invalidation. Pure editor mapping и domain query ownership. Риск потери незавершённого draft и staged photos |
@@ -169,8 +169,10 @@ Backend paths ниже относительны к `src/arduino_component_kb/`.
 Domain/service → HTTP imports не обнаружены, кроме ожидаемого composition root.
 Есть взаимные зависимости пакетов, не обязательно runtime import errors:
 
-- catalog ↔ media: MediaService локально импортирует CatalogService и использует
-  repository.session; catalog читает media и управляет связями.
+- catalog ↔ media: runtime-вызов MediaService → CatalogService удалён; media получает
+  узкий ComponentAttachmentWriter при сборке API. Catalog по-прежнему читает media и
+  управляет связями, а MediaRepository использует Component для optimistic lock/quotas,
+  поэтому persistence coupling остаётся явным.
 - catalog ↔ dedup: duplicate review вызывает catalog, catalog знает duplicate ORM.
 - imports ↔ dispatch; dispatch → worker: delivery contracts связаны с actor startup.
 - catalog/media → AuthRepository ради общего audit.
@@ -369,7 +371,7 @@ Controller → Service → Manager → Repository. Разделение catalog 
 | 1b. CP2 ownership | Sessions contract, reconciler resource lifetime, audit writer, commit ownership | Auth/error/dispatch и failure audit tests; broker factory только для реального import coupling, не новый DI |
 | 2a. CP3 shadow | Fault injection A2 → SQL isolation; отдельно long transaction/lease | Shadow failure не портит legacy result, retry без duplicates; не переключать весь pipeline |
 | 2b. CP3 reads — DONE | Query assembly/batching A4/A5 без изменения writes | PostgreSQL budgets фиксируют public/workspace query count; payloads/visibility сохранены, writes не менялись |
-| 2c. CP3 commands | По одной lifecycle operation вынести workflow из handlers; убрать обратный media → CatalogService вызов | Revisions/corrections/dedup/ownership/rollback/audit tests; не переписывать все services |
+| 2c. CP3 commands — DONE | Lifecycle mutations, revision-aligned audit и commit/rollback координирует catalog/operations; media использует внедрённый ComponentAttachmentWriter без обратного вызова CatalogService | Unit/API regression: revisions, audit metadata/request ID, rollback и media ownership; полный backend suite. Corrections/dedup и остальные writes намеренно не переписывались |
 | 2d. CP3 workers/auth | Убрать повтор failure handling, bounded Argon2 offload | Concurrency/memory/lease checks; per-message engine сохранить при разных event loops |
 | 3. CP4 frontend | Pure editor state, domain invalidation, users query ownership, точечный CSS cleanup | Draft/photos/admin workflows/e2e стабильны; lazy routes отдельно и после измерений |
 | 4. CP5 consistency | Merge readers/helpers, удалить unwired skeleton/require_roles, общие реальные fixtures | Persisted compatibility и behavioral coverage не снижены; active legacy adapters не трогать |

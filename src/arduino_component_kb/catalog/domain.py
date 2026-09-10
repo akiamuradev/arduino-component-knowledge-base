@@ -76,6 +76,15 @@ LIFECYCLE_TRANSITION_SOURCES: dict[ComponentStatus, frozenset[ComponentStatus]] 
     ),
 }
 
+LIFECYCLE_TRANSITION_ACTIONS: dict[ComponentStatus, ComponentChangeAction] = {
+    ComponentStatus.IN_REVIEW: ComponentChangeAction.SUBMITTED_FOR_REVIEW,
+    ComponentStatus.CHANGES_REQUESTED: ComponentChangeAction.CHANGES_REQUESTED,
+    ComponentStatus.APPROVED: ComponentChangeAction.APPROVED,
+    ComponentStatus.PUBLISHED: ComponentChangeAction.PUBLISHED,
+    ComponentStatus.HIDDEN: ComponentChangeAction.HIDDEN,
+    ComponentStatus.ARCHIVED: ComponentChangeAction.ARCHIVED,
+}
+
 EDITABLE_COMPONENT_STATUSES = frozenset(
     {
         ComponentStatus.DRAFT,

@@ -17,6 +17,8 @@ from arduino_component_kb.api.dependencies import (
 )
 from arduino_component_kb.auth.domain import Permission, Principal
 from arduino_component_kb.auth.repository import AuthRepository
+from arduino_component_kb.catalog.operations import CatalogMediaAttachments
+from arduino_component_kb.catalog.service import CatalogService
 from arduino_component_kb.config import Settings
 from arduino_component_kb.logging import current_request_id
 from arduino_component_kb.media.domain import (
@@ -122,6 +124,7 @@ def media_service_from_request(
         AuthRepository(session),
         cast(MediaStorage, request.app.state.media_storage),
         cast(Settings, request.app.state.settings),
+        component_attachments=CatalogMediaAttachments(CatalogService(session)),
     )
 
 

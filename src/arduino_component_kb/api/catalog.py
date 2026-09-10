@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable
 from datetime import UTC, datetime
 from typing import Annotated, Literal, cast
 from uuid import UUID
@@ -39,6 +40,7 @@ from arduino_component_kb.catalog.domain import (
     TechnicalSpecification,
 )
 from arduino_component_kb.catalog.models import ComponentRevision
+from arduino_component_kb.catalog.operations import CatalogLifecycleOperations
 from arduino_component_kb.catalog.service import CatalogService
 from arduino_component_kb.config import Settings
 from arduino_component_kb.imports.models import Source
@@ -1025,49 +1027,10 @@ async def update_component_images(
         raise _error(error) from error
 
 
-async def _transition(
-    component_id: UUID,
-    payload: LifecycleRequest,
-    actor: Principal,
-    session: AsyncSession,
-    target: ComponentStatus,
-    action: str,
-) -> ComponentResponse:
+async def _lifecycle_response(operation: Awaitable[CatalogCard]) -> ComponentResponse:
     try:
-        card = await CatalogService(session).transition(
-            component_id, payload.revision, target, actor.user_id
-        )
-        await _commit(session, action, actor, card)
-        return response(card)
-    except CatalogError as error:
-        await session.rollback()
-        raise _error(error) from error
-
-
-async def _special_transition(
-    component_id: UUID,
-    payload: LifecycleRequest,
-    actor: Principal,
-    session: AsyncSession,
-    action: str,
-    operation: str,
-) -> ComponentResponse:
-    try:
-        service = CatalogService(session)
-        if operation == "show":
-            card = await service.show_hidden(component_id, payload.revision, actor.user_id)
-        elif operation == "restore":
-            card = await service.restore_archived(
-                component_id,
-                payload.revision,
-                actor.user_id,
-            )
-        else:
-            raise ValueError("unsupported lifecycle operation")
-        await _commit(session, action, actor, card)
-        return response(card)
-    except CatalogError as error:
-        await session.rollback()
+        return response(await operation)
+    except (CatalogError, IntegrityError) as error:
         raise _error(error) from error
 
 
@@ -1082,13 +1045,14 @@ async def submit_component_for_review(
     _: Annotated[Principal, Depends(csrf_principal)],
     session: Annotated[AsyncSession, Depends(database_session)],
 ) -> ComponentResponse:
-    return await _transition(
-        component_id,
-        payload,
-        actor,
-        session,
-        ComponentStatus.IN_REVIEW,
-        "component.submitted_for_review",
+    return await _lifecycle_response(
+        CatalogLifecycleOperations(session).transition(
+            component_id,
+            payload.revision,
+            ComponentStatus.IN_REVIEW,
+            actor.user_id,
+            current_request_id(),
+        )
     )
 
 
@@ -1103,13 +1067,14 @@ async def request_component_changes(
     _: Annotated[Principal, Depends(csrf_principal)],
     session: Annotated[AsyncSession, Depends(database_session)],
 ) -> ComponentResponse:
-    return await _transition(
-        component_id,
-        payload,
-        actor,
-        session,
-        ComponentStatus.CHANGES_REQUESTED,
-        "component.changes_requested",
+    return await _lifecycle_response(
+        CatalogLifecycleOperations(session).transition(
+            component_id,
+            payload.revision,
+            ComponentStatus.CHANGES_REQUESTED,
+            actor.user_id,
+            current_request_id(),
+        )
     )
 
 
@@ -1121,13 +1086,14 @@ async def approve_component(
     _: Annotated[Principal, Depends(csrf_principal)],
     session: Annotated[AsyncSession, Depends(database_session)],
 ) -> ComponentResponse:
-    return await _transition(
-        component_id,
-        payload,
-        actor,
-        session,
-        ComponentStatus.APPROVED,
-        "component.approved",
+    return await _lifecycle_response(
+        CatalogLifecycleOperations(session).transition(
+            component_id,
+            payload.revision,
+            ComponentStatus.APPROVED,
+            actor.user_id,
+            current_request_id(),
+        )
     )
 
 
@@ -1139,13 +1105,14 @@ async def publish_component(
     _: Annotated[Principal, Depends(csrf_principal)],
     session: Annotated[AsyncSession, Depends(database_session)],
 ) -> ComponentResponse:
-    return await _transition(
-        component_id,
-        payload,
-        actor,
-        session,
-        ComponentStatus.PUBLISHED,
-        "component.published",
+    return await _lifecycle_response(
+        CatalogLifecycleOperations(session).transition(
+            component_id,
+            payload.revision,
+            ComponentStatus.PUBLISHED,
+            actor.user_id,
+            current_request_id(),
+        )
     )
 
 
@@ -1157,13 +1124,14 @@ async def hide_component(
     _: Annotated[Principal, Depends(csrf_principal)],
     session: Annotated[AsyncSession, Depends(database_session)],
 ) -> ComponentResponse:
-    return await _transition(
-        component_id,
-        payload,
-        actor,
-        session,
-        ComponentStatus.HIDDEN,
-        "component.hidden",
+    return await _lifecycle_response(
+        CatalogLifecycleOperations(session).transition(
+            component_id,
+            payload.revision,
+            ComponentStatus.HIDDEN,
+            actor.user_id,
+            current_request_id(),
+        )
     )
 
 
@@ -1175,13 +1143,13 @@ async def show_component(
     _: Annotated[Principal, Depends(csrf_principal)],
     session: Annotated[AsyncSession, Depends(database_session)],
 ) -> ComponentResponse:
-    return await _special_transition(
-        component_id,
-        payload,
-        actor,
-        session,
-        "component.shown",
-        "show",
+    return await _lifecycle_response(
+        CatalogLifecycleOperations(session).show_hidden(
+            component_id,
+            payload.revision,
+            actor.user_id,
+            current_request_id(),
+        )
     )
 
 
@@ -1193,13 +1161,14 @@ async def archive_component(
     _: Annotated[Principal, Depends(csrf_principal)],
     session: Annotated[AsyncSession, Depends(database_session)],
 ) -> ComponentResponse:
-    return await _transition(
-        component_id,
-        payload,
-        actor,
-        session,
-        ComponentStatus.ARCHIVED,
-        "component.archived",
+    return await _lifecycle_response(
+        CatalogLifecycleOperations(session).transition(
+            component_id,
+            payload.revision,
+            ComponentStatus.ARCHIVED,
+            actor.user_id,
+            current_request_id(),
+        )
     )
 
 
@@ -1211,11 +1180,11 @@ async def restore_component(
     _: Annotated[Principal, Depends(csrf_principal)],
     session: Annotated[AsyncSession, Depends(database_session)],
 ) -> ComponentResponse:
-    return await _special_transition(
-        component_id,
-        payload,
-        actor,
-        session,
-        "component.restored",
-        "restore",
+    return await _lifecycle_response(
+        CatalogLifecycleOperations(session).restore_archived(
+            component_id,
+            payload.revision,
+            actor.user_id,
+            current_request_id(),
+        )
     )

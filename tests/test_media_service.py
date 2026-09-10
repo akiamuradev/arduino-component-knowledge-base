@@ -25,7 +25,7 @@ from arduino_component_kb.media.domain import (
 )
 from arduino_component_kb.media.models import MediaAsset
 from arduino_component_kb.media.repository import MediaRepository
-from arduino_component_kb.media.service import MediaService
+from arduino_component_kb.media.service import ComponentAttachmentWriter, MediaService
 from arduino_component_kb.media.storage import MediaStorage, ObjectMetadata
 
 
@@ -88,6 +88,64 @@ async def test_reservation_uses_private_quarantine_and_presigned_put() -> None:
     assert str(actor.user_id) in result.reservation.object_key
     storage.presigned_put.assert_awaited_once()
     audit.audit.assert_awaited_once()
+
+
+async def test_attached_reservation_uses_injected_catalog_boundary() -> None:
+    actor = teacher()
+    component_id = uuid4()
+    repository = Mock(spec=MediaRepository)
+    repository.lock_upload_reservations = AsyncMock()
+    repository.count_recent_uploads = AsyncMock(return_value=0)
+    repository.count_pending = AsyncMock(return_value=0)
+    repository.count_all_pending = AsyncMock(return_value=0)
+    repository.lock_component_revision = AsyncMock(return_value=7)
+    repository.component_usage = AsyncMock(return_value=ComponentMediaUsage(0, 0, 0))
+    repository.next_component_order = AsyncMock(return_value=0)
+    repository.component_has_images = AsyncMock(return_value=False)
+    repository.create_reservation = AsyncMock(
+        side_effect=lambda **values: UploadReservation(
+            values["asset_id"],
+            values["bucket"],
+            values["object_key"],
+            values["declared_mime"],
+            values["expires_at"],
+        )
+    )
+    audit = Mock(spec=AuthRepository)
+    audit.audit = AsyncMock()
+    storage = Mock(spec=MediaStorage)
+    storage.presigned_put = AsyncMock(return_value="https://storage.invalid/attached")
+    attachments = Mock(spec=ComponentAttachmentWriter)
+    attachments.touch_media_attachment = AsyncMock(return_value=8)
+    service = MediaService(
+        repository,
+        audit,
+        storage,
+        settings(),
+        component_attachments=attachments,
+    )
+
+    result = await service.reserve_upload(
+        actor=actor,
+        kind=MediaKind.IMAGE,
+        component_id=component_id,
+        component_revision=7,
+        purpose="product",
+        alt_text="Top view",
+        attribution=None,
+        declared_mime="image/png",
+        declared_size_bytes=100,
+        request_id="request-attached",
+    )
+
+    assert result.component_revision == 8
+    attachments.touch_media_attachment.assert_awaited_once()
+    assert attachments.touch_media_attachment.await_args.args[:3] == (
+        component_id,
+        7,
+        actor.user_id,
+    )
+    assert audit.audit.await_args.kwargs["details"] == {"component_revision": 8}
 
 
 async def test_confirmation_rejects_size_mismatch_before_queueing() -> None:
