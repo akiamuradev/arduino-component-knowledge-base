@@ -25,6 +25,7 @@ from arduino_component_kb.catalog.domain import (
     RevisionConflictError,
 )
 from arduino_component_kb.catalog.models import Category, Component, ComponentRevision
+from arduino_component_kb.catalog.operations import CatalogMediaAttachments
 from arduino_component_kb.catalog.service import CatalogService
 from arduino_component_kb.config import Settings
 from arduino_component_kb.db import Database
@@ -241,6 +242,7 @@ async def test_image_aggregate_order_primary_publish_and_snapshot(
                 AuthRepository(session),
                 storage,
                 integration_settings,
+                component_attachments=CatalogMediaAttachments(catalog),
             )
             first = await media.reserve_upload(
                 actor=_actor(user_id),
@@ -570,6 +572,7 @@ async def test_duplicate_merge_combines_media_and_hides_foreign_assets(
                 AuthRepository(session),
                 storage,
                 integration_settings,
+                component_attachments=CatalogMediaAttachments(catalog),
             )
             actor = _actor(user_id)
 

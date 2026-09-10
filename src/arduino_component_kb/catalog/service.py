@@ -20,6 +20,7 @@ from arduino_component_kb.auth.models import User
 from arduino_component_kb.catalog.domain import (
     COMPONENT_CHANGE_SUMMARIES,
     EDITABLE_COMPONENT_STATUSES,
+    LIFECYCLE_TRANSITION_ACTIONS,
     LIFECYCLE_TRANSITION_SOURCES,
     CatalogCard,
     CatalogValidationError,
@@ -734,20 +735,12 @@ class CatalogService:
         if target is ComponentStatus.PUBLISHED:
             row.published_at = now
         data = await self._data(row)
-        actions = {
-            ComponentStatus.IN_REVIEW: ComponentChangeAction.SUBMITTED_FOR_REVIEW,
-            ComponentStatus.CHANGES_REQUESTED: ComponentChangeAction.CHANGES_REQUESTED,
-            ComponentStatus.APPROVED: ComponentChangeAction.APPROVED,
-            ComponentStatus.PUBLISHED: ComponentChangeAction.PUBLISHED,
-            ComponentStatus.HIDDEN: ComponentChangeAction.HIDDEN,
-            ComponentStatus.ARCHIVED: ComponentChangeAction.ARCHIVED,
-        }
         await self._snapshot(
             row,
             data,
             actor_id,
             now,
-            action=actions[target],
+            action=LIFECYCLE_TRANSITION_ACTIONS[target],
             previous_status=source,
         )
         if target is ComponentStatus.PUBLISHED:
