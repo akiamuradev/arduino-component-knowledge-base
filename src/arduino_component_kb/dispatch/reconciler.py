@@ -25,13 +25,16 @@ class DramatiqDispatchPublisher:
     """Publish only opaque job identifiers to the configured shared broker."""
 
     def publish(self, intent: DispatchIntent) -> None:
+        from arduino_component_kb.legacy.tasks import process_legacy_bundle
         from arduino_component_kb.worker import (
             process_import,
             process_media_image,
             process_media_video,
         )
 
-        if intent.queue_name == "imports":
+        if intent.queue_name == "legacy":
+            process_legacy_bundle.send(str(intent.job_id))
+        elif intent.queue_name == "imports":
             process_import.send(str(intent.job_id))
         elif intent.queue_name == "images":
             process_media_image.send(str(intent.job_id))

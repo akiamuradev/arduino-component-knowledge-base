@@ -37,6 +37,7 @@ class Permission(StrEnum):
     IMPORTS_CREATE = "imports.create"
     IMPORTS_RETRY = "imports.retry"
     IMPORTS_CANCEL = "imports.cancel"
+    IMPORTS_BULK_APPLY = "imports.bulk_apply"
     USERS_VIEW = "users.view"
     USERS_MANAGE = "users.manage"
     ROLES_ASSIGN = "roles.assign"

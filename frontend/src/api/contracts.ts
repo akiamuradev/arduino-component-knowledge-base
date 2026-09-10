@@ -13,6 +13,7 @@ export type Permission =
   | "imports.create"
   | "imports.retry"
   | "imports.cancel"
+  | "imports.bulk_apply"
   | "users.view"
   | "users.manage"
   | "roles.assign"

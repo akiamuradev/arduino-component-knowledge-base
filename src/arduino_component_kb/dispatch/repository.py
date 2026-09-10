@@ -12,10 +12,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from arduino_component_kb.dispatch.models import JobDispatch
 from arduino_component_kb.imports.models import ImportJob
+from arduino_component_kb.legacy.models import LegacyBundle
 from arduino_component_kb.media.models import MediaAsset, MediaJob
 
-JobType = Literal["import", "media"]
-QueueName = Literal["imports", "images", "videos"]
+JobType = Literal["import", "media", "legacy"]
+QueueName = Literal["imports", "images", "videos", "legacy"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,6 +121,31 @@ class DispatchRepository:
             )
         if recovered:
             await self.session.flush()
+        if recovered < limit:
+            rows = (
+                await self.session.execute(
+                    select(JobDispatch, LegacyBundle)
+                    .join(LegacyBundle, LegacyBundle.id == JobDispatch.job_id)
+                    .where(
+                        JobDispatch.job_type == "legacy",
+                        JobDispatch.status == "delivered",
+                        LegacyBundle.status.in_(("analyzing", "applying")),
+                        LegacyBundle.updated_at < now - timedelta(seconds=1800),
+                    )
+                    .with_for_update(of=(JobDispatch, LegacyBundle), skip_locked=True)
+                    .limit(limit - recovered)
+                )
+            ).all()
+            for dispatch, bundle in rows:
+                if dispatch.attempts >= dispatch.max_attempts:
+                    dispatch.status = "failed"
+                    dispatch.error_code = "dispatch_attempts_exhausted"
+                    bundle.status = "failed"
+                    bundle.error_code = "legacy_dispatch_exhausted"
+                else:
+                    self._make_pending(dispatch, now)
+                bundle.updated_at = now
+            recovered += len(rows)
         return recovered
 
     async def _recover_imports(
@@ -286,7 +312,15 @@ class DispatchRepository:
             dispatch.updated_at = now
             return
         if dispatch.attempts >= dispatch.max_attempts:
-            if dispatch.job_type == "import":
+            if dispatch.job_type == "legacy":
+                bundle = await self.session.get(LegacyBundle, dispatch.job_id)
+                dispatch.status = "failed"
+                dispatch.error_code = "dispatch_attempts_exhausted"
+                if bundle is not None:
+                    bundle.status = "failed"
+                    bundle.error_code = "legacy_dispatch_exhausted"
+                    bundle.updated_at = now
+            elif dispatch.job_type == "import":
                 import_job = cast(
                     ImportJob | None,
                     await self.session.scalar(
@@ -321,6 +355,11 @@ class DispatchRepository:
         )
 
     async def _job_is_active(self, dispatch: JobDispatch) -> bool:
+        if dispatch.job_type == "legacy":
+            bundle_status = await self.session.scalar(
+                select(LegacyBundle.status).where(LegacyBundle.id == dispatch.job_id)
+            )
+            return bundle_status in {"analyzing", "applying"}
         if dispatch.job_type == "import":
             status = await self.session.scalar(
                 select(ImportJob.status).where(ImportJob.id == dispatch.job_id)

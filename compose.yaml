@@ -218,6 +218,32 @@ services:
       - data
       - parser-egress
 
+  legacy-worker:
+    <<: *app-image
+    command: ["dramatiq", "arduino_component_kb.worker", "--queues", "legacy", "--processes", "1", "--threads", "1"]
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=512m,mode=1777
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 64
+    mem_limit: 2g
+    cpus: "1.0"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      media-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os; os.kill(1, 0)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
   job-reconciler:
     <<: *app-image
     command: ["ackb-reconcile-jobs", "--loop"]
