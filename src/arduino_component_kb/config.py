@@ -73,6 +73,7 @@ class Settings(DatabaseSettings):
     minio_secure: bool = True
     minio_quarantine_bucket: str = "ackb-media-quarantine"
     minio_variants_bucket: str = "ackb-media-variants"
+    minio_legacy_bucket: str = "ackb-legacy-bundles"
     media_public_path_prefix: str = "/media-storage"
     media_presign_ttl_seconds: int = Field(default=600, ge=60, le=900)
     media_pending_upload_limit: int = Field(default=5, ge=1, le=20)

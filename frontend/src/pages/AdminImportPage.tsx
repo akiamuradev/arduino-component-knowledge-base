@@ -14,6 +14,7 @@ import { hasPermission } from "../auth/permissions";
 import { useCurrentUser } from "../auth/queries";
 import { ErrorState, LoadingState } from "../components/AsyncStates";
 import { SplatEmptyState } from "../components/SplatEmptyState";
+import { LegacyImportPanel } from "../imports/LegacyImportPanel";
 import {
   useCancelImport,
   useCreateRepositoryImport,
@@ -227,6 +228,8 @@ export function AdminImportPage() {
 
   return (
     <section className="admin-import-page">
+      {currentUser.data && hasPermission(currentUser.data, "imports.bulk_apply")
+        ? <LegacyImportPanel /> : null}
       <div className="section-heading import-page-heading">
         <div>
           <p className="eyebrow">Рабочая область редактора</p>

@@ -215,6 +215,7 @@ class CatalogCard:
     media: tuple[ComponentMedia, ...] = ()
     archived_from_status: ComponentStatus | None = None
     edit_token: int = 1
+    has_legacy_provenance: bool = False
 
 
 @dataclass(frozen=True, slots=True)

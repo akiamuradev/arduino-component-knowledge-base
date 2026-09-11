@@ -42,6 +42,7 @@ export class SyncController<S, C extends SyncCard> {
   private disposed = false;
   private baseToken: number | null;
   private commandFlight: Promise<C> | null = null;
+  private isDisposed(): boolean { return this.disposed; }
 
   constructor(private options: SyncOptions<S, C>) {
     this.baseToken = options.card?.edit_token ?? options.card?.revision ?? null;
@@ -98,7 +99,7 @@ export class SyncController<S, C extends SyncCard> {
   };
   private async drain() {
     while (this.acknowledged !== this.generation) {
-      if (this.disposed) return;
+      if (this.isDisposed()) return;
       if (Object.keys(this.view.fieldErrors).length) {
         this.publish({ status: "invalid" });
         throw new Error("Исправьте ошибки полей");
@@ -174,13 +175,13 @@ export class SyncController<S, C extends SyncCard> {
       error: null, fieldErrors: {}, localStored: false });
   };
   command = (operation: (card: C) => Promise<C>): Promise<C> => {
-    if (this.disposed) return Promise.reject(new Error("Редактор закрыт"));
+    if (this.isDisposed()) return Promise.reject(new Error("Редактор закрыт"));
     if (this.view.transientBusy) return Promise.reject(new Error("Дождитесь окончания загрузки файлов"));
     if (this.commandFlight) return this.commandFlight;
     this.publish({ commandPending: true });
     this.commandFlight = Promise.resolve().then(async () => {
       await this.flush();
-      if (this.disposed) throw new Error("Редактор закрыт");
+      if (this.isDisposed()) throw new Error("Редактор закрыт");
       if (!this.view.card) throw new Error("Сначала начните редактировать карточку");
       const card = await operation(this.view.card);
       if (this.disposed) return card;

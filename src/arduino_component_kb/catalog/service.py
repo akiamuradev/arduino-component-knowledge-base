@@ -847,8 +847,18 @@ class CatalogService:
     async def _validate_publication(self, row: Component) -> None:
         from arduino_component_kb.deduplication.models import DuplicateCandidate
         from arduino_component_kb.deduplication.scoring import HIGH_SCORE_THRESHOLD
+        from arduino_component_kb.legacy.models import LegacySourceLink
 
         self._validate_review_content(row)
+        legacy_sources = list(
+            await self.session.scalars(
+                select(LegacySourceLink).where(
+                    LegacySourceLink.component_id == row.id,
+                )
+            )
+        )
+        if any(source.license_status != "reviewed" for source in legacy_sources):
+            raise CatalogValidationError("legacy_license_review_required")
         source_rows = await self._component_source_rows(row.id)
         high_duplicates = await self.session.scalar(
             select(func.count())
@@ -862,9 +872,11 @@ class CatalogService:
                 ),
             )
         )
-        if (not row.manual_original and not source_rows) or high_duplicates != 0:
+        if (
+            not row.manual_original and not source_rows and not legacy_sources
+        ) or high_duplicates != 0:
             raise CatalogValidationError
-        if not row.manual_original:
+        if not row.manual_original and source_rows:
             self._validate_publish_sources(source_rows)
         await self._validate_publish_media(row.id)
 
@@ -1462,16 +1474,24 @@ class CatalogService:
         }
 
     async def _card(self, row: Component) -> CatalogCard:
+        from arduino_component_kb.legacy.models import LegacySourceLink
+
         category = await self.session.get(Category, row.primary_category_id)
         if category is None:
             raise CatalogValidationError
-        return self._card_from_parts(
+        card = self._card_from_parts(
             row,
             await self._data(row),
             category,
             await self._source_snapshots(row.id),
             await MediaRepository(self.session).component_media(row.id),
         )
+        legacy = await self.session.scalar(
+            select(LegacySourceLink.identity)
+            .where(LegacySourceLink.component_id == row.id)
+            .limit(1)
+        )
+        return replace(card, has_legacy_provenance=legacy is not None)
 
     async def _cards(self, rows: tuple[Component, ...]) -> list[CatalogCard]:
         if not rows:

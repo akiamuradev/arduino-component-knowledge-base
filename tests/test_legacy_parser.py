@@ -134,3 +134,35 @@ def test_workbook_group_anchors_collapse_rows_and_omit_contributors() -> None:
     assert targets[0].rows == [2, 3]
     assert targets[0].images[0].path == "xl/media/image1.png"
     assert "PRIVATE" not in targets[0].model_dump_json()
+
+
+@pytest.mark.parametrize(
+    "rows,expected",
+    [
+        ([("Параметр", "Значение"), ("Напряжение", "5 В")], 1),
+        ([("Параметр", "A4988"), ("Напряжение", "5 В")], 0),
+        ([("Преимущества", "Недостатки"), ("Цена", "Нагрев")], 0),
+        ([("Контакт", "Назначение"), ("1", "VCC")], 0),
+        ([("Подключение", "Arduino pin"), ("VCC", "5")], 0),
+    ],
+)
+def test_docx_tables_preserve_non_specification_meaning(
+    rows: list[tuple[str, str]], expected: int
+) -> None:
+    ns = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+    table = "".join(
+        "<w:tr>"
+        + "".join(f"<w:tc><w:p><w:r><w:t>{cell}</w:t></w:r></w:p></w:tc>" for cell in row)
+        + "</w:tr>"
+        for row in rows
+    )
+    description, specs, _ = read_docx(
+        package(
+            {
+                "word/document.xml": f'<w:document xmlns:w="{ns}"><w:body><w:tbl>{table}'
+                "</w:tbl></w:body></w:document>",
+            }
+        )
+    )
+    assert len(specs) == expected
+    assert all(cell in description for row in rows for cell in row)

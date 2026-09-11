@@ -22,14 +22,14 @@ def settings() -> Settings:
 async def test_provisioning_creates_missing_buckets_and_requires_no_public_policy() -> None:
     storage = MinioStorage(settings())
     client = Mock()
-    client.bucket_exists.side_effect = [False, True]
+    client.bucket_exists.side_effect = [False, True, True]
     client.get_bucket_policy.return_value = ""
     storage.client = client
 
     await storage.ensure_private_buckets()
 
     client.make_bucket.assert_called_once_with("ackb-media-quarantine")
-    assert client.get_bucket_policy.call_count == 2
+    assert client.get_bucket_policy.call_count == 3
 
 
 async def test_provisioning_fails_closed_when_bucket_has_a_policy() -> None:

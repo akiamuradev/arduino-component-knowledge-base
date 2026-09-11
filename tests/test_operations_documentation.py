@@ -45,7 +45,7 @@ def test_operator_commands_match_repository_interfaces() -> None:
         ".env.production.example",
         "./scripts/production_preflight.sh",
         "alembic current",
-        "20260910_30 (head)",
+        "20260911_31 (head)",
         "ackb-bootstrap-admin",
         "python3 scripts/production_smoke.py",
         "./scripts/database_backup.sh",
