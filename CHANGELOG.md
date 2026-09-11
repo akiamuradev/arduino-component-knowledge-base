@@ -2,6 +2,30 @@
 
 All notable changes to this project are documented here. Versions follow semantic versioning.
 
+## [1.5.0] - 2026-09-11
+
+### Added
+
+- Debounced document synchronization with one content/media/lifecycle coordinator,
+  immediate local dirty state, keyboard flush and bounded opt-in draft recovery.
+- Database-backed optimistic edit tokens independent of semantic history revisions;
+  idempotent new-draft creation and atomic administrator approve-and-publish.
+- Explicit conflict comparison and typed alias/tag/slug/specification validation.
+
+### Fixed
+
+- In-flight responses no longer replace newer typed text; trailing text whitespace is retained.
+- Image uploads are staged before coordinated attachment, with safe stage-specific diagnostics;
+  failed upload reservation/PUT no longer invalidates the component's edit token.
+- Autosave no longer produces a history snapshot or audit event for each text edit.
+
+### Compatibility
+
+- Migration `20260910_30` adds edit tokens and durable draft creation keys. Older mutation
+  clients must send the latest `edit_token` when semantic revision and token diverge.
+- Historical teacher permissions/data remain supported; the UI marks the role as deprecated.
+- Unfinished legacy importer is preserved separately and is not part of this change.
+
 ## [1.0.1] - 2026-09-05
 
 ### Added

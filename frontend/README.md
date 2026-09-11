@@ -82,7 +82,7 @@ Build metadata необязательны и не должны содержат�
 или соответствующие `VITE_*` build args. Эти значения видны в «О системе» и нижнем баре.
 
 ```bash
-VITE_APP_VERSION=1.0.1 VITE_COMMIT_SHA=<commit> VITE_BUILD_DATE=<ISO-8601> npm run build
+VITE_APP_VERSION=1.5.0 VITE_COMMIT_SHA=<commit> VITE_BUILD_DATE=<ISO-8601> npm run build
 ```
 
 ## Проверки

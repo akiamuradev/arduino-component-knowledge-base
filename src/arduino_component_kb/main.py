@@ -16,6 +16,7 @@ from arduino_component_kb.api.auth import router as auth_router
 from arduino_component_kb.api.catalog import admin_router as catalog_admin_router
 from arduino_component_kb.api.catalog import public_router as catalog_public_router
 from arduino_component_kb.api.catalog import router as catalog_router
+from arduino_component_kb.api.component_sync import router as component_sync_router
 from arduino_component_kb.api.duplicates import router as duplicates_router
 from arduino_component_kb.api.health import router as health_router
 from arduino_component_kb.api.import_reviews import router as import_reviews_router
@@ -90,6 +91,7 @@ def create_app(
     app.include_router(imports_router)
     app.include_router(import_reviews_router)
     app.include_router(catalog_router)
+    app.include_router(component_sync_router)
     app.include_router(catalog_admin_router)
     app.include_router(catalog_public_router)
     app.include_router(duplicates_router)

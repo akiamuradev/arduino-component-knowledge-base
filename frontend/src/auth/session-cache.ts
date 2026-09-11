@@ -1,6 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 
 import type { User } from "../api/contracts";
+import { clearEditorRecovery } from "../editor/recovery";
 
 export const currentUserQueryKey = ["auth", "current-user"] as const;
 
@@ -10,6 +11,7 @@ export function isCurrentUserQuery(key: readonly unknown[]): boolean {
 
 // Cancellation detaches late query responses before the next identity owns the cache.
 export async function replaceSessionCache(client: QueryClient, user?: User): Promise<void> {
+  clearEditorRecovery();
   await client.cancelQueries();
   client.clear();
   if (user !== undefined) client.setQueryData(currentUserQueryKey, user);

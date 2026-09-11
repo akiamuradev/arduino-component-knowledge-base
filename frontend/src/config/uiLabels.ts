@@ -9,7 +9,7 @@ import type {
 
 export const ROLE_LABELS: Record<Role, string> = {
   student: "Ученик",
-  teacher: "Преподаватель",
+  teacher: "Преподаватель (устаревшая роль)",
   editor: "Редактор базы",
   administrator: "Администратор",
 };

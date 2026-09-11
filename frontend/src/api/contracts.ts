@@ -393,6 +393,7 @@ export interface ComponentListResponse {
 }
 
 export interface ComponentCard extends ComponentSummary {
+  edit_token?: number;
   aliases: string[];
   manufacturer: string | null;
   model: string | null;

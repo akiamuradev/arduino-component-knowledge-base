@@ -39,7 +39,7 @@ from arduino_component_kb.catalog.domain import (
     SourceSnapshot,
     TechnicalSpecification,
 )
-from arduino_component_kb.catalog.models import ComponentRevision
+from arduino_component_kb.catalog.models import Component, ComponentRevision
 from arduino_component_kb.catalog.operations import CatalogLifecycleOperations
 from arduino_component_kb.catalog.service import CatalogService
 from arduino_component_kb.config import Settings
@@ -203,6 +203,8 @@ class DraftRequest(BaseModel):
             **self.model_dump(
                 exclude={
                     "revision",
+                    "edit_token",
+                    "creation_key",
                     "images",
                     "primary_asset_id",
                     "specifications",
@@ -224,10 +226,12 @@ class DraftRequest(BaseModel):
 
 class UpdateRequest(DraftRequest):
     revision: int = Field(ge=1)
+    edit_token: int | None = Field(default=None, ge=1)
 
 
 class LifecycleRequest(BaseModel):
     revision: int = Field(ge=1)
+    edit_token: int | None = Field(default=None, ge=1)
 
 
 class CorrectionProposalRequest(BaseModel):
@@ -263,6 +267,7 @@ class ComponentImageMutationRequest(BaseModel):
 
 class ComponentImagesUpdateRequest(BaseModel):
     revision: int = Field(ge=1)
+    edit_token: int | None = Field(default=None, ge=1)
     images: list[ComponentImageMutationRequest] = Field(max_length=12)
     primary_asset_id: UUID | None = None
 
@@ -331,6 +336,7 @@ class PublicComponentMediaResponse(BaseModel):
 
 
 class ComponentResponse(BaseModel):
+    edit_token: int = 1
     id: str
     slug: str
     status: ComponentStatus
@@ -486,6 +492,7 @@ def component_media_response(item: ComponentMedia) -> ComponentMediaResponse:
 def response(card: CatalogCard) -> ComponentResponse:
     data = card.data
     return ComponentResponse(
+        edit_token=card.edit_token,
         id=str(card.id),
         status=card.status,
         primary_category=CategoryResponse(
@@ -786,12 +793,26 @@ async def _commit(session: AsyncSession, action: str, actor: Principal, card: Ca
 
 
 def _error(error: Exception) -> HTTPException:
+    if isinstance(error, ComponentMediaNotFoundError):
+        return HTTPException(404, detail={"code": "component_media_not_found"})
     if isinstance(error, ComponentNotFoundError):
         return HTTPException(404, detail={"code": "component_not_found"})
     if isinstance(error, RevisionConflictError):
         return HTTPException(409, detail={"code": "revision_conflict"})
     if isinstance(error, CatalogValidationError):
-        return HTTPException(409, detail={"code": error.code})
+        field_errors = {
+            "invalid_slug",
+            "duplicate_alias",
+            "duplicate_tag",
+            "alias_too_long",
+            "tag_too_long",
+            "too_many_aliases",
+            "too_many_tags",
+            "invalid_specification",
+        }
+        return HTTPException(
+            422 if error.code in field_errors else 409, detail={"code": error.code}
+        )
     return HTTPException(409, detail={"code": "catalog_conflict"})
 
 
@@ -991,6 +1012,7 @@ async def update_component(
     session: Annotated[AsyncSession, Depends(database_session)],
 ) -> ComponentResponse:
     try:
+        await _legacy_token_guard(session, component_id, payload)
         card = await CatalogService(session).update(
             component_id, payload.revision, payload.domain(), actor.user_id
         )
@@ -1010,6 +1032,7 @@ async def update_component_images(
     session: Annotated[AsyncSession, Depends(database_session)],
 ) -> ComponentResponse:
     try:
+        await _legacy_token_guard(session, component_id, payload)
         card = await CatalogService(session).mutate_images(
             component_id,
             payload.revision,
@@ -1025,6 +1048,22 @@ async def update_component_images(
     except (CatalogError, IntegrityError) as error:
         await session.rollback()
         raise _error(error) from error
+
+
+async def _legacy_token_guard(
+    session: AsyncSession,
+    component_id: UUID,
+    payload: UpdateRequest | LifecycleRequest | ComponentImagesUpdateRequest,
+) -> None:
+    """Old revision-only clients must not overwrite newer autosaved content."""
+    row = await session.scalar(
+        select(Component).where(Component.id == component_id).with_for_update()
+    )
+    if row is None:
+        raise HTTPException(404, detail={"code": "component_not_found"})
+    expected = payload.edit_token if payload.edit_token is not None else payload.revision
+    if row.edit_token != expected:
+        raise HTTPException(409, detail={"code": "revision_conflict"})
 
 
 async def _lifecycle_response(operation: Awaitable[CatalogCard]) -> ComponentResponse:
@@ -1045,6 +1084,7 @@ async def submit_component_for_review(
     _: Annotated[Principal, Depends(csrf_principal)],
     session: Annotated[AsyncSession, Depends(database_session)],
 ) -> ComponentResponse:
+    await _legacy_token_guard(session, component_id, payload)
     return await _lifecycle_response(
         CatalogLifecycleOperations(session).transition(
             component_id,
@@ -1067,6 +1107,7 @@ async def request_component_changes(
     _: Annotated[Principal, Depends(csrf_principal)],
     session: Annotated[AsyncSession, Depends(database_session)],
 ) -> ComponentResponse:
+    await _legacy_token_guard(session, component_id, payload)
     return await _lifecycle_response(
         CatalogLifecycleOperations(session).transition(
             component_id,
@@ -1086,6 +1127,7 @@ async def approve_component(
     _: Annotated[Principal, Depends(csrf_principal)],
     session: Annotated[AsyncSession, Depends(database_session)],
 ) -> ComponentResponse:
+    await _legacy_token_guard(session, component_id, payload)
     return await _lifecycle_response(
         CatalogLifecycleOperations(session).transition(
             component_id,
@@ -1105,6 +1147,7 @@ async def publish_component(
     _: Annotated[Principal, Depends(csrf_principal)],
     session: Annotated[AsyncSession, Depends(database_session)],
 ) -> ComponentResponse:
+    await _legacy_token_guard(session, component_id, payload)
     return await _lifecycle_response(
         CatalogLifecycleOperations(session).transition(
             component_id,
@@ -1124,6 +1167,7 @@ async def hide_component(
     _: Annotated[Principal, Depends(csrf_principal)],
     session: Annotated[AsyncSession, Depends(database_session)],
 ) -> ComponentResponse:
+    await _legacy_token_guard(session, component_id, payload)
     return await _lifecycle_response(
         CatalogLifecycleOperations(session).transition(
             component_id,
@@ -1143,6 +1187,7 @@ async def show_component(
     _: Annotated[Principal, Depends(csrf_principal)],
     session: Annotated[AsyncSession, Depends(database_session)],
 ) -> ComponentResponse:
+    await _legacy_token_guard(session, component_id, payload)
     return await _lifecycle_response(
         CatalogLifecycleOperations(session).show_hidden(
             component_id,
@@ -1161,6 +1206,7 @@ async def archive_component(
     _: Annotated[Principal, Depends(csrf_principal)],
     session: Annotated[AsyncSession, Depends(database_session)],
 ) -> ComponentResponse:
+    await _legacy_token_guard(session, component_id, payload)
     return await _lifecycle_response(
         CatalogLifecycleOperations(session).transition(
             component_id,
@@ -1180,6 +1226,7 @@ async def restore_component(
     _: Annotated[Principal, Depends(csrf_principal)],
     session: Annotated[AsyncSession, Depends(database_session)],
 ) -> ComponentResponse:
+    await _legacy_token_guard(session, component_id, payload)
     return await _lifecycle_response(
         CatalogLifecycleOperations(session).restore_archived(
             component_id,

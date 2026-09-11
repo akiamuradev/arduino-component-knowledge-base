@@ -214,6 +214,7 @@ class CatalogCard:
     sources: tuple[SourceSnapshot, ...] = ()
     media: tuple[ComponentMedia, ...] = ()
     archived_from_status: ComponentStatus | None = None
+    edit_token: int = 1
 
 
 @dataclass(frozen=True, slots=True)

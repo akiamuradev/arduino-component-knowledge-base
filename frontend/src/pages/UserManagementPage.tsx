@@ -47,7 +47,7 @@ function errorMessage(error: unknown): string {
 function accessLabel(user: ManagedUser): string {
   if (user.roles.includes("administrator")) return "Администратор";
   if (user.roles.includes("editor")) return "Редактор базы";
-  if (user.roles.includes("teacher")) return "Преподаватель";
+  if (user.roles.includes("teacher")) return "Преподаватель (устаревшая роль)";
   return "Студент";
 }
 
