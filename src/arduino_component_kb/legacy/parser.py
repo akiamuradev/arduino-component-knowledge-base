@@ -24,7 +24,7 @@ from zipfile import BadZipFile, ZipFile
 from pydantic import BaseModel, ConfigDict, Field
 
 SOURCE_NAME = "Микроконтроллеры, модуля, компоненты и проекты"
-PARSER_VERSION = "legacy-layout-v1.1"
+PARSER_VERSION = "legacy-layout-v1.2"
 MIB = 1024 * 1024
 ZIP_LIMIT = 200 * MIB
 XLSX_LIMIT = 64 * MIB
@@ -127,7 +127,8 @@ def models(value: str) -> frozenset[str]:
     return frozenset(
         token
         for token in re.findall(r"[a-zа-я0-9]+(?:[-./][a-zа-я0-9]+)*", normalize(value))
-        if re.search(r"[a-zа-я]", token) and re.search(r"\d", token)
+        if (token[0].isalpha() or re.fullmatch(r"\d+[a-z]+\d+[a-z0-9]*|\d{4,6}", token))
+        and re.search(r"\d", token)
     )
 
 
@@ -162,7 +163,9 @@ def xml(archive: ZipFile, path: str) -> ET.Element:
     content = archive.read(path).decode("utf-8-sig")
     if "<!DOCTYPE" in content.upper() or "<!ENTITY" in content.upper():
         raise LegacyInputError("unsafe_xml")
-    return ET.fromstring(content)  # noqa: S314 -- UTF-8 only, DTD/entities rejected above
+    # Decode UTF-8 before rejecting DTD/entity declarations: no encoding-detection
+    # bypass, external entities or entity expansion can reach ElementTree.
+    return ET.fromstring(content)  # noqa: S314  # nosec B314
 
 
 def relationships(archive: ZipFile, part: str) -> dict[str, str]:
@@ -357,9 +360,13 @@ def read_docx(content: bytes) -> tuple[str, list[Specification], list[str]]:
                 }
                 # Comparison tables are not silently interpreted as specifications.
                 value_header = header and normalize(rows[0][1]) in {"значение", "value"}
-                numeric_rows = not header and bool(rows) and all(
-                    len(r) == 2 and re.fullmatch(r"[+-]?\d+(?:[.,]\d+)?\s*[\w°%/.-]*", r[1])
-                    for r in rows
+                numeric_rows = (
+                    not header
+                    and bool(rows)
+                    and all(
+                        len(r) == 2 and re.fullmatch(r"[+-]?\d+(?:[.,]\d+)?\s*[\w°%/.-]*", r[1])
+                        for r in rows
+                    )
                 )
                 simple = simple and (value_header or numeric_rows)
                 simple = simple and (
@@ -443,7 +450,11 @@ def analyze(zip_path: Path, xlsx_path: Path) -> Analysis:
                 automatic = (
                     bool(candidates)
                     and candidates[0].score >= 90
-                    and (len(candidates) == 1 or candidates[0].score - candidates[1].score >= 10)
+                    and (
+                        len(candidates) == 1
+                        or candidates[0].score - candidates[1].score >= 10
+                        or (candidates[0].score == 100 and candidates[1].score < 100)
+                    )
                 )
                 folder = candidates[0].path if automatic else None
                 target = target.model_copy(
@@ -474,6 +485,9 @@ def analyze(zip_path: Path, xlsx_path: Path) -> Analysis:
                     "images": sum(len(t.images) for t in enriched),
                     "with_description": sum(bool(t.description) for t in enriched),
                     "with_specifications": sum(bool(t.specifications) for t in enriched),
+                    "workbook_images": sum(len(t.images) for t in targets),
+                    "docx_scanned": sum(len(t.documents) for t in enriched),
+                    "specifications_proposed": sum(len(t.specifications) for t in enriched),
                 },
                 warnings=["category_mapping_layout_v1", "licenses_require_manual_review"],
             )

@@ -36,6 +36,7 @@ from arduino_component_kb.legacy.planning import (
     candidates,
     category_id,
     draft_data,
+    exceeds_draft_limits,
     merge_data,
     review_hash,
 )
@@ -63,7 +64,11 @@ async def save_analysis(session: AsyncSession, bundle: LegacyBundle, result: Ana
         matches = await candidates(session, target)
         previous = await session.get(LegacySourceLink, target.identity)
         decision = (
-            "skip" if previous else "review" if matches or target.match == "review" else "create"
+            "skip"
+            if previous
+            else "review"
+            if matches or target.match == "review" or exceeds_draft_limits(target)
+            else "create"
         )
         item = LegacyItem(
             id=uuid4(),
@@ -74,7 +79,10 @@ async def save_analysis(session: AsyncSession, bundle: LegacyBundle, result: Ana
             candidates=matches,
             decision=decision,
             status="needs_review" if decision == "review" else "planned",
-            warnings=target.warnings,
+            warnings=[
+                *target.warnings,
+                *(["draft_limits_review_required"] if exceeds_draft_limits(target) else []),
+            ],
             result_id=previous.component_id if previous else None,
         )
         session.add(item)

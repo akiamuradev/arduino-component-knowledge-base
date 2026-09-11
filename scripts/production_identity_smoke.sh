@@ -80,6 +80,7 @@ docker compose "${COMPOSE_ARGUMENTS[@]}" run --rm --no-deps \
     mc alias set ackb-runtime https://minio:9000 "$ACKB_MINIO_ACCESS_KEY" "$ACKB_MINIO_SECRET_KEY" >/dev/null
     mc ls ackb-runtime/ackb-media-quarantine >/dev/null
     mc ls ackb-runtime/ackb-media-variants >/dev/null
+    mc ls ackb-runtime/ackb-legacy-bundles >/dev/null
     if mc admin info ackb-runtime >/dev/null 2>&1; then
       exit 1
     fi

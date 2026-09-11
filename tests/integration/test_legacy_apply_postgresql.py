@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import io
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -15,6 +17,7 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from fastapi import HTTPException
+from PIL import Image
 from sqlalchemy import func, select, text
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -29,15 +32,17 @@ from arduino_component_kb.api.legacy_imports import (
 )
 from arduino_component_kb.auth.domain import Principal, Role
 from arduino_component_kb.auth.repository import AuthRepository
+from arduino_component_kb.catalog.domain import CatalogValidationError
 from arduino_component_kb.catalog.models import Component
 from arduino_component_kb.catalog.service import CatalogService
 from arduino_component_kb.catalog.synchronization import DocumentSynchronization
 from arduino_component_kb.config import Settings
 from arduino_component_kb.db import Database
 from arduino_component_kb.legacy.models import LegacyBundle
-from arduino_component_kb.legacy.parser import Analysis, Target, digest
-from arduino_component_kb.legacy.planning import review_hash
+from arduino_component_kb.legacy.parser import Analysis, ImageRef, Target, digest
+from arduino_component_kb.legacy.planning import candidates, review_hash
 from arduino_component_kb.legacy.processor import apply_item, save_analysis
+from arduino_component_kb.media.models import MediaAsset, MediaJob
 from arduino_component_kb.media.storage import MediaStorage
 
 
@@ -80,6 +85,15 @@ async def exercise(settings: Settings, empty_archive: Path) -> None:
                 expires_at=now + timedelta(hours=1),
             )
             target = Target(identity=digest("first"), title="DHT11", category="ДАТЧИКИ", rows=[116])
+            with ZipFile(empty_archive) as archive:
+                image_bytes = archive.read("image.png")
+            image = ImageRef(
+                origin="zip",
+                path="image.png",
+                size=len(image_bytes),
+                sha256=hashlib.sha256(image_bytes).hexdigest(),
+            )
+            target = target.model_copy(update={"images": [image, image]})
 
             async def planned(value: Target) -> LegacyBundle:
                 bundle = LegacyBundle(
@@ -142,6 +156,20 @@ async def exercise(settings: Settings, empty_archive: Path) -> None:
             card = await CatalogService(session).get_card(component_id)
             assert card.status.value == "draft" and card.has_legacy_provenance
             assert card.published_at is None
+            assert await session.scalar(select(func.count()).select_from(MediaAsset)) == 1
+            assert await session.scalar(select(func.count()).select_from(MediaJob)) == 1
+            asset = await session.scalar(select(MediaAsset))
+            assert asset is not None and asset.status == "processing"
+            assert asset.bucket == settings.minio_quarantine_bucket
+            cast(AsyncMock, storage.upload).assert_awaited_once()
+            row = await session.get(Component, component_id)
+            assert row is not None
+            row.summary = "A complete summary for the license validation fixture."
+            row.description = "Description for license validation."
+            with pytest.raises(CatalogValidationError, match="legacy_license_review_required"):
+                await CatalogService(session)._validate_publication(row)
+            row.summary = ""
+            row.description = ""
 
             repeated = (await bundle_items(session, second.id))[0]
             second.confirmed_by = user.id
@@ -151,6 +179,44 @@ async def exercise(settings: Settings, empty_archive: Path) -> None:
             await session.commit()
             assert repeated.status == "skipped" and repeated.result_id == component_id
             assert await session.scalar(select(func.count()).select_from(Component)) == 1
+
+            broken = await planned(
+                target.model_copy(update={"identity": digest("broken"), "title": "BMP180"})
+            )
+            broken_items = await bundle_items(session, broken.id)
+            # Shared image bytes require review, not an automatic merge of different models.
+            assert broken_items[0].decision == "review"
+            await decide(
+                broken.id,
+                broken_items[0].id,
+                DecisionInput(plan_hash=review_hash(broken, broken_items), decision="create"),
+                principal,
+                principal,
+                session,
+            )
+            await apply_bundle(
+                broken.id,
+                ApplyInput(plan_hash=review_hash(broken, broken_items), confirmation="ИМПОРТ"),
+                principal,
+                principal,
+                session,
+            )
+            cast(AsyncMock, storage.upload).side_effect = RuntimeError("storage unavailable")
+            with pytest.raises(RuntimeError, match="storage unavailable"):
+                async with session.begin_nested():
+                    await apply_item(
+                        session,
+                        broken,
+                        broken_items[0],
+                        storage,
+                        settings,
+                        empty_archive,
+                        empty_archive,
+                    )
+            assert await session.scalar(select(func.count()).select_from(Component)) == 1
+            assert await session.scalar(select(func.count()).select_from(MediaAsset)) == 1
+            cast(AsyncMock, storage.upload).side_effect = None
+            await session.commit()
 
             merge = await planned(
                 target.model_copy(
@@ -211,6 +277,18 @@ async def exercise(settings: Settings, empty_archive: Path) -> None:
             await session.commit()
             assert items[0].status == "skipped"
             assert await session.scalar(select(func.count()).select_from(Component)) == 1
+            current_row = await session.get(Component, component_id)
+            assert current_row is not None
+            current_row.title = "Учебный датчик"
+            current_row.model = "DHT11"
+            await session.commit()
+            found = await candidates(session, target)
+            assert found and found[0]["id"] == str(component_id)
+            current_row.title = "DHT11"
+            current_row.model = "DHT22"
+            await session.commit()
+            found = await candidates(session, target)
+            assert found[0]["model_conflict"] and not found[0]["merge_allowed"]
     finally:
         await database.dispose()
 
@@ -222,8 +300,10 @@ def test_legacy_disposable_postgresql(
     name = f"ackb_legacy_test_{uuid4().hex[:12]}"
     url = base.set(database=name).render_as_string(hide_password=False)
     empty_archive = tmp_path / "empty.zip"
-    with ZipFile(empty_archive, "w"):
-        pass
+    image_bytes = io.BytesIO()
+    Image.new("RGB", (32, 32), color="red").save(image_bytes, format="PNG")
+    with ZipFile(empty_archive, "w") as archive:
+        archive.writestr("image.png", image_bytes.getvalue())
     asyncio.run(database_command(base, name))
     try:
         with monkeypatch.context() as environment:

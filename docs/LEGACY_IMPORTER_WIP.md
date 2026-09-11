@@ -1,4 +1,34 @@
-# Legacy importer — paused for ACKB 1.5.0
+# Legacy importer — implementation checkpoints
+
+## Verified continuation 2026-09-12
+
+Current branch: `feat/legacy-importer-resumed`. The five original typing errors
+were fixed in `ee38d65`; importer/editor reconciliation is preserved in `60a203a`.
+Older sections below describe historical failures, not the current test status.
+See [the operator guide and corpus report](LEGACY_IMPORTER.md) for current behavior.
+
+- Backend: 725 passed, 27 skipped in the default suite; four additional isolated
+  PostgreSQL integration tests passed, each using its own disposable database.
+- Frontend: 150 passed; ESLint and TypeScript checks passed. Chromium: 15 passed,
+  one opt-in screenshot capture skipped, including the new 320 px importer check.
+- Strict mypy: 277 files passed; Ruff check/format and Bandit passed.
+- Production frontend build passed, with the existing >500 kB chunk warning.
+- Release contract remains 1.5.0. Local production-contract and runtime-identity
+  smoke checks passed, including access to the private legacy bucket. Temporary
+  identity-test containers/volumes were removed by the test's cleanup procedure.
+- Parser v1.2: 255 rows, 244 targets, 11 collapsed rows; 133 automatic folder
+  matches, 27 review, 84 unmatched; 403 images and 39 descriptions. The source-only
+  CLI compares both reference files without using either as parser input.
+- Hardened model/alias/image candidate retrieval, conflict detection, additive
+  alias/spec limits, unit-aware property keys, oversized-source review, meaningful
+  license evidence and partial completion reporting. Added API/planning/parser,
+  UI and mobile accessibility regression coverage.
+- Verified image SHA deduplication, media job creation, storage-failure rollback,
+  stale edit-token rejection, cross-bundle idempotence and failed-item retry.
+
+No real-corpus apply, production upload, deployment, publication or GitHub Release
+was performed. Source files remain outside git. Deployment and the administrator's
+review/apply are separate operator actions; no claim of production acceptance.
 
 ## Resumed 2026-09-11
 
