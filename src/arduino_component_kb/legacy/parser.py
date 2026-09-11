@@ -119,7 +119,7 @@ def file_hash(path: Path) -> str:
 
 def normalize(value: str) -> str:
     value = unicodedata.normalize("NFKC", value).casefold()
-    value = value.translate(str.maketrans({"–": "-", "—": "-", "\u00a0": " "}))
+    value = value.replace("–", "-").replace("—", "-").replace("\u00a0", " ")
     return " ".join(re.sub(r"[(),;\"«»]", " ", value).split())
 
 
@@ -189,7 +189,10 @@ def image_ref(archive: ZipFile, path: str, origin: str) -> ImageRef:
     if member.file_size > 16 * MIB:
         raise LegacyInputError("image_size_limit")
     with archive.open(member) as stream:
-        checksum = hashlib.file_digest(stream, "sha256").hexdigest()
+        hasher = hashlib.sha256()
+        while chunk := stream.read(MIB):
+            hasher.update(chunk)
+        checksum = hasher.hexdigest()
     name = normalize(PurePosixPath(path).stem)
     purpose = "pinout" if any(s in name for s in ("pinout", "распинов")) else "photo"
     if any(s in name for s in ("схем", "schematic", "circuit", "diagram")):

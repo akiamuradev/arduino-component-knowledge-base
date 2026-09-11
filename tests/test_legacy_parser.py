@@ -68,7 +68,7 @@ def test_identity_preserves_model_numbers() -> None:
 
 def test_matching_excludes_other_categories_and_conflicting_models() -> None:
     target = Target(identity="x", title="Датчик DHT11", category="ДАТЧИКИ", rows=[116])
-    folders = {
+    folders: dict[str, list[str]] = {
         f"{SOURCE_NAME}/ДАТЧИКИ/Влажность DHT11": [],
         f"{SOURCE_NAME}/ДАТЧИКИ/Датчик DHT22": [],
         f"{SOURCE_NAME}/МОДУЛЯ/Датчик DHT11": [],
@@ -78,7 +78,7 @@ def test_matching_excludes_other_categories_and_conflicting_models() -> None:
 
 
 def test_projects_and_code_are_not_indexed() -> None:
-    files = {
+    files: dict[str, str | bytes] = {
         f"{SOURCE_NAME}/ПРОЕКТЫ/DHT11/Информация.docx": "ignored",
         f"{SOURCE_NAME}/ДАТЧИКИ/DHT11/main.ino": "ignored",
         f"{SOURCE_NAME}/ДАТЧИКИ/DHT11/photo.png": b"bytes",
@@ -107,7 +107,7 @@ def test_workbook_group_anchors_collapse_rows_and_omit_contributors() -> None:
     ns = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
     rel = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
     draw = "http://schemas.openxmlformats.org/drawingml/2006"
-    files = {
+    files: dict[str, str | bytes] = {
         "xl/workbook.xml": f'<workbook xmlns="{ns}" xmlns:r="{rel}"><sheets>'
         '<sheet name="Модуля Ардуино" r:id="s"/></sheets></workbook>',
         "xl/_rels/workbook.xml.rels": '<Relationships><Relationship Id="s" '
