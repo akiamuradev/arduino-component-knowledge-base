@@ -3,7 +3,7 @@
   "private": true,
   "license": "GPL-3.0-or-later",
   "author": "akiamuradev",
-  "version": "1.0.1",
+  "version": "1.5.0",
   "type": "module",
   "packageManager": "npm@11.13.0",
   "engines": {

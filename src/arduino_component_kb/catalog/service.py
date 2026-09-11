@@ -555,7 +555,13 @@ class CatalogService:
             asset.is_primary = item.asset_id == selected_primary
 
     async def update(
-        self, component_id: UUID, expected_revision: int, data: DraftData, actor_id: UUID
+        self,
+        component_id: UUID,
+        expected_revision: int,
+        data: DraftData,
+        actor_id: UUID,
+        *,
+        record_history: bool = True,
     ) -> CatalogCard:
         row = await self._locked(component_id)
         if row.revision != expected_revision:
@@ -572,18 +578,21 @@ class CatalogService:
         row.archived_from_status = None
         row.updated_by = actor_id
         row.updated_at = now
-        row.revision += 1
+        if record_history:
+            row.revision += 1
         await self._replace_lists(row.id, data)
         await self._replace_technical(row.id, data)
         await self._replace_learning(row.id, data, actor_id, now)
-        await self._snapshot(
-            row,
-            data,
-            actor_id,
-            now,
-            action=ComponentChangeAction.UPDATED,
-            previous_status=previous_status,
-        )
+        if record_history:
+            await self._snapshot(
+                row,
+                data,
+                actor_id,
+                now,
+                action=ComponentChangeAction.UPDATED,
+                previous_status=previous_status,
+            )
+        await self.session.flush()
         return await self._card(row)
 
     async def touch_media_attachment(
@@ -623,6 +632,8 @@ class CatalogService:
         images: tuple[ComponentImageMutation, ...],
         primary_asset_id: UUID | None,
         actor_id: UUID,
+        *,
+        record_history: bool = True,
     ) -> CatalogCard:
         """Atomically edit metadata, order, primary and logical attachment."""
         row = await self._locked(component_id)
@@ -694,19 +705,21 @@ class CatalogService:
         now = datetime.now(UTC)
         row.status = ComponentStatus.DRAFT.value
         row.archived_from_status = None
-        row.revision += 1
+        if record_history:
+            row.revision += 1
         row.updated_by = actor_id
         row.updated_at = now
         data = await self._data(row)
         await self.session.flush()
-        await self._snapshot(
-            row,
-            data,
-            actor_id,
-            now,
-            action=ComponentChangeAction.IMAGES_UPDATED,
-            previous_status=previous_status,
-        )
+        if record_history:
+            await self._snapshot(
+                row,
+                data,
+                actor_id,
+                now,
+                action=ComponentChangeAction.IMAGES_UPDATED,
+                previous_status=previous_status,
+            )
         return await self._card(row)
 
     async def transition(
@@ -1071,6 +1084,15 @@ class CatalogService:
             raise CatalogValidationError("component_edit_locked")
 
     async def _validate(self, data: DraftData) -> None:
+        if not _SLUG.fullmatch(data.slug):
+            raise CatalogValidationError("invalid_slug")
+        for field, values in (("alias", data.aliases), ("tag", data.tags)):
+            if len(values) > 20:
+                raise CatalogValidationError(f"too_many_{field}s")
+            if any(not value.strip() or len(value.strip()) > 100 for value in values):
+                raise CatalogValidationError(f"{field}_too_long")
+            if len({_normalized(value) for value in values}) != len(values):
+                raise CatalogValidationError(f"duplicate_{field}")
         if (
             not _SLUG.fullmatch(data.slug)
             or len(data.aliases) > 20
@@ -1100,7 +1122,7 @@ class CatalogService:
                 or (item.unit is not None and len(item.unit.strip()) > 32)
                 or item.key in specification_keys
             ):
-                raise CatalogValidationError
+                raise CatalogValidationError("invalid_specification")
             if item.value_number is not None:
                 try:
                     number = Decimal(item.value_number)
@@ -1502,6 +1524,7 @@ class CatalogService:
                 if row.archived_from_status is not None
                 else None
             ),
+            edit_token=row.edit_token or row.revision,
         )
 
     async def _snapshot(

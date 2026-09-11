@@ -215,7 +215,7 @@ async def _assert_migrated_data(database_url: str) -> None:
         async with engine.connect() as connection:
             assert (
                 await connection.scalar(text("SELECT version_num FROM alembic_version"))
-                == "20260910_29"
+                == "20260910_30"
             )
             source_states = (
                 await connection.execute(

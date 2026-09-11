@@ -18,6 +18,7 @@ from fastapi.routing import APIRoute, _IncludedRouter
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from arduino_component_kb.api.component_sync import TokenRequest, document_command
 from arduino_component_kb.api.dependencies import (
     CSRF_COOKIE,
     CSRF_HEADER,
@@ -71,6 +72,17 @@ def principal(role: Role, *, user_id: UUID | None = None) -> Principal:
     )
 
 
+async def test_editor_cannot_invoke_publish_through_generic_document_command() -> None:
+    actor = principal(Role.EDITOR)
+    session = cast(AsyncSession, AsyncMock(spec=AsyncSession))
+    with pytest.raises(HTTPException) as denied:
+        await document_command(
+            uuid4(), "publish", TokenRequest(edit_token=1), actor, actor, session
+        )
+    assert denied.value.status_code == 403
+    assert not cast(AsyncMock, session.execute).called
+
+
 def _dependency_calls(dependant: Dependant) -> Iterator[Callable[..., object]]:
     for child in dependant.dependencies:
         if child.call is not None:
@@ -108,6 +120,16 @@ def _permission_set(dependant: Dependant) -> frozenset[Permission] | None:
 
 
 ROUTE_PERMISSIONS: dict[tuple[str, str], frozenset[Permission]] = {
+    ("POST", "/api/v1/workspace/editor-drafts"): frozenset({Permission.COMPONENTS_CREATE}),
+    ("PUT", "/api/v1/workspace/components/{component_id}/sync"): frozenset(
+        {Permission.COMPONENTS_EDIT}
+    ),
+    ("POST", "/api/v1/workspace/components/{component_id}/commands/{action}"): frozenset(
+        {Permission.COMPONENTS_EDIT}
+    ),
+    ("POST", "/api/v1/workspace/components/{component_id}/approve-and-publish"): frozenset(
+        {Permission.COMPONENTS_REVIEW, Permission.COMPONENTS_PUBLISH}
+    ),
     ("GET", "/api/v1/admin/audit-events"): frozenset({Permission.AUDIT_VIEW}),
     ("GET", "/api/v1/admin/users"): frozenset({Permission.USERS_VIEW}),
     ("GET", "/api/v1/admin/users/administrators"): frozenset(

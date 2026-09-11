@@ -1,10 +1,9 @@
 import {
-  useMutation,
   useQueries,
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { type KeyboardEvent, type SyntheticEvent, useState } from "react";
+import { type KeyboardEvent, type SyntheticEvent, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import type {
@@ -22,7 +21,7 @@ import type {
   Difficulty,
   TechnicalSpecificationInput,
 } from "../api/contracts";
-import { api, ApiError } from "../api/client";
+import { api, apiRequest, ApiError } from "../api/client";
 import { userErrorMessage } from "../api/errors";
 import { hasPermission } from "../auth/permissions";
 import { useCurrentUser } from "../auth/queries";
@@ -34,6 +33,8 @@ import { MediaGallery } from "../components/MediaGallery";
 import { SourceAttributionBlock } from "../components/SourceAttributionBlock";
 import { TechnicalSpecificationsEditor } from "../components/TechnicalSpecificationsEditor";
 import { COMPONENT_STATUS_LABELS, DIFFICULTY_LABELS } from "../config/uiLabels";
+import { RECOVERY_PREFIX } from "../editor/recovery";
+import { useComponentSync } from "../editor/use-component-sync";
 import {
   duplicateSpecificationKeys,
   isEmptySpecification,
@@ -60,7 +61,7 @@ const EDITOR_VIEW_LABELS: Readonly<Record<EditorView, string>> = {
 type LifecycleAction =
   | "submit"
   | "request-changes"
-  | "approve"
+  | "approve-and-publish"
   | "publish"
   | "hide"
   | "show"
@@ -173,14 +174,14 @@ function toDraftInput(
 ): ComponentDraftInput {
   return {
     slug: state.slug.trim(),
-    title: state.title.trim(),
+    title: state.title,
     aliases: commaList(state.aliases),
     manufacturer: nullable(state.manufacturer),
     model: nullable(state.model),
     primary_category_id: state.primaryCategoryId,
     tags: commaList(state.tags),
-    summary: state.summary.trim(),
-    description: state.description.trim(),
+    summary: state.summary,
+    description: state.description,
     purpose: nullable(state.purpose),
     usage_notes: nullable(state.usageNotes),
     safety_notes: nullable(state.safetyNotes),
@@ -207,8 +208,8 @@ function toDraftInput(
   };
 }
 
-function toCreateInput(state: EditorState): ComponentCreateInput {
-  const input = toDraftInput(state);
+function toCreateInput(state: EditorState, originals: readonly TechnicalSpecificationInput[] = []): ComponentCreateInput {
+  const input = toDraftInput(state, originals);
   const images = [...state.images].sort(
     (left, right) => left.display_order - right.display_order,
   );
@@ -231,6 +232,64 @@ function publicationProblems(state: EditorState): string[] {
   if (state.description.trim().length === 0) problems.push("описание");
   if (state.primaryCategoryId === "") problems.push("категория");
   return problems;
+}
+
+function validateEditor(state: EditorState): Record<string, string> {
+  const errors: Record<string, string> = {};
+  for (const field of ["aliases", "tags"] as const) {
+    const values = commaList(state[field]);
+    const seen = new Map<string, string>();
+    for (const value of values) {
+      const key = value.normalize("NFKC").toLowerCase().replaceAll("ß", "ss").replaceAll("ς", "σ");
+      const previous = seen.get(key);
+      if (previous !== undefined) errors[field] = `Повтор: «${previous}» и «${value}». Удалите один вариант.`;
+      if (value.length > 100) errors[field] = `«${value.slice(0, 30)}…»: допустимо до 100 символов.`;
+      seen.set(key, value);
+    }
+    if (values.length > 20) errors[field] = "Допустимо не более 20 значений.";
+  }
+  if (state.slug && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(state.slug)) {
+    errors.slug = "Используйте латинские буквы в нижнем регистре, цифры и дефисы.";
+  }
+  if (/[<>]/.test(state.description)) errors.description = "Необработанный HTML не поддерживается.";
+  if (state.specifications.some((s) => specificationError(s) !== null)
+    || duplicateSpecificationKeys(state.specifications).size > 0) {
+    errors.specifications = "Исправьте ошибки в характеристиках.";
+  }
+  if (state.images.some((i) => !i.alt_text.trim() || !i.purpose.trim())) {
+    errors.images = "Укажите назначение и альтернативный текст каждого изображения.";
+  }
+  return errors;
+}
+
+function validRecovery(value: unknown): value is EditorState {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const data = value as Record<string, unknown>;
+  const template = emptyState([]);
+  if (Object.keys(data).length !== Object.keys(template).length) return false;
+  for (const [key, sample] of Object.entries(template)) {
+    if (!Array.isArray(sample) && typeof data[key] !== typeof sample) return false;
+  }
+  for (const field of ["specifications", "compatibility", "codeExamples", "images"]) {
+    if (!Array.isArray(data[field]) || data[field].length > 51) return false;
+    if (!data[field].every((entry: unknown) => entry !== null && typeof entry === "object" && !Array.isArray(entry))) return false;
+  }
+  try {
+    const candidate = value as EditorState;
+    if (!candidate.specifications.every((s) => typeof s.key === "string" && typeof s.label === "string"
+      && typeof s.value_text === "string" && (s.unit === null || typeof s.unit === "string")
+      && (s.value_number === null || typeof s.value_number === "string"))) return false;
+    if (!candidate.compatibility.every((c) => typeof c.name === "string" && typeof c.target_type === "string"
+      && (c.notes === null || typeof c.notes === "string")
+      && (c.version_constraint === null || typeof c.version_constraint === "string"))) return false;
+    if (!candidate.codeExamples.every((c) => [c.title, c.language, c.practical_task, c.body, c.libraries].every((x) => typeof x === "string")
+      && Array.isArray(c.hints) && c.hints.every((h) => typeof h === "string"))) return false;
+    if (!candidate.images.every((i) => [i.asset_id, i.alt_text, i.purpose, i.kind, i.status].every((x) => typeof x === "string")
+      && typeof i.display_order === "number" && typeof i.is_primary === "boolean" && Array.isArray(i.variants))) return false;
+    toDraftInput(candidate);
+    validateEditor(candidate);
+    return true;
+  } catch { return false; }
 }
 
 export function ComponentEditorPage({ mode }: { mode: EditorMode }) {
@@ -276,15 +335,52 @@ interface EditorFormProps {
 }
 
 function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFormProps) {
-  const [state, setState] = useState<EditorState>(() =>
-    card === undefined ? emptyState(categories) : stateFromCard(card));
-  const [workingCard, setWorkingCard] = useState(card);
-  const [imagesDirty, setImagesDirty] = useState(false);
   const [view, setView] = useState<EditorView>("edit");
   const [archiveConfirmation, setArchiveConfirmation] = useState(false);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const currentUser = useCurrentUser();
+  const uploadingRef = useRef(false);
+  const [uploadBusy, setUploadBusy] = useState(false);
+  const sync = useComponentSync<EditorState, ComponentCard>({
+    initial: card === undefined ? emptyState(categories) : stateFromCard(card), card,
+    recoveryKey: `${RECOVERY_PREFIX}${currentUser.data?.id ?? "unknown"}:${card?.id ?? "new"}`,
+    validateRecovery: validRecovery, validate: validateEditor,
+    loadCard: api.getWorkspaceComponent,
+    create: (snapshot, creationKey) => apiRequest<ComponentCard>("/workspace/editor-drafts", {
+      method: "POST", csrf: true,
+      body: JSON.stringify({ ...toDraftInput(snapshot), creation_key: creationKey }),
+    }),
+    save: (snapshot, current) => apiRequest<ComponentCard>(`/workspace/components/${current.id}/sync`, {
+      method: "PUT", csrf: true,
+      body: JSON.stringify({ ...toCreateInput({ ...snapshot, slug: snapshot.slug || current.slug }, current.specifications),
+        edit_token: current.edit_token ?? current.revision }),
+    }),
+    acceptMetadata: (local, saved) => ({ ...local, slug: local.slug || saved.slug }),
+    onCard: (saved) => { queryClient.setQueryData(workspaceKeys.component(saved.id), saved); },
+    onSettled: (saved) => {
+      if (mode === "new" && !uploadingRef.current) void navigate(`/admin/components/${saved.id}/edit`, { replace: true });
+    },
+  });
+  const state = sync.state;
+  const workingCard = sync.card;
+  const setState = (updater: (current: EditorState) => EditorState) => {
+    sync.controller.edit(updater(sync.controller.snapshot().state));
+  };
+  const save = { isPending: sync.status === "syncing", mutate: () => { void sync.controller.flush().catch(() => undefined); } };
+  const lifecycle = {
+    isPending: sync.commandPending,
+    mutate: (action: LifecycleAction) => {
+      void sync.controller.command((current) => apiRequest<ComponentCard>(
+        `/workspace/components/${current.id}/${action === "approve-and-publish" ? action : `commands/${action}`}`,
+        { method: "POST", csrf: true, body: JSON.stringify({ edit_token: current.edit_token ?? current.revision }) },
+      )).then((saved) => {
+        setArchiveConfirmation(false);
+        void queryClient.invalidateQueries({ queryKey: workspaceKeys.componentHistory(saved.id) });
+        void queryClient.invalidateQueries({ queryKey: workspaceKeys.componentLists });
+      }).catch(() => undefined);
+    },
+  };
   const canPublish = currentUser.data === undefined
     ? false
     : hasPermission(currentUser.data, "components.publish");
@@ -300,68 +396,18 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
   const editable = workingCard === undefined
     || ["draft", "changes_requested", "published"].includes(workingCard.status);
 
-  const acceptSaved = (saved: ComponentCard, syncImages = false) => {
-    setWorkingCard(saved);
-    if (syncImages) {
-      setState((current) => ({
-        ...current,
-        images: [...(saved.media ?? [])].sort(
-          (left, right) => left.display_order - right.display_order,
-        ),
-      }));
-      setImagesDirty(false);
-    }
-    queryClient.setQueryData(workspaceKeys.component(saved.id), saved);
-    void queryClient.invalidateQueries({ queryKey: workspaceKeys.componentLists });
-    void queryClient.invalidateQueries({ queryKey: workspaceKeys.componentHistory(saved.id) });
-  };
-
-  const save = useMutation({
-    mutationFn: async () => {
-      if (mode === "new") return api.createComponentDraft(toCreateInput(state));
-      const input = toDraftInput(state, card?.specifications);
-      if (workingCard === undefined) throw new Error("Для редактирования требуется загруженная карточка");
-      return api.updateComponentDraft(workingCard.id, {
-        ...input,
-        revision: workingCard.revision,
-      });
+  const conflict = sync.status === "conflict" ? sync.error : undefined;
+  const conflictServer = useQuery({
+    queryKey: ["editor-conflict", workingCard?.id, workingCard?.edit_token],
+    queryFn: () => {
+      if (!workingCard) throw new Error("Карточка ещё не создана");
+      return api.getWorkspaceComponent(workingCard.id);
     },
-    onSuccess: (saved) => {
-      acceptSaved(saved, mode === "new");
-      if (mode === "new") void navigate(`/admin/components/${saved.id}/edit`, { replace: true });
-    },
+    enabled: sync.status === "conflict" && workingCard !== undefined,
+    retry: false,
   });
-
-  const lifecycle = useMutation({
-    mutationFn: async (action: LifecycleAction) => {
-      if (workingCard === undefined) throw new Error("Сохраните черновик перед изменением состояния");
-      const operations: Record<
-        LifecycleAction,
-        (componentId: string, revision: number) => Promise<ComponentCard>
-      > = {
-        submit: api.submitComponentForReview,
-        "request-changes": api.requestComponentChanges,
-        approve: api.approveComponent,
-        publish: api.publishComponent,
-        hide: api.hideComponent,
-        show: api.showComponent,
-        archive: api.archiveComponent,
-        restore: api.restoreComponent,
-      };
-      return operations[action](workingCard.id, workingCard.revision);
-    },
-    onSuccess: (saved) => {
-      setArchiveConfirmation(false);
-      acceptSaved(saved);
-    },
-  });
-
-  const conflict = [save.error, lifecycle.error].find(
-    (error) => error instanceof ApiError && error.code === "revision_conflict",
-  );
-  const otherError = [save.error, lifecycle.error].find(
-    (error) => error !== null && error !== conflict,
-  );
+  const [reloadError, setReloadError] = useState<unknown>(null);
+  const otherError = sync.status !== "conflict" && sync.error ? sync.error : undefined;
   const problems = publicationProblems(state);
   const duplicateSpecificationKeySet = duplicateSpecificationKeys(state.specifications);
   const invalidSpecificationIndex = state.specifications.findIndex((item) => {
@@ -420,11 +466,14 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
     save.mutate();
   };
   const reload = async () => {
-    const loaded = await reloadServer?.();
+    try {
+    const loaded = reloadServer ? await reloadServer()
+      : workingCard ? await api.getWorkspaceComponent(workingCard.id) : undefined;
     if (loaded === undefined) return;
-    setWorkingCard(loaded);
-    setState(stateFromCard(loaded));
-    setImagesDirty(false);
+    sync.controller.discard(loaded, stateFromCard(loaded));
+    if (mode === "new") void navigate(`/admin/components/${loaded.id}/edit`, { replace: true });
+    setReloadError(null);
+    } catch (error) { setReloadError(error); }
   };
   const availableViews: EditorView[] = workingCard === undefined
     ? ["edit", "preview"]
@@ -455,8 +504,14 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
     <section>
       <div className="editor-header">
         <div>
-          <p className="eyebrow">{mode === "new" ? "Новый черновик" : `Версия ${String(workingCard?.revision ?? 0)}`}</p>
+          <p className="eyebrow">{mode === "new" ? "Новый черновик" : "Редактор карточки"}</p>
           <h2>{state.title || "Без названия"}</h2>
+          <p className="editor-sync-status" role="status" aria-live="polite">
+            {{ saved: "Сохранено", dirty: "Есть изменения", syncing: "Синхронизация…",
+              invalid: "Не синхронизировано: исправьте ошибки", error: "Не удалось синхронизировать",
+              conflict: "Конфликт версии", recovery: "Найдены несинхронизированные изменения" }[sync.status]}
+          </p>
+          {sync.dirty && <small>{sync.localStored ? "Изменения сохранены на этом устройстве" : "Локальное восстановление недоступно — не закрывайте страницу"}</small>}
         </div>
         <div className="editor-tabs" aria-label="Режим редактора" role="tablist">
           {availableViews.map((editorView, index) => (
@@ -478,13 +533,29 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
         </div>
       </div>
 
+      {sync.recovery && <div className="conflict-banner" role="alert">
+        <p>Найдены несинхронизированные изменения на этом устройстве. Восстановить их?</p>
+        <button type="button" onClick={() => { void sync.controller.recover(); }}>Восстановить локальные изменения</button>
+        <button type="button" onClick={() => { sync.controller.discard(); }}>Оставить серверную версию</button>
+      </div>}
+
       {conflict === undefined ? null : (
         <div className="conflict-banner" role="alert">
-          <div><strong>Карточку уже изменил другой пользователь</strong><p>Локальный текст сохранён в форме. Автоматическая перезапись остановлена.</p></div>
-          {reloadServer === undefined ? null : <button className="button button--quiet" type="button" onClick={() => { void reload(); }}>Загрузить версию с сервера</button>}
+          <div><strong>Серверная версия карточки изменилась</strong><p>Автоматическая перезапись остановлена. Локальный текст остаётся в редакторе. Скопируйте нужный текст перед заменой серверной версией.</p></div>
+          {conflictServer.isFetching && <p>Загрузка текущей серверной версии…</p>}
+          {conflictServer.isError && <p>Не удалось получить серверную версию: {userErrorMessage(conflictServer.error)}</p>}
+          {conflictServer.data && <details><summary>Сравнить локальные и серверные данные</summary>
+            <label>Локальные данные<textarea readOnly rows={12} value={JSON.stringify(state, null, 2)} /></label>
+            <label>Серверные данные<textarea readOnly rows={12} value={JSON.stringify(stateFromCard(conflictServer.data), null, 2)} /></label>
+          </details>}
+          {!workingCard ? null : <button className="button button--quiet" type="button" onClick={() => { void reload(); }}>Загрузить версию с сервера</button>}
         </div>
       )}
+      {reloadError !== null && <p role="alert">Не удалось загрузить версию: {userErrorMessage(reloadError)}</p>}
       {otherError === undefined ? null : <div className="inline-error" role="alert">Операция не выполнена: {backendValidation ?? userErrorMessage(otherError).toLocaleLowerCase("ru-RU")} Изменения остаются в редакторе.</div>}
+      {otherError instanceof ApiError && <details><summary>Диагностика синхронизации</summary>
+        <p>Код: {otherError.code}</p>{otherError.requestId && <p>Идентификатор запроса: {otherError.requestId}</p>}
+      </details>}
       {hasUnknownLicense ? <div className="license-warning" role="alert"><strong>Лицензия источника не подтверждена</strong><span>Условия использования материала не определены. Перед публикацией проверьте правила исходного ресурса.</span></div> : null}
       {workingCard === undefined || workingCard.sources.length === 0 ? null : <SourceAttributionBlock sources={workingCard.sources} />}
 
@@ -502,31 +573,50 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
           <ComponentPreview state={state} categories={categories} status={workingCard?.status ?? "draft"} />
         ) : (
           <form className="editor-form" onSubmit={submit}>
+          {Object.entries(sync.fieldErrors).filter(([field]) => !["aliases", "tags", "slug", "description"].includes(field)).map(([field, message]) => (
+            <p className="field-error" key={field}>{message}</p>
+          ))}
+          <fieldset className="editor-document" disabled={!editable || sync.commandPending || sync.recovery !== null}>
           <fieldset><legend>Идентификация</legend><div className="form-grid">
             <EditorField label="Название" value={state.title} maxLength={160} onChange={(value) => { update("title", value); }} />
-            <EditorField label="Адрес страницы (создаётся автоматически)" value={state.slug} maxLength={160} onChange={(value) => { update("slug", value); }} />
+            <EditorField label="Адрес страницы (создаётся автоматически)" value={state.slug} maxLength={160} errorId={sync.fieldErrors.slug ? "slug-error" : undefined} onChange={(value) => { update("slug", value); }} />
+            {sync.fieldErrors.slug && <p id="slug-error" className="field-error">{sync.fieldErrors.slug}</p>}
             <EditorField label="Производитель" value={state.manufacturer} maxLength={120} onChange={(value) => { update("manufacturer", value); }} />
             <EditorField label="Модель" value={state.model} maxLength={120} onChange={(value) => { update("model", value); }} />
             <label>Категория<select value={state.primaryCategoryId} onChange={(event) => { update("primaryCategoryId", event.target.value); }}>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
             <label>Сложность<select value={state.difficulty} onChange={(event) => { update("difficulty", event.target.value as Difficulty); }}><option value="beginner">Начальная</option><option value="intermediate">Средняя</option><option value="advanced">Продвинутая</option></select></label>
-            <EditorField label="Альтернативные имена через запятую" value={state.aliases} onChange={(value) => { update("aliases", value); }} />
-            <EditorField label="Теги через запятую" value={state.tags} onChange={(value) => { update("tags", value); }} />
+            <EditorField label="Альтернативные имена через запятую" value={state.aliases} errorId={sync.fieldErrors.aliases ? "aliases-error" : undefined} onChange={(value) => { update("aliases", value); }} />
+            {sync.fieldErrors.aliases && <p id="aliases-error" className="field-error">{sync.fieldErrors.aliases}</p>}
+            <EditorField label="Теги через запятую" value={state.tags} errorId={sync.fieldErrors.tags ? "tags-error" : undefined} onChange={(value) => { update("tags", value); }} />
+            {sync.fieldErrors.tags && <p id="tags-error" className="field-error">{sync.fieldErrors.tags}</p>}
           </div></fieldset>
           <ComponentImagesEditor
             card={workingCard}
-            dirty={imagesDirty}
             images={state.images}
+            onBusyChange={(busy) => {
+              uploadingRef.current = busy;
+              setUploadBusy(busy);
+              sync.controller.setBusy(busy);
+              if (!busy) void sync.controller.flush().then(() => {
+                const latest = sync.controller.snapshot();
+                if (mode === "new" && latest.card && !latest.dirty) {
+                  void navigate(`/admin/components/${latest.card.id}/edit`, { replace: true });
+                }
+              }).catch(() => undefined);
+            }}
             onChange={(images) => {
               update("images", images);
-              setImagesDirty(true);
             }}
-            onReload={reloadServer === undefined ? undefined : reload}
-            onSaved={(saved) => { acceptSaved(saved, true); }}
+            onUploaded={(image) => {
+              setState((current) => ({ ...current, images: [...current.images, { ...image,
+                display_order: current.images.length, is_primary: current.images.length === 0 }] }));
+            }}
           />
           <fieldset><legend>Учебное содержание</legend>
             <p className="field-help">Аннотацию и описание можно оставить пустыми, пока карточка остаётся черновиком.</p>
             <EditorTextArea label="Аннотация (необязательно для черновика)" value={state.summary} maxLength={500} onChange={(value) => { update("summary", value); }} />
-            <EditorTextArea label="Описание (Markdown без необработанного HTML)" value={state.description} maxLength={30000} rows={10} onChange={(value) => { update("description", value); }} />
+            <EditorTextArea label="Описание (Markdown без необработанного HTML)" value={state.description} maxLength={30000} rows={10} errorId={sync.fieldErrors.description ? "description-error" : undefined} onChange={(value) => { update("description", value); }} />
+            {sync.fieldErrors.description && <p id="description-error" className="field-error">{sync.fieldErrors.description}</p>}
             <EditorTextArea label="Назначение" value={state.purpose} maxLength={2000} onChange={(value) => { update("purpose", value); }} />
             <EditorTextArea label="Рекомендации" value={state.usageNotes} maxLength={5000} onChange={(value) => { update("usageNotes", value); }} />
             <EditorTextArea label="Безопасность" value={state.safetyNotes} maxLength={5000} onChange={(value) => { update("safetyNotes", value); }} />
@@ -558,7 +648,7 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
                 <label>Видимость<select value={item.visibility} onChange={(event) => { updateCodeExample(index, "visibility", event.target.value as CodeExampleVisibility); }}><option value="student">Студент</option><option value="teacher">Только преподаватель</option></select></label>
               </div>
               <EditorTextArea label="Практическое задание" value={item.practical_task} maxLength={5000} required onChange={(value) => { updateCodeExample(index, "practical_task", value); }} />
-              <div className="structured-list"><strong>Подсказки по порядку</strong>{item.hints.map((hint, hintIndex) => <div className="hint-editor" key={`${String(hintIndex)}:${hint}`}>
+              <div className="structured-list"><strong>Подсказки по порядку</strong>{item.hints.map((hint, hintIndex) => <div className="hint-editor" key={hintIndex}>
                 <EditorTextArea label={`Подсказка ${String(hintIndex + 1)}`} value={hint} maxLength={2000} required rows={2} onChange={(value) => { updateCodeExample(index, "hints", item.hints.map((current, position) => position === hintIndex ? value : current)); }} />
                 <button aria-label={`Удалить подсказку ${String(hintIndex + 1)} из примера ${String(index + 1)}`} className="button button--quiet" type="button" onClick={() => { updateCodeExample(index, "hints", item.hints.filter((_, position) => position !== hintIndex)); }}>Удалить подсказку</button>
               </div>)}</div>
@@ -569,12 +659,13 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
             </section>)}</div>
             <button className="button button--quiet" disabled={state.codeExamples.length >= 10} type="button" onClick={() => { update("codeExamples", [...state.codeExamples, { title: "", language: "arduino", practical_task: "", hints: [], body: "", libraries: "", explanation: null, visibility: "student" }]); }}>Добавить учебный пример</button>
           </fieldset>
+          </fieldset>
           <div className="editor-actions">
-            <button className="button button--primary" disabled={!editable || save.isPending || lifecycle.isPending} type="submit">{save.isPending ? "Сохраняем…" : "Сохранить черновик"}</button>
-            {workingCard !== undefined && ["draft", "changes_requested"].includes(workingCard.status) && canSubmit ? <button className="button button--success" disabled={problems.length > 0 || imagesDirty || save.isPending || lifecycle.isPending} type="button" onClick={() => { lifecycle.mutate("submit"); }}>Отправить на проверку</button> : null}
-            {workingCard?.status === "in_review" && canReview ? <><button className="button button--quiet" disabled={lifecycle.isPending} type="button" onClick={() => { lifecycle.mutate("request-changes"); }}>Запросить исправления</button><button className="button button--success" disabled={lifecycle.isPending} type="button" onClick={() => { lifecycle.mutate("approve"); }}>Одобрить</button></> : null}
+            <button className="button button--quiet" disabled={!editable || save.isPending || lifecycle.isPending || sync.status === "conflict"} type="submit">{sync.status === "error" ? "Повторить синхронизацию" : "Синхронизировать сейчас"}</button>
+            {workingCard !== undefined && ["draft", "changes_requested"].includes(workingCard.status) && canSubmit ? <button className="button button--success" disabled={problems.length > 0 || lifecycle.isPending || uploadBusy} type="button" onClick={() => { lifecycle.mutate("submit"); }}>Отправить на проверку</button> : null}
+            {workingCard?.status === "in_review" && canReview ? <><button className="button button--quiet" disabled={lifecycle.isPending} type="button" onClick={() => { lifecycle.mutate("request-changes"); }}>Вернуть на доработку</button>{canPublish && <button className="button button--success" disabled={lifecycle.isPending} type="button" onClick={() => { lifecycle.mutate("approve-and-publish"); }}>Одобрить и опубликовать</button>}</> : null}
             {workingCard?.status === "approved" && canReview ? <button className="button button--quiet" disabled={lifecycle.isPending} type="button" onClick={() => { lifecycle.mutate("request-changes"); }}>Запросить исправления</button> : null}
-            {workingCard?.status === "approved" && canPublish ? <button className="button button--success" disabled={problems.length > 0 || imagesDirty || lifecycle.isPending} type="button" onClick={() => { lifecycle.mutate("publish"); }}>Опубликовать</button> : null}
+            {workingCard?.status === "approved" && canPublish ? <button className="button button--success" disabled={problems.length > 0 || lifecycle.isPending} type="button" onClick={() => { lifecycle.mutate("publish"); }}>Опубликовать</button> : null}
             {workingCard?.status === "published" && canPublish ? <button className="button button--quiet" disabled={lifecycle.isPending} type="button" onClick={() => { lifecycle.mutate("hide"); }}>Скрыть</button> : null}
             {workingCard?.status === "hidden" && canPublish ? <button className="button button--success" disabled={lifecycle.isPending} type="button" onClick={() => { lifecycle.mutate("show"); }}>Вернуть в каталог</button> : null}
             {workingCard?.status === "archived" && canArchive ? <button className="button button--success" disabled={lifecycle.isPending} type="button" onClick={() => { lifecycle.mutate("restore"); }}>Восстановить из архива</button> : null}
@@ -583,7 +674,6 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
           </div>
           {!editable ? <p className="validation-note">Содержимое заблокировано в состоянии «{COMPONENT_STATUS_LABELS[workingCard.status]}». Используйте доступное действие.</p> : null}
           {["draft", "changes_requested", "approved"].includes(workingCard?.status ?? "draft") && problems.length > 0 ? <p className="validation-note">Черновик уже можно сохранить. Для проверки и публикации позднее заполните: {problems.join(", ")}.</p> : null}
-          {workingCard !== undefined && ["draft", "changes_requested", "approved"].includes(workingCard.status) && imagesDirty ? <p className="validation-note">Перед переходом сохраните изменения изображений.</p> : null}
           </form>
         )}
       </div>
@@ -670,12 +760,12 @@ function ComponentHistory({ componentId }: { componentId: string }) {
   );
 }
 
-interface FieldProps { label: string; value: string; maxLength?: number; required?: boolean; onChange: (value: string) => void; }
-function EditorField({ label, value, maxLength, required, onChange }: FieldProps) {
-  return <label>{label}<input value={value} maxLength={maxLength} required={required} onChange={(event) => { onChange(event.target.value); }} /></label>;
+interface FieldProps { label: string; value: string; maxLength?: number; required?: boolean; errorId?: string; onChange: (value: string) => void; }
+function EditorField({ label, value, maxLength, required, errorId, onChange }: FieldProps) {
+  return <label>{label}<input aria-invalid={Boolean(errorId)} aria-describedby={errorId} value={value} maxLength={maxLength} required={required} onChange={(event) => { onChange(event.target.value); }} /></label>;
 }
-function EditorTextArea({ label, value, maxLength, required, onChange, rows = 4 }: FieldProps & { rows?: number }) {
-  return <label>{label}<textarea value={value} maxLength={maxLength} required={required} rows={rows} onChange={(event) => { onChange(event.target.value); }} /></label>;
+function EditorTextArea({ label, value, maxLength, required, errorId, onChange, rows = 4 }: FieldProps & { rows?: number }) {
+  return <label>{label}<textarea aria-invalid={Boolean(errorId)} aria-describedby={errorId} value={value} maxLength={maxLength} required={required} rows={rows} onChange={(event) => { onChange(event.target.value); }} /></label>;
 }
 
 function EditorMediaPreview({ images }: { images: ComponentMedia[] }) {

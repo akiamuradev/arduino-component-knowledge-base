@@ -1,5 +1,5 @@
 import { QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -167,38 +167,98 @@ function requestBody(options: RequestInit | undefined): string {
 }
 
 afterEach(() => {
+  localStorage.clear();
   document.cookie = "ackb_csrf=; Max-Age=0; Path=/";
   vi.unstubAllGlobals();
 });
 
 describe("component editor", () => {
+  it("explains the real UNO alias duplicates inline and autosaves after correction", async () => {
+    document.cookie = "ackb_csrf=csrf-value; Path=/";
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (_url, options) => {
+      await Promise.resolve();
+      return jsonResponse({ ...card, ...JSON.parse(requestBody(options)) as object, edit_token: 8 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    renderEditor();
+    const aliases = screen.getByLabelText("Альтернативные имена через запятую");
+    const text = "Arduino Uno Rev3, Arduino UNO Rev3, UNO R3, Arduino Uno Revision 3, A000066";
+    fireEvent.change(aliases, { target: { value: text } });
+    expect(aliases).toHaveValue(text);
+    expect(aliases).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByText(/«Arduino Uno Rev3» и «Arduino UNO Rev3»/)).toBeVisible();
+    expect(screen.queryByText("Серверная версия карточки изменилась")).not.toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+    fireEvent.change(aliases, { target: { value: "Arduino Uno Rev3, UNO R3, Arduino Uno Revision 3, A000066" } });
+    await waitFor(() => { expect(fetchMock).toHaveBeenCalledOnce(); }, { timeout: 2000 });
+    expect(aliases).toHaveAttribute("aria-invalid", "false");
+  });
+
+  it("does not revert Arduino UNO R3 when an older autosave response arrives", async () => {
+    document.cookie = "ackb_csrf=csrf-value; Path=/";
+    let finish!: (response: Response) => void;
+    const pending = new Promise<Response>((resolve) => { finish = resolve; });
+    const fetchMock = vi.fn<typeof fetch>().mockImplementationOnce(() => pending)
+      .mockImplementation(async (_url, options) => {
+        await Promise.resolve();
+        return jsonResponse({ ...card, ...JSON.parse(requestBody(options)) as object, edit_token: 9 });
+      });
+    vi.stubGlobal("fetch", fetchMock);
+    renderEditor();
+    const title = within(screen.getByRole("group", { name: "Идентификация" })).getByLabelText("Название");
+    fireEvent.change(title, { target: { value: "Arduino" } });
+    fireEvent.keyDown(window, { key: "s", metaKey: true });
+    await waitFor(() => { expect(fetchMock).toHaveBeenCalledOnce(); });
+    fireEvent.change(title, { target: { value: "Arduino UNO R3" } });
+    await act(async () => { finish(jsonResponse({ ...card, title: "Arduino", edit_token: 8 })); await pending; });
+    expect(title).toHaveValue("Arduino UNO R3");
+    await waitFor(() => { expect(fetchMock).toHaveBeenCalledTimes(2); });
+    expect(JSON.parse(requestBody(fetchMock.mock.calls[1]?.[1]))).toEqual(expect.objectContaining({
+      title: "Arduino UNO R3", edit_token: 8,
+    }));
+  });
+
+  it("identifies NFKC duplicate tags without sending invalid autosaves", () => {
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetchMock);
+    renderEditor();
+    const tags = screen.getByLabelText("Теги через запятую");
+    fireEvent.change(tags, { target: { value: "ＵＮＯ, uno" } });
+    expect(tags).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByText(/«ＵＮＯ» и «uno»/)).toBeVisible();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
   it("allows images and an incomplete draft before the first save", () => {
     renderNewEditor();
 
     expect(screen.getByText(/Фото можно загрузить до заполнения и сохранения/)).toBeVisible();
-    expect(screen.getByRole("button", { name: "Сохранить черновик" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Синхронизировать сейчас" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Добавить изображения" })).toBeEnabled();
     expect(screen.getByText(/Черновик уже можно сохранить/)).toBeVisible();
   });
 
-  it("saves an empty manual draft with an automatic page address", async () => {
+  it("does not create an untouched draft, then creates once after the first character", async () => {
     document.cookie = "ackb_csrf=csrf-value; Path=/";
     const saved = {
       ...card,
       slug: "draft-10000000000040008000000000000000",
-      title: "",
+      title: "A",
       summary: "",
       description: "",
       revision: 1,
       media: [],
     };
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse(saved, 201));
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async () => {
+      await Promise.resolve(); return jsonResponse(saved, 201);
+    });
     vi.stubGlobal("fetch", fetchMock);
     renderNewEditor();
 
-    await userEvent.click(screen.getByRole("button", { name: "Сохранить черновик" }));
-
-    expect(await screen.findByText("Версия 1")).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Синхронизировать сейчас" }));
+    expect(fetchMock).not.toHaveBeenCalled();
+    await userEvent.type(screen.getByLabelText("Название", { selector: "input" }), "A");
+    fireEvent.keyDown(window, { key: "s", ctrlKey: true });
+    await waitFor(() => { expect(fetchMock).toHaveBeenCalledTimes(2); });
     const body = JSON.parse(requestBody(fetchMock.mock.calls[0]?.[1])) as {
       slug: string;
       title: string;
@@ -208,23 +268,24 @@ describe("component editor", () => {
     };
     expect(body).toEqual(expect.objectContaining({
       slug: "",
-      title: "",
+      title: "A",
       summary: "",
       description: "",
-      images: [],
     }));
   });
 
   it("maps two visible specification fields and omits the trailing row", async () => {
     document.cookie = "ackb_csrf=csrf-value; Path=/";
     const saved = { ...card, revision: 1, specifications: [] };
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse(saved, 201));
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async () => {
+      await Promise.resolve(); return jsonResponse(saved, 201);
+    });
     vi.stubGlobal("fetch", fetchMock);
     renderNewEditor();
 
     await userEvent.type(screen.getByLabelText("Характеристика 1"), "Напряжение питания");
     await userEvent.type(screen.getByLabelText("Значение характеристики 1"), "5 В");
-    await userEvent.click(screen.getByRole("button", { name: "Сохранить черновик" }));
+    await userEvent.click(screen.getByRole("button", { name: "Синхронизировать сейчас" }));
 
     const body = JSON.parse(requestBody(fetchMock.mock.calls[0]?.[1])) as {
       specifications: unknown[];
@@ -249,7 +310,8 @@ describe("component editor", () => {
     expect(screen.getByLabelText("Характеристика 1")).toHaveValue("Частота");
     expect(screen.getByLabelText("Значение характеристики 1")).toHaveValue("16");
     expect(screen.queryByLabelText("Ключ")).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Сохранить черновик" }));
+    await userEvent.type(within(screen.getByRole("group", { name: "Идентификация" })).getByLabelText("Название"), " ");
+    await userEvent.click(screen.getByRole("button", { name: "Синхронизировать сейчас" }));
 
     const body = JSON.parse(requestBody(fetchMock.mock.calls[0]?.[1])) as {
       specifications: unknown[];
@@ -269,7 +331,7 @@ describe("component editor", () => {
     renderNewEditor();
     await userEvent.type(screen.getByLabelText("Значение характеристики 1"), "5 В");
 
-    await userEvent.click(screen.getByRole("button", { name: "Сохранить черновик" }));
+    await userEvent.click(screen.getByRole("button", { name: "Синхронизировать сейчас" }));
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(screen.getByText("Укажите название характеристики.")).toBeVisible();
@@ -440,9 +502,9 @@ describe("component editor", () => {
     const title = within(screen.getByRole("group", { name: "Идентификация" })).getByLabelText("Название");
     await userEvent.clear(title);
     await userEvent.type(title, "Локальное название");
-    await userEvent.click(screen.getByRole("button", { name: "Сохранить черновик" }));
+    await userEvent.click(screen.getByRole("button", { name: "Синхронизировать сейчас" }));
 
-    expect(await screen.findByText("Карточку уже изменил другой пользователь")).toBeVisible();
+    expect(await screen.findByText("Серверная версия карточки изменилась")).toBeVisible();
     expect(title).toHaveValue("Локальное название");
     expect(screen.getByRole("button", { name: "Загрузить версию с сервера" })).toBeVisible();
   });
@@ -452,7 +514,6 @@ describe("component editor", () => {
     const inReview = { ...card, status: "in_review" as const, revision: 8 };
     const changesRequested = { ...card, status: "changes_requested" as const, revision: 9 };
     const resubmitted = { ...card, status: "in_review" as const, revision: 10 };
-    const approved = { ...card, status: "approved" as const, revision: 11 };
     const published = { ...card, status: "published" as const, revision: 12, published_at: "2026-07-15T21:00:00Z" };
     const hidden = { ...published, status: "hidden" as const, revision: 13 };
     const shown = { ...published, revision: 14 };
@@ -463,7 +524,6 @@ describe("component editor", () => {
       .mockResolvedValueOnce(jsonResponse(inReview))
       .mockResolvedValueOnce(jsonResponse(changesRequested))
       .mockResolvedValueOnce(jsonResponse(resubmitted))
-      .mockResolvedValueOnce(jsonResponse(approved))
       .mockResolvedValueOnce(jsonResponse(published))
       .mockResolvedValueOnce(jsonResponse(hidden))
       .mockResolvedValueOnce(jsonResponse(shown))
@@ -473,20 +533,19 @@ describe("component editor", () => {
     renderEditor();
 
     await userEvent.click(screen.getByRole("button", { name: "Отправить на проверку" }));
-    await userEvent.click(await screen.findByRole("button", { name: "Запросить исправления" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Вернуть на доработку" }));
     await userEvent.click(await screen.findByRole("button", { name: "Отправить на проверку" }));
-    await userEvent.click(await screen.findByRole("button", { name: "Одобрить" }));
-    await userEvent.click(await screen.findByRole("button", { name: "Опубликовать" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Одобрить и опубликовать" }));
     await userEvent.click(await screen.findByRole("button", { name: "Скрыть" }));
     await userEvent.click(await screen.findByRole("button", { name: "Вернуть в каталог" }));
     await userEvent.click(await screen.findByRole("button", { name: "В архив" }));
     await userEvent.click(screen.getByRole("button", { name: "Подтвердить" }));
     await userEvent.click(await screen.findByRole("button", { name: "Восстановить из архива" }));
 
-    expect(await screen.findByText("Версия 16")).toBeVisible();
-    expect(fetchMock).toHaveBeenCalledTimes(9);
-    expect(fetchMock.mock.calls[0]?.[1]?.body).toBe('{"revision":7}');
-    expect(fetchMock.mock.calls[8]?.[1]?.body).toBe('{"revision":15}');
+    expect(await screen.findByRole("button", { name: "Скрыть" })).toBeVisible();
+    expect(fetchMock).toHaveBeenCalledTimes(8);
+    expect(fetchMock.mock.calls[0]?.[1]?.body).toBe('{"edit_token":7}');
+    expect(fetchMock.mock.calls[7]?.[1]?.body).toBe('{"edit_token":15}');
   });
 
   it("lets an editor submit but not review or publish", () => {
@@ -495,6 +554,6 @@ describe("component editor", () => {
     expect(screen.queryByRole("button", { name: "Опубликовать" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Одобрить" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Отправить на проверку" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Сохранить черновик" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Синхронизировать сейчас" })).toBeEnabled();
   });
 });

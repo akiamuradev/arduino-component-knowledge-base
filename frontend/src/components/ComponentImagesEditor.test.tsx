@@ -147,24 +147,18 @@ function Harness({
   initialCard?: ComponentCard;
   saved: (value: ComponentCard) => void;
 }) {
-  const [current, setCurrent] = useState(initialCard);
   const [images, setImages] = useState(initialCard.media ?? []);
-  const [dirty, setDirty] = useState(false);
   return (
     <ComponentImagesEditor
-      card={current}
-      dirty={dirty}
+      card={initialCard}
       images={images}
       onChange={(next) => {
         setImages(next);
-        setDirty(true);
+        saved({ ...initialCard, media: next });
       }}
-      onReload={() => Promise.resolve(undefined)}
-      onSaved={(next) => {
-        setCurrent(next);
-        setImages(next.media ?? []);
-        setDirty(false);
-        saved(next);
+      onUploaded={(image) => {
+        setImages((current) => [...current, { ...image, display_order: current.length,
+          is_primary: current.length === 0 }]);
       }}
     />
   );
@@ -187,20 +181,17 @@ function renderEditor(
   return queryClient;
 }
 
-function renderStagedEditor(saved: (value: ComponentCard) => void) {
+function renderStagedEditor() {
   function StagedHarness() {
     const [images, setImages] = useState<ComponentMedia[]>([]);
-    const [dirty, setDirty] = useState(false);
     return (
       <ComponentImagesEditor
         card={undefined}
-        dirty={dirty}
         images={images}
         onChange={(next) => {
           setImages(next);
-          setDirty(true);
         }}
-        onSaved={saved}
+        onUploaded={(image) => { setImages((current) => [...current, image]); }}
       />
     );
   }
@@ -223,6 +214,32 @@ afterEach(() => {
 });
 
 describe("component images editor", () => {
+  it.each([
+    ["reservation", "Подготовка загрузки"],
+    ["upload", "Отправка файла в хранилище"],
+    ["confirmation", "Подтверждение загрузки"],
+  ])("reports a safe %s-stage failure without exposing signed URLs", async (stage, label) => {
+    document.cookie = "ackb_csrf=media-csrf; Path=/";
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input) => {
+      await Promise.resolve();
+      const url = requestUrl(input);
+      if (url.endsWith("/uploads")) {
+        if (stage === "reservation") return jsonResponse({ detail: { code: "media_upload_rate_limited" } }, 429);
+        return jsonResponse({ asset_id: firstImage.asset_id,
+          upload_url: "/media-storage/private?secret-signature=do-not-expose",
+          upload_headers: { "Content-Type": "image/png" }, component_revision: null });
+      }
+      if (url.startsWith("/media-storage/")) return new Response(null, { status: stage === "upload" ? 503 : 200 });
+      return jsonResponse({ detail: { code: "media_enqueue_failed" } }, 503);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    renderEditor(vi.fn(), { ...card, media: [] });
+    await userEvent.upload(screen.getByLabelText("Добавить изображения", { selector: "input" }),
+      new File(["bytes"], "uno.png", { type: "image/png" }));
+    expect(await screen.findByText(new RegExp(label))).toBeVisible();
+    expect(document.body.textContent).not.toContain("secret-signature");
+    expect(fetchMock.mock.calls.some(([input]) => requestUrl(input).includes("workspace/components"))).toBe(false);
+  });
   it("uploads and previews an image before the first draft save", async () => {
     document.cookie = "ackb_csrf=media-csrf; Path=/";
     const staged = {
@@ -262,7 +279,7 @@ describe("component images editor", () => {
       throw new Error(`Unexpected request: ${url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
-    renderStagedEditor(saved);
+    renderStagedEditor();
 
     await userEvent.upload(
       screen.getByLabelText("Добавить изображения", { selector: "input" }),
@@ -270,7 +287,7 @@ describe("component images editor", () => {
     );
 
     expect(await screen.findByText("1 / 12")).toBeVisible();
-    expect(screen.getByText(/Фото уже загружены/)).toBeVisible();
+    expect(screen.getByText(/синхронизируются автоматически вместе с карточкой/)).toBeVisible();
     expect(screen.getByLabelText("Альтернативный текст изображения 1")).toHaveValue(
       "component front",
     );
@@ -323,27 +340,18 @@ describe("component images editor", () => {
     await userEvent.click(screen.getByRole("button", {
       name: "Переместить изображение 2 выше",
     }));
-    await userEvent.click(screen.getByRole("button", { name: "Сохранить изображения" }));
-
-    await waitFor(() => { expect(saved).toHaveBeenCalledOnce(); });
-    const mutation = fetchMock.mock.calls.find(([url, options]) =>
-      requestUrl(url).endsWith(`/workspace/components/${card.id}/images`)
-      && options?.method === "PUT");
-    const body = JSON.parse(requestBody(mutation?.[1])) as {
-      revision: number;
-      images: { asset_id: string; alt_text: string; caption: string | null }[];
-      primary_asset_id: string;
-    };
-    expect(body.revision).toBe(7);
-    expect(body.images.map((item) => item.asset_id)).toEqual([
+    expect(screen.queryByRole("button", { name: "Сохранить изображения" })).not.toBeInTheDocument();
+    const last = saved.mock.lastCall?.[0].media ?? [];
+    expect(last.map((item) => item.asset_id)).toEqual([
       secondImage.asset_id,
       firstImage.asset_id,
     ]);
-    expect(body.images[0]).toEqual(expect.objectContaining({
+    expect(last[0]).toEqual(expect.objectContaining({
       alt_text: "Новый текст разъёмов",
       caption: "Крупный план",
     }));
-    expect(body.primary_asset_id).toBe(secondImage.asset_id);
+    expect(last[0]?.is_primary).toBe(true);
+    expect(fetchMock.mock.calls.some(([, options]) => options?.method === "PUT")).toBe(false);
   });
 
   it("keeps add and dropzone available after sequential uploads", async () => {
@@ -418,8 +426,8 @@ describe("component images editor", () => {
     const reserveBodies = fetchMock.mock.calls
       .filter(([url]) => requestUrl(url) === "/api/v1/media/images/uploads")
       .map(([, options]) => JSON.parse(requestBody(options)) as { component_revision: number });
-    expect(reserveBodies.map((body) => body.component_revision)).toEqual([7, 8]);
-    expect(saved).toHaveBeenCalledWith(expect.objectContaining({ revision: 9 }));
+    expect(reserveBodies.map((body) => body.component_revision)).toEqual([null, null]);
+    expect(workspaceRead).toBe(0);
   });
 
   it("shows pending, processing, ready, rejected and status error states", async () => {
@@ -577,21 +585,13 @@ describe("component images editor", () => {
     await userEvent.click(screen.getByRole("button", {
       name: "Убрать изображение 1 из карточки",
     }));
-    await userEvent.click(screen.getByRole("button", { name: "Сохранить изображения" }));
-
     await waitFor(() => { expect(saved).toHaveBeenCalledOnce(); });
-    const mutation = fetchMock.mock.calls.find(([url, options]) =>
-      requestUrl(url).endsWith(`/workspace/components/${card.id}/images`)
-      && options?.method === "PUT");
-    const body = JSON.parse(requestBody(mutation?.[1])) as {
-      images: { asset_id: string }[];
-      primary_asset_id: string;
-    };
-    expect(body.images).toEqual([{ asset_id: secondImage.asset_id, purpose: "detail", alt_text: "Разъёмы платы", caption: null }]);
-    expect(body.primary_asset_id).toBe(secondImage.asset_id);
+    expect(saved.mock.lastCall?.[0].media).toEqual([
+      { ...secondImage, display_order: 0, is_primary: true },
+    ]);
   });
 
-  it("preserves local order on revision conflict and offers explicit reload", async () => {
+  it("reports ordering to the document owner without issuing an independent revision mutation", async () => {
     document.cookie = "ackb_csrf=media-csrf; Path=/";
     const saved = vi.fn<(value: ComponentCard) => void>();
     const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input, options) => {
@@ -615,12 +615,9 @@ describe("component images editor", () => {
     await userEvent.click(screen.getByRole("button", {
       name: "Переместить изображение 2 выше",
     }));
-    await userEvent.click(screen.getByRole("button", { name: "Сохранить изображения" }));
-
-    expect(await screen.findByText(/Локальный порядок и описания сохранены/)).toBeVisible();
     const altFields = screen.getAllByLabelText(/^Альтернативный текст изображения/);
     expect(altFields[0]).toHaveValue(secondImage.alt_text);
-    expect(screen.getByRole("button", { name: "Загрузить версию с сервера" })).toBeVisible();
-    expect(saved).not.toHaveBeenCalled();
+    expect(saved).toHaveBeenCalledOnce();
+    expect(fetchMock.mock.calls.some(([, options]) => options?.method === "PUT")).toBe(false);
   });
 });

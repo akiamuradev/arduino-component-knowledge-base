@@ -89,7 +89,7 @@ describe("permission-based navigation", () => {
     expect(labels(teacher, "primary")).toEqual(["Каталог"]);
     expect(labels(teacher, "materials")).toEqual([]);
     expect(labels(teacher, "administration")).toEqual([]);
-    expect(primaryRoleLabel(teacher.roles)).toBe("Преподаватель");
+    expect(primaryRoleLabel(teacher.roles)).toBe("Преподаватель (устаревшая роль)");
   });
 
   it("shows user management and diagnostics to an administrator", () => {

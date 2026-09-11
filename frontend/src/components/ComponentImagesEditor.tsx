@@ -22,10 +22,9 @@ const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 interface ComponentImagesEditorProps {
   card?: ComponentCard;
   images: ComponentMedia[];
-  dirty: boolean;
   onChange: (images: ComponentMedia[]) => void;
-  onSaved: (card: ComponentCard) => void;
-  onReload?: () => Promise<void>;
+  onUploaded: (image: ComponentMedia) => void;
+  onBusyChange?: (busy: boolean) => void;
 }
 
 function normalizeImages(images: ComponentMedia[]): ComponentMedia[] {
@@ -37,19 +36,6 @@ function normalizeImages(images: ComponentMedia[]): ComponentMedia[] {
     display_order: index,
     is_primary: image.asset_id === primary,
   }));
-}
-
-function mutationPayload(images: ComponentMedia[]) {
-  const normalized = normalizeImages(images);
-  return {
-    images: normalized.map((image) => ({
-      asset_id: image.asset_id,
-      purpose: image.purpose.trim(),
-      alt_text: image.alt_text.trim(),
-      caption: image.caption?.trim() === "" ? null : (image.caption?.trim() ?? null),
-    })),
-    primary_asset_id: normalized.find((image) => image.is_primary)?.asset_id ?? null,
-  };
 }
 
 function stagedImage(asset: MediaAsset, position: number): ComponentMedia {
@@ -182,6 +168,8 @@ function errorLabel(error: unknown): string {
     media_component_count_exceeded: "достигнут лимит изображений",
     media_component_size_exceeded: "достигнут лимит размера медиа",
     media_pending_quota_exceeded: "слишком много незавершённых загрузок",
+    media_upload_rate_limited: "слишком частые загрузки; подождите перед повтором",
+    image_size_not_allowed: "размер изображения должен быть от 1 байта до 8 МиБ",
     media_upload_failed: "не удалось загрузить файл, попробуйте снова",
     media_enqueue_failed: "обработка изображений временно недоступна",
     media_not_found: "изображение больше недоступно",
@@ -190,19 +178,30 @@ function errorLabel(error: unknown): string {
   return labels[error.code] ?? userErrorMessage(error).toLocaleLowerCase("ru-RU");
 }
 
+type UploadStage = "reservation" | "upload" | "confirmation" | "processing";
+const STAGE_LABELS: Record<UploadStage, string> = {
+  reservation: "Подготовка загрузки", upload: "Отправка файла в хранилище",
+  confirmation: "Подтверждение загрузки", processing: "Получение результата обработки",
+};
+class UploadStageError extends Error {
+  constructor(public stage: UploadStage, public original: unknown) {
+    super(`${STAGE_LABELS[stage]}: ${errorLabel(original)}`);
+  }
+}
+
 export function ComponentImagesEditor({
   card,
   images,
-  dirty,
   onChange,
-  onSaved,
-  onReload,
+  onUploaded,
+  onBusyChange,
 }: ComponentImagesEditorProps) {
   const [validationError, setValidationError] = useState<string>();
   const [dragging, setDragging] = useState(false);
   const [localPreviews, setLocalPreviews] = useState<Record<string, string>>({});
   const previewsRef = useRef<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+  const uploading = useRef(false);
   const orderedImages = [...images].sort(
     (left, right) => left.display_order - right.display_order,
   );
@@ -211,44 +210,21 @@ export function ComponentImagesEditor({
     for (const url of previewsRef.current) URL.revokeObjectURL(url);
   }, []);
 
-  const persist = useMutation({
-    mutationFn: async (nextImages: ComponentMedia[]) => {
-      if (card === undefined) throw new Error("Сохраните черновик перед редактированием изображений");
-      const payload = mutationPayload(nextImages);
-      return api.updateComponentImages(card.id, {
-        revision: card.revision,
-        ...payload,
-      });
-    },
-    onSuccess: onSaved,
-  });
-
   const upload = useMutation({
     mutationFn: async (files: File[]) => {
-      let activeCard = card;
-      let stagedImages = orderedImages;
+      let stage: UploadStage = "reservation";
       try {
-        if (activeCard !== undefined && dirty) {
-          const payload = mutationPayload(orderedImages);
-          activeCard = await api.updateComponentImages(activeCard.id, {
-            revision: activeCard.revision,
-            ...payload,
-          });
-        }
         for (const file of files) {
-          const currentCount = activeCard?.media?.length ?? stagedImages.length;
+          stage = "reservation";
           const reservation = await api.reserveComponentImage({
-            component_id: activeCard?.id ?? null,
-            component_revision: activeCard?.revision ?? null,
-            purpose: currentCount === 0 ? "product" : "detail",
+            component_id: null,
+            component_revision: null,
+            purpose: "product",
             alt_text: fallbackAlt(file),
             attribution: null,
             declared_mime: file.type,
             declared_size_bytes: file.size,
           });
-          if (activeCard !== undefined && reservation.component_revision === null) {
-            throw new Error("Не удалось подтвердить актуальную версию карточки");
-          }
           if (typeof URL.createObjectURL === "function") {
             const preview = URL.createObjectURL(file);
             previewsRef.current.push(preview);
@@ -257,46 +233,35 @@ export function ComponentImagesEditor({
               [reservation.asset_id]: preview,
             }));
           }
+          stage = "upload";
           await uploadReservedFile(reservation, file);
+          stage = "confirmation";
           await api.completeComponentImage(reservation.asset_id);
-          if (activeCard === undefined) {
-            const uploaded = await api.getComponentImage(reservation.asset_id);
-            stagedImages = normalizeImages([
-              ...stagedImages,
-              stagedImage(uploaded, stagedImages.length),
-            ]);
-            onChange(stagedImages);
-          } else {
-            activeCard = await api.getWorkspaceComponent(activeCard.id);
-          }
+          stage = "processing";
+          const uploaded = await api.getComponentImage(reservation.asset_id);
+          onUploaded(stagedImage(uploaded, 0));
         }
-        return activeCard;
       } catch (error) {
-        if (activeCard !== undefined) {
-          try {
-            onSaved(await api.getWorkspaceComponent(activeCard.id));
-          } catch {
-            // Keep the original typed upload error and let explicit reload recover.
-          }
-        }
-        throw error;
+        throw new UploadStageError(stage, error);
+      } finally {
+        uploading.current = false;
+        onBusyChange?.(false);
       }
-    },
-    onSuccess: (saved) => {
-      if (saved !== undefined) onSaved(saved);
     },
   });
 
-  const mutationError = persist.error ?? upload.error;
-  const conflict = mutationError instanceof ApiError
-    && mutationError.code === "revision_conflict";
+  const mutationError = upload.error;
   const atLimit = orderedImages.length >= MAX_COMPONENT_IMAGES;
-  const busy = persist.isPending || upload.isPending;
+  const busy = upload.isPending;
 
   const chooseFiles = (files: File[]) => {
     const issue = validateFiles(files, orderedImages.length);
     setValidationError(issue);
-    if (issue === undefined) upload.mutate(files);
+    if (issue === undefined && !uploading.current && files.length > 0) {
+      uploading.current = true;
+      onBusyChange?.(true);
+      upload.mutate(files);
+    }
   };
   const fileChange = (event: ChangeEvent<HTMLInputElement>) => {
     chooseFiles(Array.from(event.target.files ?? []));
@@ -394,23 +359,15 @@ export function ComponentImagesEditor({
       {mutationError === null
         ? null
         : (
-          <div className={conflict ? "conflict-banner" : "inline-error"} role="alert">
+          <div className="inline-error" role="alert">
             <span>
-              {conflict
-                ? "Версия карточки изменилась. Локальный порядок и описания сохранены."
-                : `Изображения не сохранены: ${errorLabel(mutationError)}.`}
+              {mutationError instanceof UploadStageError ? mutationError.message : "Загрузка не завершена"}.
             </span>
-            {!conflict || onReload === undefined
-              ? null
-              : (
-                <button
-                  className="button button--quiet"
-                  onClick={() => { void onReload(); }}
-                  type="button"
-                >
-                  Загрузить версию с сервера
-                </button>
-              )}
+            {mutationError instanceof UploadStageError && mutationError.original instanceof ApiError
+              && mutationError.original.requestId && <details><summary>Диагностика</summary>
+                <p>Этап: {STAGE_LABELS[mutationError.stage]}. Код: {mutationError.original.code}.
+                  Запрос: {mutationError.original.requestId}</p></details>}
+            <p>Текст карточки не потерян. Повторно выберите файл для загрузки.</p>
           </div>
         )}
 
@@ -518,31 +475,7 @@ export function ComponentImagesEditor({
         <option value="other">Другое</option>
       </datalist>
 
-      {card === undefined ? (
-        orderedImages.length === 0 ? null : (
-          <div className="images-editor__footer">
-            <span>
-              Фото уже загружены. Они прикрепятся автоматически при сохранении черновика.
-            </span>
-          </div>
-        )
-      ) : (
-        <div className="images-editor__footer">
-          <button
-            className="button button--primary"
-            disabled={!dirty || busy}
-            onClick={() => { persist.mutate(orderedImages); }}
-            type="button"
-          >
-            {persist.isPending ? "Сохраняем изображения…" : "Сохранить изображения"}
-          </button>
-          <span>
-            {dirty
-              ? "Есть несохранённые изменения изображений."
-              : "Порядок и описания синхронизированы с сервером."}
-          </span>
-        </div>
-      )}
+      <p className="field-help">Изображения, подписи и порядок синхронизируются автоматически вместе с карточкой.</p>
     </fieldset>
   );
 }

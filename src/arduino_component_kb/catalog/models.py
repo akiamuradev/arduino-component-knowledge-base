@@ -7,9 +7,11 @@ from decimal import Decimal
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     CheckConstraint,
     DateTime,
+    FetchedValue,
     ForeignKey,
     Index,
     Integer,
@@ -40,6 +42,10 @@ class Category(Base):
 
 class Component(Base):
     __tablename__ = "components"
+    __mapper_args__ = {"eager_defaults": True}
+    edit_token: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, server_default="1", server_onupdate=FetchedValue()
+    )
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
     slug: Mapped[str] = mapped_column(String(160), unique=True)
     status: Mapped[str] = mapped_column(String(24), default="draft")
@@ -66,6 +72,14 @@ class Component(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     revision: Mapped[int] = mapped_column(Integer, default=1)
+
+
+class EditorCreation(Base):
+    __tablename__ = "editor_creations"
+    request_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True)
+    owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    component_id: Mapped[UUID] = mapped_column(ForeignKey("components.id"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
 class ComponentRevision(Base):
