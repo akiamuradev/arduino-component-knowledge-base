@@ -150,7 +150,7 @@ migration before serving the new API/frontend; no production rollout was perform
   **3 passed**. Includes parallel idempotent creation, competing exact-token writes,
   autosave history bounds, upload reservation isolation, atomic publication rollback
   and preservation of a published snapshot after a working edit.
-- Frontend unit/component tests: **145 passed**, across 30 files.
+- Frontend unit/component tests: **146 passed**, across 30 files.
 - Production frontend build, ESLint, TypeScript and distribution smoke: passed.
 - Ruff check and format check: passed; release contract for 1.5.0: passed.
 - Full mypy: **five pre-existing errors in `legacy/parser.py` and

@@ -201,4 +201,17 @@ describe("single-owner document synchronization", () => {
     expect(recovered.snapshot().state).toEqual(initial);
     expect(localStorage.length).toBe(0);
   });
+
+  it("ignores an upload callback after editor disposal and logout cleanup", async () => {
+    const { sync, save } = setup();
+    sync.edit({ title: "Private document" });
+    sync.dispose();
+    localStorage.clear();
+    sync.edit({ title: "Late upload attachment" });
+    await expect(sync.flush()).rejects.toThrow("Редактор закрыт");
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(localStorage.length).toBe(0);
+    expect(save).not.toHaveBeenCalled();
+    expect(sync.snapshot().state.title).toBe("Private document");
+  });
 });

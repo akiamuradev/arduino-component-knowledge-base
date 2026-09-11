@@ -68,7 +68,7 @@ export class SyncController<S, C extends SyncCard> {
     this.publish({ localStored });
   }
   edit = (state: S): void => {
-    if (this.view.commandPending || this.view.recovery) return;
+    if (this.disposed || this.view.commandPending || this.view.recovery) return;
     this.generation++;
     const fieldErrors = this.options.validate(state);
     const blocked = this.view.status === "conflict";
@@ -85,6 +85,7 @@ export class SyncController<S, C extends SyncCard> {
     this.timer = null;
   }
   flush = (): Promise<void> => {
+    if (this.disposed) return Promise.reject(new Error("Редактор закрыт"));
     this.clearTimer();
     if (this.active) return this.active;
     if (this.view.recovery || this.view.status === "conflict" || Object.keys(this.view.fieldErrors).length) {
@@ -97,6 +98,7 @@ export class SyncController<S, C extends SyncCard> {
   };
   private async drain() {
     while (this.acknowledged !== this.generation) {
+      if (this.disposed) return;
       if (Object.keys(this.view.fieldErrors).length) {
         this.publish({ status: "invalid" });
         throw new Error("Исправьте ошибки полей");
@@ -172,11 +174,13 @@ export class SyncController<S, C extends SyncCard> {
       error: null, fieldErrors: {}, localStored: false });
   };
   command = (operation: (card: C) => Promise<C>): Promise<C> => {
+    if (this.disposed) return Promise.reject(new Error("Редактор закрыт"));
     if (this.view.transientBusy) return Promise.reject(new Error("Дождитесь окончания загрузки файлов"));
     if (this.commandFlight) return this.commandFlight;
     this.publish({ commandPending: true });
     this.commandFlight = Promise.resolve().then(async () => {
       await this.flush();
+      if (this.disposed) throw new Error("Редактор закрыт");
       if (!this.view.card) throw new Error("Сначала начните редактировать карточку");
       const card = await operation(this.view.card);
       if (this.disposed) return card;
