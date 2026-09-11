@@ -5,6 +5,14 @@ import { Link, useSearchParams } from "react-router-dom";
 import { ApiError, apiRequest } from "../api/client";
 
 export const LEGACY_SOURCE = "Микроконтроллеры, модуля, компоненты и проекты";
+const STATE_LABELS: Readonly<Record<string, string>> = {
+  uploading: "Загрузка исходников", uploaded: "Исходники загружены", analyzing: "Анализ",
+  ready: "План готов к проверке", applying: "Создание черновиков", completed: "Обработка завершена",
+  failed: "Ошибка", cancelled: "Отменено", planned: "Запланировано", applied: "Применено",
+  skipped: "Пропущено", needs_review: "Нужна проверка", create: "Создать черновик",
+  merge: "Дополнить черновик", review: "Проверить совпадение", skip: "Пропустить",
+};
+const label = (state: string) => STATE_LABELS[state] ?? state;
 
 interface Target {
   title: string;
@@ -124,17 +132,17 @@ export function LegacyImportPanel() {
   const busy = create.isPending || action.isPending;
   const unresolved = data?.items.filter((i) => i.decision === "review").length ?? 0;
   const error = create.error ?? action.error ?? bundle.error ?? bundles.error;
-  return <section className="import-preview" aria-label="Импорт локального набора">
+  return <section className="import-preview legacy-import-panel" aria-label="Импорт локального набора">
     <h3>{LEGACY_SOURCE}</h3>
     <p>Сначала загрузите ZIP и XLSX и выполните анализ. Анализ не меняет каталог.
       После проверки плана можно создать или дополнить только черновики.</p>
     <p>Имена участников из таблицы и папка «ПРОЕКТЫ» не импортируются.
       Лицензии требуют проверки перед публикацией.</p>
     <label>Ранее созданный набор
-      <select value={bundleId ?? ""} onChange={(e) => { setParams(e.target.value ? { legacy: e.target.value } : {}); }}>
+      <select disabled={busy} value={bundleId ?? ""} onChange={(e) => { setConfirmation(""); setParams(e.target.value ? { legacy: e.target.value } : {}); }}>
         <option value="">Новый набор</option>
         {bundles.data?.map((b) => <option key={b.id} value={b.id}>
-          {new Date(b.created_at).toLocaleString("ru-RU")} · {b.status}
+          {new Date(b.created_at).toLocaleString("ru-RU")} · {label(b.status)}
         </option>)}
       </select>
     </label>
@@ -149,7 +157,8 @@ export function LegacyImportPanel() {
     {create.isPending && <label>Загрузка: {progress}% <progress max={100} value={progress} /></label>}
     {error && <p role="alert">{errorText(error)}</p>}
     {data && <>
-      <p role="status">Состояние: {data.status}. {data.error_code}</p>
+      <p role="status">Состояние: {label(data.status)}. {data.error_code}</p>
+      {data.status === "completed" && data.items.some((i) => ["failed", "needs_review"].includes(i.status)) && <p role="alert">План выполнен частично: проверьте ошибки и позиции, требующие проверки.</p>}
       <div className="inline-actions">
         {data.status === "uploaded" && <button type="button" disabled={busy}
           onClick={() => { action.mutate({ path: "analyze" }); }}>Анализировать ZIP + XLSX</button>}
@@ -168,7 +177,7 @@ export function LegacyImportPanel() {
           onChange={(e) => { setFilter(e.target.value); }} /></label>
         {data.items.filter((i) => `${i.target.title} ${i.target.category} ${i.status} ${i.decision}`
           .toLocaleLowerCase().includes(filter.toLocaleLowerCase())).map((item) => <details key={item.id}>
-          <summary>{item.target.title} · {item.decision} · {item.status}</summary>
+          <summary>{item.target.title} · {label(item.decision)} · {label(item.status)}</summary>
           <p>{item.target.category} · строки Excel {item.target.rows.join(", ")}</p>
           <p>ZIP: {item.target.folder ?? "Папка не выбрана"} · {item.target.match}</p>
           {item.target.candidates.map((c) => <p key={c.path}>{c.score}% · {c.path}</p>)}

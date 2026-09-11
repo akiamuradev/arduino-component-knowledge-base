@@ -63,7 +63,19 @@ def test_identity_preserves_model_numbers() -> None:
     assert normalize("  ＤＨＴ１１ (датчик) ") == "dht11 датчик"
     assert normalize("DHT11") != normalize("DHT22")
     assert models("Барометр BMP180") == {"bmp180"}
+    assert models("CD4020BE – 14-разрядный счетчик") == {"cd4020be"}
+    assert models("74HC595 2N2222") == {"74hc595", "2n2222"}
+    assert models("Мотор 8520") == {"8520"}
+    assert models("Питание 5V 0.5А 5,5х2,1мм") == set()
     assert digest(["a", "b"]) != digest(["ab"])
+
+
+@pytest.mark.parametrize("encoding", ["utf-8", "utf-16", "utf-32"])
+def test_xml_declarations_cannot_bypass_guard_by_encoding(encoding: str) -> None:
+    document = '<!DOCTYPE x [<!ENTITY secret SYSTEM "file:///not-readable">]><x>&secret;</x>'
+    with ZipFile(io.BytesIO(package({"x.xml": document.encode(encoding)}))) as archive:
+        with pytest.raises((LegacyInputError, UnicodeError)):
+            xml(archive, "x.xml")
 
 
 def test_matching_excludes_other_categories_and_conflicting_models() -> None:

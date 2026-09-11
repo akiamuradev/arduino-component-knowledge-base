@@ -6,15 +6,16 @@ from dataclasses import replace
 from difflib import SequenceMatcher
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from arduino_component_kb.catalog.domain import Difficulty, DraftData, TechnicalSpecification
-from arduino_component_kb.catalog.models import Category, Component
+from arduino_component_kb.catalog.models import Category, Component, ComponentAlias
 from arduino_component_kb.catalog.service import CatalogService
 from arduino_component_kb.deduplication.scoring import ComponentSignals, score_pair, text_hashes
 from arduino_component_kb.legacy.models import LegacyBundle, LegacyItem
 from arduino_component_kb.legacy.parser import Target, digest, models, normalize
+from arduino_component_kb.media.models import MediaAsset
 
 CATEGORY_KEYS = {
     "РАДИОКОМПОНЕНТЫ": "semiconductors",
@@ -48,18 +49,56 @@ async def candidates(session: AsyncSession, target: Target) -> list[dict[str, ob
     """Use the existing weighted scorer; preserve conflicts, never auto-merge them."""
     category = await category_id(session, target)
     similarity = func.similarity(Component.title, target.title)
+    model_match = func.lower(func.trim(Component.model)).in_(models(target.title))
+    alias_match = (
+        select(ComponentAlias.id)
+        .where(
+            ComponentAlias.component_id == Component.id,
+            func.lower(ComponentAlias.alias) == target.title.casefold(),
+        )
+        .exists()
+    )
+    image_hashes = frozenset(image.sha256 for image in target.images)
+    image_match = (
+        select(MediaAsset.id)
+        .where(
+            MediaAsset.component_id == Component.id,
+            MediaAsset.status != "rejected",
+            MediaAsset.sha256.in_(image_hashes),
+        )
+        .exists()
+    )
     rows = await session.scalars(
         select(Component)
         .where(
-            Component.primary_category_id == category,
-            similarity >= 0.15,
+            or_(
+                and_(Component.primary_category_id == category, similarity >= 0.15),
+                model_match,
+                alias_match,
+                image_match,
+            ),
         )
-        .order_by(similarity.desc(), Component.id)
+        .order_by(
+            model_match.desc().nulls_last(),
+            alias_match.desc(),
+            image_match.desc(),
+            similarity.desc(),
+            Component.id,
+        )
         .limit(20)
     )
     result: list[dict[str, object]] = []
     for row in rows:
         card = await CatalogService(session).get_card(row.id)
+        assets = list(
+            await session.scalars(
+                select(MediaAsset).where(
+                    MediaAsset.component_id == row.id,
+                    MediaAsset.status != "rejected",
+                )
+            )
+        )
+        existing_hashes = frozenset(asset.sha256 for asset in assets if asset.sha256)
         left = ComponentSignals(
             title=target.title,
             specifications=tuple((s.label, s.value) for s in target.specifications),
@@ -73,16 +112,25 @@ async def candidates(session: AsyncSession, target: Target) -> list[dict[str, ob
             model=row.model,
             specifications=tuple((s.label, s.value_text) for s in card.data.specifications),
             text_hashes=text_hashes(row.description),
+            media_sha256=existing_hashes,
         )
         score = score_pair(
             left,
             right,
             SequenceMatcher(None, normalize(target.title), normalize(row.title)).ratio(),
         )
-        conflict = bool(
-            models(target.title) and models(row.title) and models(target.title) != models(row.title)
+        wanted_models = models(target.title)
+        found_models = models(row.title) | models(row.model or "")
+        conflict = bool(wanted_models and found_models and wanted_models != found_models)
+        strong_identity = normalize(row.model or "") in models(target.title) or any(
+            normalize(alias) == normalize(target.title) for alias in card.data.aliases
         )
-        if score.score >= 0.35 or normalize(target.title) == normalize(row.title):
+        if (
+            score.score >= 0.35
+            or normalize(target.title) == normalize(row.title)
+            or strong_identity
+            or image_hashes & existing_hashes
+        ):
             result.append(
                 {
                     "id": str(row.id),
@@ -93,6 +141,7 @@ async def candidates(session: AsyncSession, target: Target) -> list[dict[str, ob
                     "score": score.score,
                     "evidence": score.evidence,
                     "merge_allowed": row.status == "draft"
+                    and row.primary_category_id == category
                     and row.published_at is None
                     and not conflict,
                     "model_conflict": conflict,
@@ -119,10 +168,20 @@ def review_hash(bundle: LegacyBundle, items: list[LegacyItem]) -> str:
     )
 
 
+def exceeds_draft_limits(target: Target) -> bool:
+    return (
+        len(target.description) > 30000
+        or len(target.specifications) > 50
+        or any(len(spec.unit or "") > 32 for spec in target.specifications)
+    )
+
+
 def draft_data(target: Target, category: UUID) -> DraftData:
+    if exceeds_draft_limits(target):
+        raise ValueError("legacy_draft_limits_review_required")
     specs: dict[str, TechnicalSpecification] = {}
     for spec in target.specifications:
-        key = "legacy-" + digest(normalize(spec.label))[:24]
+        key = "legacy-" + digest([normalize(spec.label), normalize(spec.unit or "")])[:24]
         if key not in specs:
             specs[key] = TechnicalSpecification(
                 key=key,
@@ -159,8 +218,11 @@ def merge_data(existing: DraftData, incoming: DraftData) -> tuple[DraftData, lis
     for spec in incoming.specifications:
         previous = by_label.get(normalize(spec.label))
         if previous is None:
-            specs.append(replace(spec, position=len(specs)))
-            by_label[normalize(spec.label)] = spec
+            if len(specs) < 50:
+                specs.append(replace(spec, position=len(specs)))
+                by_label[normalize(spec.label)] = spec
+            else:
+                warnings.append("specification_limit_preserved_in_plan")
         elif (previous.value_text, previous.unit) != (spec.value_text, spec.unit):
             warnings.append("existing_specification_preserved")
     if (
@@ -169,12 +231,21 @@ def merge_data(existing: DraftData, incoming: DraftData) -> tuple[DraftData, lis
         and existing.description != incoming.description
     ):
         warnings.append("existing_description_preserved")
-    aliases = tuple(dict.fromkeys((*existing.aliases, *incoming.aliases, incoming.title)))
-    aliases = tuple(a for a in aliases if normalize(a) != normalize(existing.title))
+    aliases = list(existing.aliases)
+    seen = {normalize(a) for a in (*existing.aliases, existing.title)}
+    for alias in (*incoming.aliases, incoming.title):
+        canonical = normalize(alias)
+        if canonical in seen:
+            continue
+        if len(aliases) >= 20 or len(alias.strip()) > 100:
+            warnings.append("alias_limit_preserved_in_plan")
+            continue
+        aliases.append(alias.strip())
+        seen.add(canonical)
     return replace(
         existing,
         description=existing.description or incoming.description,
         summary=existing.summary or incoming.summary,
-        aliases=aliases,
+        aliases=tuple(aliases),
         specifications=tuple(specs),
     ), warnings

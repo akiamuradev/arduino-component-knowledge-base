@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from datetime import UTC, datetime
 from typing import Annotated, Literal, cast
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,8 +22,9 @@ from arduino_component_kb.auth.repository import AuthRepository
 from arduino_component_kb.config import Settings
 from arduino_component_kb.dispatch.repository import DispatchRepository
 from arduino_component_kb.legacy.models import LegacyBundle, LegacyItem, LegacySourceLink
-from arduino_component_kb.legacy.parser import SOURCE_NAME, XLSX_LIMIT, ZIP_LIMIT
-from arduino_component_kb.legacy.planning import review_hash
+from arduino_component_kb.legacy.parser import SOURCE_NAME, XLSX_LIMIT, ZIP_LIMIT, Target
+from arduino_component_kb.legacy.planning import exceeds_draft_limits, review_hash
+from arduino_component_kb.logging import current_request_id
 from arduino_component_kb.media.storage import MediaStorage
 
 router = APIRouter(prefix="/api/v1/legacy-imports", tags=["legacy-imports"])
@@ -52,6 +54,14 @@ class LicenseInput(BaseModel):
     evidence: str = Field(min_length=30, max_length=4000)
     confirmation: Literal["ПРАВА ПРОВЕРЕНЫ"]
 
+    @field_validator("evidence")
+    @classmethod
+    def meaningful_evidence(cls, value: str) -> str:
+        value = value.strip()
+        if len(value) < 30:
+            raise ValueError("license_evidence_required")
+        return value
+
 
 def key(bundle_id: UUID, kind: str) -> str:
     return f"bundles/{bundle_id}/{kind}"
@@ -64,7 +74,7 @@ async def audit(session: AsyncSession, actor: UUID, action: str, object_id: UUID
         action=f"legacy.{action}",
         object_type="legacy_bundle",
         object_id=object_id,
-        request_id=None,
+        request_id=current_request_id(),
         outcome="success",
     )
 
@@ -159,7 +169,7 @@ async def get_bundle(bundle_id: UUID, principal: Admin, session: Session) -> dic
         "plan_hash": review_hash(bundle, items),
         "analysis_hash": bundle.plan_hash,
         "error_code": bundle.error_code,
-        "statistics": bundle.statistics,
+        "statistics": {**bundle.statistics, **dict(Counter(f"items_{i.status}" for i in items))},
         "zip_sha256": bundle.zip_sha256,
         "xlsx_sha256": bundle.xlsx_sha256,
         "parser_version": bundle.parser_version,
@@ -238,6 +248,8 @@ async def decide(
     item = next((i for i in items if i.id == item_id), None)
     if item is None:
         raise HTTPException(404, detail={"code": "legacy_item_not_found"})
+    if body.decision != "skip" and exceeds_draft_limits(Target.model_validate(item.payload)):
+        raise conflict("legacy_draft_limits_review_required")
     item.merge_id = None
     item.merge_revision = None
     item.merge_edit_token = None
