@@ -336,6 +336,7 @@ class PublicComponentMediaResponse(BaseModel):
 
 
 class ComponentResponse(BaseModel):
+    has_legacy_provenance: bool = False
     edit_token: int = 1
     id: str
     slug: str
@@ -492,6 +493,7 @@ def component_media_response(item: ComponentMedia) -> ComponentMediaResponse:
 def response(card: CatalogCard) -> ComponentResponse:
     data = card.data
     return ComponentResponse(
+        has_legacy_provenance=card.has_legacy_provenance,
         edit_token=card.edit_token,
         id=str(card.id),
         status=card.status,

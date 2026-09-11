@@ -19,7 +19,7 @@ def alembic_config() -> Config:
 
 def test_alembic_has_one_backend_head() -> None:
     scripts = ScriptDirectory.from_config(alembic_config())
-    assert scripts.get_heads() == ["20260910_30"]
+    assert scripts.get_heads() == ["20260911_31"]
 
 
 def test_alembic_upgrade_renders_offline_postgresql_sql(

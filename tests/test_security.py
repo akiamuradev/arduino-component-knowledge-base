@@ -120,6 +120,24 @@ def _permission_set(dependant: Dependant) -> frozenset[Permission] | None:
 
 
 ROUTE_PERMISSIONS: dict[tuple[str, str], frozenset[Permission]] = {
+    ("POST", "/api/v1/legacy-imports"): frozenset({Permission.IMPORTS_BULK_APPLY}),
+    ("GET", "/api/v1/legacy-imports"): frozenset({Permission.IMPORTS_BULK_APPLY}),
+    ("GET", "/api/v1/legacy-imports/{bundle_id}"): frozenset({Permission.IMPORTS_BULK_APPLY}),
+    **{
+        ("POST", f"/api/v1/legacy-imports/{{bundle_id}}/{action}"): frozenset(
+            {Permission.IMPORTS_BULK_APPLY}
+        )
+        for action in ("uploaded", "analyze", "apply", "cancel", "retry")
+    },
+    ("PATCH", "/api/v1/legacy-imports/{bundle_id}/items/{item_id}"): frozenset(
+        {Permission.IMPORTS_BULK_APPLY}
+    ),
+    ("GET", "/api/v1/legacy-imports/components/{component_id}/provenance"): frozenset(
+        {Permission.COMPONENTS_EDIT}
+    ),
+    ("POST", "/api/v1/legacy-imports/components/{component_id}/license"): frozenset(
+        {Permission.IMPORTS_BULK_APPLY}
+    ),
     ("POST", "/api/v1/workspace/editor-drafts"): frozenset({Permission.COMPONENTS_CREATE}),
     ("PUT", "/api/v1/workspace/components/{component_id}/sync"): frozenset(
         {Permission.COMPONENTS_EDIT}

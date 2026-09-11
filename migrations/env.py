@@ -15,6 +15,7 @@ from arduino_component_kb.db import Base
 from arduino_component_kb.deduplication import models as deduplication_models
 from arduino_component_kb.dispatch import models as dispatch_models
 from arduino_component_kb.imports import models as import_models
+from arduino_component_kb.legacy import models as legacy_models
 from arduino_component_kb.media import models as media_models
 
 config = context.config
@@ -24,6 +25,7 @@ registered_models = (
     deduplication_models.DuplicateCandidate,
     dispatch_models.JobDispatch,
     import_models.ImportJob,
+    legacy_models.LegacyBundle,
     media_models.MediaAsset,
 )
 target_metadata = Base.metadata

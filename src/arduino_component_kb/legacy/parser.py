@@ -356,6 +356,12 @@ def read_docx(content: bytes) -> tuple[str, list[Specification], list[str]]:
                     "parameter",
                 }
                 # Comparison tables are not silently interpreted as specifications.
+                value_header = header and normalize(rows[0][1]) in {"значение", "value"}
+                numeric_rows = not header and bool(rows) and all(
+                    len(r) == 2 and re.fullmatch(r"[+-]?\d+(?:[.,]\d+)?\s*[\w°%/.-]*", r[1])
+                    for r in rows
+                )
+                simple = simple and (value_header or numeric_rows)
                 simple = simple and (
                     len(rows[0]) == 2
                     or (

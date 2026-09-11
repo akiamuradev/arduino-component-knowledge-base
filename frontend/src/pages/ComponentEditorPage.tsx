@@ -22,6 +22,7 @@ import type {
   TechnicalSpecificationInput,
 } from "../api/contracts";
 import { api, apiRequest, ApiError } from "../api/client";
+import { LegacyLicensePanel } from "../imports/LegacyLicensePanel";
 import { userErrorMessage } from "../api/errors";
 import { hasPermission } from "../auth/permissions";
 import { useCurrentUser } from "../auth/queries";
@@ -502,6 +503,7 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
 
   return (
     <section>
+      {workingCard?.has_legacy_provenance && <LegacyLicensePanel componentId={workingCard.id} />}
       <div className="editor-header">
         <div>
           <p className="eyebrow">{mode === "new" ? "Новый черновик" : "Редактор карточки"}</p>

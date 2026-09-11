@@ -118,7 +118,7 @@ $compose run --rm --no-deps database-permissions
 $compose run --rm --no-deps migrate alembic current
 ```
 
-Для текущей схемы ожидается единственный `20260910_30 (head)`. `Exited (0)` у одноразовых
+Для текущей схемы ожидается единственный `20260911_31 (head)`. `Exited (0)` у одноразовых
 `migrate`, `database-permissions`, `minio-identity-init` и `media-init` означает успех.
 
 Не запускайте ORM `create_all`, не меняйте таблицы вручную и не отмечайте Alembic revision через

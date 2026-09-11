@@ -18,11 +18,11 @@ class JobDispatch(Base):
     __tablename__ = "job_dispatches"
     __table_args__ = (
         CheckConstraint(
-            "job_type IN ('import','media')",
+            "job_type IN ('import','media','legacy')",
             name="ck_job_dispatches_type",
         ),
         CheckConstraint(
-            "queue_name IN ('imports','images','videos')",
+            "queue_name IN ('imports','images','videos','legacy')",
             name="ck_job_dispatches_queue",
         ),
         CheckConstraint(
@@ -40,7 +40,8 @@ class JobDispatch(Base):
         ),
         CheckConstraint(
             "(job_type = 'import' AND queue_name = 'imports') OR "
-            "(job_type = 'media' AND queue_name IN ('images','videos'))",
+            "(job_type = 'media' AND queue_name IN ('images','videos')) OR "
+            "(job_type = 'legacy' AND queue_name = 'legacy')",
             name="ck_job_dispatches_type_queue",
         ),
         UniqueConstraint("job_type", "job_id", name="uq_job_dispatches_job"),

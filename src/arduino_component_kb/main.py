@@ -22,6 +22,7 @@ from arduino_component_kb.api.health import router as health_router
 from arduino_component_kb.api.import_reviews import router as import_reviews_router
 from arduino_component_kb.api.imports import router as imports_router
 from arduino_component_kb.api.jobs import router as jobs_router
+from arduino_component_kb.api.legacy_imports import router as legacy_imports_router
 from arduino_component_kb.api.media import router as media_router
 from arduino_component_kb.auth.passwords import PasswordManager
 from arduino_component_kb.config import Settings
@@ -89,6 +90,7 @@ def create_app(
     app.include_router(jobs_router)
     app.include_router(media_router)
     app.include_router(imports_router)
+    app.include_router(legacy_imports_router)
     app.include_router(import_reviews_router)
     app.include_router(catalog_router)
     app.include_router(component_sync_router)

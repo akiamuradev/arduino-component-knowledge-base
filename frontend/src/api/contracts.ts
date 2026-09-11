@@ -13,6 +13,7 @@ export type Permission =
   | "imports.create"
   | "imports.retry"
   | "imports.cancel"
+  | "imports.bulk_apply"
   | "users.view"
   | "users.manage"
   | "roles.assign"
@@ -393,6 +394,7 @@ export interface ComponentListResponse {
 }
 
 export interface ComponentCard extends ComponentSummary {
+  has_legacy_provenance?: boolean;
   edit_token?: number;
   aliases: string[];
   manufacturer: string | null;
