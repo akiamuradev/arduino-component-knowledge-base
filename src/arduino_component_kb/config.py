@@ -13,6 +13,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import ArgumentError
 
+from arduino_component_kb import __version__
+
 Environment = Literal["local", "test", "staging", "production"]
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 ImportPipelineMode = Literal["disabled", "shadow"]
@@ -50,7 +52,7 @@ class Settings(DatabaseSettings):
     """Validated runtime configuration loaded from ACKB_* variables."""
 
     app_name: str = "Arduino Component Knowledge Base"
-    app_version: str = "1.5.0"
+    app_version: str = "1.6.0"
     environment: Environment = "production"
     database_echo: bool = False
     database_pool_size: int = Field(default=5, ge=1, le=50)
@@ -235,6 +237,12 @@ class Settings(DatabaseSettings):
     @property
     def trusted_host_values(self) -> tuple[str, ...]:
         return tuple(self.trusted_hosts.split(","))
+
+    @field_validator("app_version", mode="before")
+    @classmethod
+    def project_version(cls, value: object) -> str:
+        """Release metadata, not a possibly stale deployment environment override."""
+        return __version__
 
     @model_validator(mode="after")
     def require_secure_production_settings(self) -> Settings:

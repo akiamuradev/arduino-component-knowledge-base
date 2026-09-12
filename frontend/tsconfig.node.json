@@ -8,7 +8,8 @@
     "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
+    "allowImportingTsExtensions": true,
     "types": ["node"]
   },
-  "include": ["vite.config.ts"]
+  "include": ["vite.config.ts", "build-metadata*.ts"]
 }

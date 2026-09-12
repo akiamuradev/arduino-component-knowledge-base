@@ -92,7 +92,7 @@ history.
 | Импорт | `ACKB_IMPORT_JOB_MAX_ATTEMPTS`, `ACKB_IMPORT_LOCK_TTL_SECONDS`, `ACKB_IMPORT_LOCK_WAIT_SECONDS`, `ACKB_IMPORT_PIPELINE_MODE`, `ACKB_IMPORT_PIPELINE_STAGE_TIMEOUT_SECONDS`, `ACKB_IMPORT_PIPELINE_SAFE_RETRY_ATTEMPTS` | Для 1.0.0 authoritative switch не включать; baseline — `disabled` |
 | KiCad shadow index | `ACKB_KICAD_INDEX_ARTIFACT_PATH`, `ACKB_KICAD_INDEX_EXPECTED_REVISION`, `ACKB_KICAD_INDEX_EXPECTED_SHA256` | Нужны только для отдельно принятого shadow mode |
 | Production policy | `ACKB_LOG_LEVEL`, `ACKB_DOCS_ENABLED`, `ACKB_DATABASE_ECHO`, `ACKB_LEGACY_KICAD_CARD_IMPORT_ENABLED`, `ACKB_SESSION_COOKIE_SECURE`, `ACKB_SESSION_TTL_MINUTES` | Не ослаблять значения production template |
-| Provenance | `ACKB_APP_VERSION`, `ACKB_COMMIT_SHA`, `ACKB_BUILD_DATE` | Версия релиза, полный lowercase SHA и UTC `YYYY-MM-DDTHH:MM:SSZ` |
+| Provenance inventory | `ACKB_APP_VERSION`, `ACKB_COMMIT_SHA`, `ACKB_BUILD_DATE` | Учёт развёртывания для preflight; не переопределяет метаданные сайта |
 
 Проверьте права файла и весь production contract. Preflight не меняет систему:
 
@@ -146,7 +146,8 @@ $compose run --rm --no-deps backend ackb-bootstrap-admin \
 После preflight и migrations запустите production stack:
 
 ```fish
-$compose up --build -d
+python3 scripts/build_images.py --env-file .env.production -f compose.yaml -f compose.production.yaml
+$compose up --no-build -d
 $compose ps -a
 ```
 
@@ -283,7 +284,8 @@ volume. Никогда не подставляйте `/`, пустую пере�
 VM. Нельзя направлять старую и новую версии приложения в одну базу одновременно. После cutover:
 
 ```fish
-$compose up --build -d
+python3 scripts/build_images.py --env-file .env.production -f compose.yaml -f compose.production.yaml
+$compose up --no-build -d
 $compose run --rm --no-deps migrate alembic current
 python3 scripts/production_smoke.py
 ```
@@ -314,13 +316,16 @@ git rev-parse HEAD
 ```
 
 5. Обновите только `ACKB_APP_VERSION`, `ACKB_COMMIT_SHA` и `ACKB_BUILD_DATE` в сохранённом
-   `.env.production`; остальные secrets не заменяйте. Выполните preflight.
+   `.env.production` для учёта развёртывания; остальные secrets не заменяйте.
+   Эти значения больше не задают версию/SHA/дату на сайте. Wrapper (Python ≥3.11)
+   читает версию проекта и Git HEAD из чистого checkout, а frontend фиксирует UTC
+   в момент сборки. Без SHA Docker-сборка завершается ошибкой. Выполните preflight.
 6. Соберите образы, выполните migrations и запустите stack:
 
 ```fish
 ./scripts/production_preflight.sh .env.production
-$compose build backend frontend reverse-proxy
-$compose up -d
+python3 scripts/build_images.py --env-file .env.production -f compose.yaml -f compose.production.yaml
+$compose up --no-build -d
 $compose run --rm --no-deps migrate alembic current
 ```
 
@@ -434,8 +439,8 @@ git rev-parse HEAD
 
 ```fish
 ./scripts/production_preflight.sh .env.production
-$compose build backend frontend reverse-proxy
-$compose up -d
+python3 scripts/build_images.py --env-file .env.production -f compose.yaml -f compose.production.yaml
+$compose up --no-build -d
 python3 scripts/production_smoke.py
 ```
 

@@ -2,6 +2,27 @@
 
 All notable changes to this project are documented here. Versions follow semantic versioning.
 
+## [1.6.0] - 2026-09-12
+
+### Added
+
+- Includes the synchronized editor from 1.5.0 and the reviewed legacy ZIP/XLSX
+  importer: private uploads, immutable plans, explicit administrator confirmation,
+  draft-only application, resumable jobs and a provenance/license publication gate.
+- Conservative model, alias and image matching with source-only corpus reporting.
+
+### Fixed
+
+- Build provenance uses project metadata, the actual Git revision and the current
+  build time; legacy environment values cannot silently label new builds as 1.0.1.
+
+### Compatibility
+
+- Apply migrations `20260910_30` (editor synchronization) and `20260911_31`
+  (legacy bundles, items, source links and dispatch) after existing `20260910_29`.
+- Provision the private legacy bucket and its runtime policy; start `legacy-worker`.
+  Deployment and real-corpus application remain explicit operator actions.
+
 ## [1.5.0] - 2026-09-11
 
 ### Added

@@ -83,10 +83,10 @@ def main() -> None:
             f"backend:{version}",
             f"frontend:{version}",
             f"reverse-proxy:{version}",
-            f"ACKB_APP_VERSION:-{version}",
+            "ACKB_BUILD_GIT_SHA: ${ACKB_BUILD_GIT_SHA:-}",
         ],
-        "frontend/Dockerfile": [f"ARG VITE_APP_VERSION={version}"],
-        "frontend/README.md": [f"VITE_APP_VERSION={version}"],
+        "frontend/Dockerfile": ["ARG ACKB_BUILD_GIT_SHA=", "build-metadata.ts"],
+        "frontend/README.md": ["scripts/build_images.py"],
         "frontend/src/config/brand.ts": [f'VITE_APP_VERSION, "{version}"'],
         "CHANGELOG.md": [f"## [{version}]"],
     }
