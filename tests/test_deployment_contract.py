@@ -210,10 +210,18 @@ def test_linux_bootstrap_is_fail_closed_and_does_not_print_secrets() -> None:
     script = (ROOT / "scripts" / "linux_bootstrap.sh").read_text(encoding="utf-8")
     assert script.startswith("#!/usr/bin/env bash\nset -Eeuo pipefail")
     assert "docker compose config --quiet" in script
-    assert "docker compose up --build --detach" in script
+    assert "python3 scripts/build_images.py" in script
+    assert "docker compose up --no-build --detach" in script
+    assert (
+        script.index("docker compose config --quiet")
+        < script.index("python3 scripts/build_images.py")
+        < script.index("docker compose up --no-build --detach")
+    )
+    assert "docker compose up --build --detach" not in script
     assert "openssl rand" in script
     assert "chmod 600 .env" in script
-    assert "replace-with" in script
+    assert "elif grep -q 'replace-with' .env; then\n  fail " in script
+    assert "exit 1" in script.split("fail() {", 1)[1].split("}", 1)[0]
     assert "echo $" not in script
 
 
