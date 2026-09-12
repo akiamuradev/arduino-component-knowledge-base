@@ -136,7 +136,7 @@ jobs:
       - run: cp .env.example .env
       - run: docker compose config --quiet
       - run: bash scripts/production_contract_smoke.sh
-      - run: docker compose build backend frontend reverse-proxy
+      - run: python3 scripts/build_images.py
       - run: ACKB_CLEAN_STACK_SKIP_BUILD=true bash scripts/clean_stack_smoke.sh
       - run: bash scripts/production_identity_smoke.sh
       - run: bash scripts/database_restore_smoke.sh

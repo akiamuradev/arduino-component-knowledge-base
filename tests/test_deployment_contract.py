@@ -183,11 +183,12 @@ def test_ci_runs_existing_quality_and_container_build_gates() -> None:
         "npm run build",
         "bash -n scripts/linux_bootstrap.sh",
         "docker compose config --quiet",
-        "docker compose build backend frontend reverse-proxy",
+        "python3 scripts/build_images.py",
         "ACKB_CLEAN_STACK_SKIP_BUILD=true bash scripts/clean_stack_smoke.sh",
     ):
         assert command in workflow
     assert "release-quality-gate:" in workflow
+    assert "docker compose build backend frontend reverse-proxy" not in workflow
     assert "if: always()" in workflow
     for required_job in ("backend", "frontend", "integration", "e2e", "containers"):
         assert f"${{{{ needs.{required_job}.result }}}}" in workflow
@@ -198,7 +199,9 @@ def test_clean_stack_smoke_is_isolated_and_checks_empty_application_startup() ->
     assert script.startswith("#!/usr/bin/env bash\nset -Eeuo pipefail")
     assert '--project-name "$ACKB_CLEAN_PROJECT"' in script
     assert "ACKB_HTTP_PORT=0" in script
-    assert "up_arguments=(--detach --wait)" in script
+    assert "up_arguments=(--no-build --detach --wait)" in script
+    assert 'python3 "$ROOT_DIR/scripts/build_images.py"' in script
+    assert "up_arguments+=(--build)" not in script
     assert "0|0|0|0|20260911_31" in script
     for endpoint in ("/health", "/ready", "/"):
         assert f"${{base_url}}{endpoint}" in script
