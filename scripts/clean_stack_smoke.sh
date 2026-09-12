@@ -38,9 +38,9 @@ sed \
   "$ROOT_DIR/.env.example" >"$ENVIRONMENT_FILE"
 chmod 600 "$ENVIRONMENT_FILE"
 
-up_arguments=(--detach --wait)
+up_arguments=(--no-build --detach --wait)
 if [[ "${ACKB_CLEAN_STACK_SKIP_BUILD:-false}" != "true" ]]; then
-  up_arguments+=(--build)
+  python3 "$ROOT_DIR/scripts/build_images.py" --env-file "$ENVIRONMENT_FILE" --file "$ROOT_DIR/compose.yaml"
 fi
 docker compose "${COMPOSE_ARGUMENTS[@]}" up "${up_arguments[@]}"
 
