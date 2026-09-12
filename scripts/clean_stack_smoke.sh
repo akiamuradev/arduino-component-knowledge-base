@@ -72,6 +72,23 @@ base_url="http://127.0.0.1:${published_port}"
 health_body="$(curl --fail --silent --show-error --max-time 10 "${base_url}/health")"
 ready_body="$(curl --fail --silent --show-error --max-time 10 "${base_url}/ready")"
 frontend_body="$(curl --fail --silent --show-error --max-time 10 "${base_url}/")"
+build_body="$(curl --fail --silent --show-error --max-time 10 "${base_url}/build-info.json")"
+python3 - "$health_body" "$build_body" "$(git -C "$ROOT_DIR" rev-parse HEAD)" "$ROOT_DIR/pyproject.toml" <<'PY'
+import json
+import sys
+import tomllib
+from datetime import datetime, timezone
+from pathlib import Path
+
+health, build = map(json.loads, sys.argv[1:3])
+version = tomllib.loads(Path(sys.argv[4]).read_text())["project"]["version"]
+assert health["version"] == build["version"] == version
+assert build["commitSha"] == sys.argv[3]
+assert build["buildDate"].endswith("Z")
+built_at = datetime.fromisoformat(build["buildDate"].replace("Z", "+00:00"))
+assert 0 <= (datetime.now(timezone.utc) - built_at).total_seconds() < 86400
+print("HTTP build identity matches project version, checked-out SHA and recent UTC build time.")
+PY
 
 grep -q -F '"status":"ok"' <<<"$health_body"
 grep -q -F '"status":"ready"' <<<"$ready_body"
