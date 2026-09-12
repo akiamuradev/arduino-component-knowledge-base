@@ -42,6 +42,11 @@ def test_application_factory_creates_isolated_apps() -> None:
     assert first.state.database is not second.state.database
 
 
+def test_stale_environment_cannot_override_release_version(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ACKB_APP_VERSION", "1.0.1")
+    assert settings().app_version == "1.6.0"
+
+
 def test_liveness_does_not_touch_database_and_preserves_safe_request_id() -> None:
     database = FakeDatabase()
     with TestClient(create_app(settings(), database)) as client:
@@ -50,7 +55,7 @@ def test_liveness_does_not_touch_database_and_preserves_safe_request_id() -> Non
     assert response.json() == {
         "status": "ok",
         "service": "Arduino Component Knowledge Base",
-        "version": "1.5.0",
+        "version": "1.6.0",
     }
     assert response.headers["X-Request-ID"] == "test-request-1"
     assert database.ping_calls == 0

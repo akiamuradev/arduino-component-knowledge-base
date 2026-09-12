@@ -75,14 +75,17 @@ Vite проксирует `/api` на `http://127.0.0.1:8000`. Production дол
 backend через один reverse proxy origin. `VITE_API_BASE_URL`, если задан, обязан быть
 same-origin абсолютным path, например `/api/v1`; URL внешнего origin отклоняется при старте.
 
-Build metadata необязательны и не должны содержать секреты:
-
-Локальная сборка автоматически берёт SHA из Git и текущую дату UTC. При сборке Docker
-каталог `.git` недоступен: задайте `ACKB_COMMIT_SHA` и `ACKB_BUILD_DATE` в окружении Compose
-или соответствующие `VITE_*` build args. Эти значения видны в «О системе» и нижнем баре.
+Версия берётся из `package.json`, согласованного с `pyproject.toml` release-проверкой;
+коммит — из фактического Git HEAD, дата UTC — из текущего запуска сборки. Старые
+`VITE_APP_VERSION`, `VITE_COMMIT_SHA`, `VITE_BUILD_DATE` и значения `.env` больше не
+подменяют эти данные в «О системе». Для Docker без `.git` используйте wrapper из
+чистого закоммиченного checkout: он передаёт фактический HEAD отдельным build arg.
+Без SHA Docker-сборка завершится ошибкой вместо публикации неизвестных метаданных.
 
 ```bash
-VITE_APP_VERSION=1.5.0 VITE_COMMIT_SHA=<commit> VITE_BUILD_DATE=<ISO-8601> npm run build
+npm run build
+# Из корня репозитория; только сборка, без запуска или развёртывания:
+python3 scripts/build_images.py
 ```
 
 ## Проверки

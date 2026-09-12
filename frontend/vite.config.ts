@@ -1,26 +1,21 @@
 import react from "@vitejs/plugin-react";
-import { execFileSync } from "node:child_process";
-import { loadEnv } from "vite";
 import { configDefaults, defineConfig } from "vitest/config";
+import { currentBuildInfo } from "./build-metadata.ts";
 
-function currentCommit(): string {
-  try {
-    return execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
-  } catch {
-    return "не указан";
-  }
-}
-
-export default defineConfig(({ mode }) => {
-  const env = { ...loadEnv(mode, process.cwd(), "VITE_"), ...process.env };
-  const commitSha = (env.VITE_COMMIT_SHA ?? "").trim();
-  const buildDate = (env.VITE_BUILD_DATE ?? "").trim();
+export default defineConfig(() => {
+  const info = currentBuildInfo();
   return {
     define: {
-      "import.meta.env.VITE_COMMIT_SHA": JSON.stringify(commitSha === "" ? currentCommit() : commitSha),
-      "import.meta.env.VITE_BUILD_DATE": JSON.stringify(buildDate === "" ? new Date().toISOString().replace(/\.\d{3}Z$/, "Z") : buildDate),
+      "import.meta.env.VITE_APP_VERSION": JSON.stringify(info.version),
+      "import.meta.env.VITE_COMMIT_SHA": JSON.stringify(info.commitSha),
+      "import.meta.env.VITE_BUILD_DATE": JSON.stringify(info.buildDate),
     },
-    plugins: [react()],
+    plugins: [react(), {
+      name: "ackb-build-provenance",
+      generateBundle() {
+        this.emitFile({ type: "asset", fileName: "build-info.json", source: JSON.stringify(info) });
+      },
+    }],
     build: {
       assetsInlineLimit: 0,
     },

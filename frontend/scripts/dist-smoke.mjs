@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { stdout } from "node:process";
+import { execFileSync } from "node:child_process";
 
 const root = resolve(import.meta.dirname, "..");
 const indexPath = resolve(root, "dist", "index.html");
@@ -9,6 +10,14 @@ if (!existsSync(indexPath)) {
 }
 
 const html = readFileSync(indexPath, "utf8");
+const info = JSON.parse(readFileSync(resolve(root, "dist/build-info.json"), "utf8"));
+const version = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8")).version;
+const commit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
+if (info.version !== version || info.commitSha !== commit ||
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(info.buildDate) ||
+    !Number.isFinite(Date.parse(info.buildDate))) {
+  throw new Error("Frontend build provenance differs from project metadata / actual Git HEAD");
+}
 for (const publicAsset of ["theme-init.js", "manifest.webmanifest", "LICENCE.txt"]) {
   if (!existsSync(resolve(root, "dist", publicAsset))) {
     throw new Error(`frontend public asset is missing: ${publicAsset}`);

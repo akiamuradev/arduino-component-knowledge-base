@@ -36,7 +36,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ["vite.config.ts"],
+    files: ["vite.config.ts", "build-metadata*.ts"],
     languageOptions: {
       parserOptions: {
         project: "./tsconfig.node.json",

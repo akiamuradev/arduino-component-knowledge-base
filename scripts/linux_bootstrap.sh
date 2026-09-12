@@ -46,7 +46,8 @@ elif grep -q 'replace-with' .env; then
 fi
 
 docker compose config --quiet
-docker compose up --build --detach
+python3 scripts/build_images.py
+docker compose up --no-build --detach
 
 http_port="$(sed -n 's/^ACKB_HTTP_PORT=//p' .env | tail -n 1)"
 http_port="${http_port:-8080}"
