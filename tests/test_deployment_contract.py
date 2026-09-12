@@ -183,11 +183,12 @@ def test_ci_runs_existing_quality_and_container_build_gates() -> None:
         "npm run build",
         "bash -n scripts/linux_bootstrap.sh",
         "docker compose config --quiet",
-        "docker compose build backend frontend reverse-proxy",
+        "python3 scripts/build_images.py",
         "ACKB_CLEAN_STACK_SKIP_BUILD=true bash scripts/clean_stack_smoke.sh",
     ):
         assert command in workflow
     assert "release-quality-gate:" in workflow
+    assert "docker compose build backend frontend reverse-proxy" not in workflow
     assert "if: always()" in workflow
     for required_job in ("backend", "frontend", "integration", "e2e", "containers"):
         assert f"${{{{ needs.{required_job}.result }}}}" in workflow
@@ -198,7 +199,9 @@ def test_clean_stack_smoke_is_isolated_and_checks_empty_application_startup() ->
     assert script.startswith("#!/usr/bin/env bash\nset -Eeuo pipefail")
     assert '--project-name "$ACKB_CLEAN_PROJECT"' in script
     assert "ACKB_HTTP_PORT=0" in script
-    assert "up_arguments=(--detach --wait)" in script
+    assert "up_arguments=(--no-build --detach --wait)" in script
+    assert 'python3 "$ROOT_DIR/scripts/build_images.py"' in script
+    assert "up_arguments+=(--build)" not in script
     assert "0|0|0|0|20260911_31" in script
     for endpoint in ("/health", "/ready", "/"):
         assert f"${{base_url}}{endpoint}" in script
@@ -210,10 +213,18 @@ def test_linux_bootstrap_is_fail_closed_and_does_not_print_secrets() -> None:
     script = (ROOT / "scripts" / "linux_bootstrap.sh").read_text(encoding="utf-8")
     assert script.startswith("#!/usr/bin/env bash\nset -Eeuo pipefail")
     assert "docker compose config --quiet" in script
-    assert "docker compose up --build --detach" in script
+    assert "python3 scripts/build_images.py" in script
+    assert "docker compose up --no-build --detach" in script
+    assert (
+        script.index("docker compose config --quiet")
+        < script.index("python3 scripts/build_images.py")
+        < script.index("docker compose up --no-build --detach")
+    )
+    assert "docker compose up --build --detach" not in script
     assert "openssl rand" in script
     assert "chmod 600 .env" in script
-    assert "replace-with" in script
+    assert "elif grep -q 'replace-with' .env; then\n  fail " in script
+    assert "exit 1" in script.split("fail() {", 1)[1].split("}", 1)[0]
     assert "echo $" not in script
 
 
