@@ -258,6 +258,12 @@ code, pre { font-family: var(--font-mono); }
 .license-warning { background: var(--color-warning-soft); border: 1px solid var(--color-warning); border-radius: var(--radius-lg); color: var(--color-warning); display: grid; font-size: 0.82rem; gap: var(--space-1); margin: var(--space-4) 0; padding: var(--space-4); }
 .editor-form { display: grid; gap: var(--space-5); }.editor-form fieldset { min-width: 0; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); display: grid; gap: var(--space-4); padding: var(--space-5); }.editor-form legend { font-size: 1.05rem; font-weight: 850; padding: 0 var(--space-2); }.form-grid { display: grid; gap: var(--space-4); grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .editor-form .editor-document { border: 0; padding: 0; margin: 0; background: transparent; }
+.password-input { position: relative; min-width: 0; }
+.login-card .password-input input[type] { width: 100%; padding-right: 3.5rem; }
+.password-input__toggle { position: absolute; right: 0.125rem; top: 50%; transform: translateY(-50%); display: grid; place-items: center; width: 2.75rem; height: 2.75rem; padding: 0; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--color-text-muted); cursor: pointer; }
+.password-input__toggle:hover { background: var(--color-surface-secondary); color: var(--color-text); }
+.password-input__toggle:focus-visible { outline-offset: -3px; }
+.password-input__toggle svg { width: 1.25rem; height: 1.25rem; }
 .legacy-import-panel { min-width: 0; overflow-wrap: anywhere; }
 .legacy-import-panel code { white-space: normal; overflow-wrap: anywhere; }
 .legacy-import-panel label { display: grid; gap: var(--space-2); min-width: 0; }

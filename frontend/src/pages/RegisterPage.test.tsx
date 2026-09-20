@@ -51,9 +51,36 @@ describe("registration page", () => {
     );
 
     await screen.findByRole("heading", { name: "Создать аккаунт" });
+    const password = screen.getByLabelText("Пароль");
+    const confirmation = screen.getByLabelText("Подтверждение пароля");
+    for (const field of [password, confirmation]) {
+      expect(field).toHaveAttribute("type", "password");
+      expect(field).toHaveAttribute("autocomplete", "new-password");
+      expect(field).toHaveAttribute("minlength", "12");
+      expect(field).toHaveAttribute("maxlength", "128");
+      expect(field).toBeRequired();
+    }
     await user.type(screen.getByLabelText("Логин"), "new-student");
     await user.type(screen.getByLabelText("Пароль"), "safe-student-password");
     await user.type(screen.getByLabelText("Подтверждение пароля"), "safe-student-password");
+    const [passwordToggle, confirmationToggle] = screen.getAllByRole("button", { name: "Показать пароль" });
+    if (!passwordToggle || !confirmationToggle) throw new Error("Both password toggles are required");
+    await user.click(passwordToggle);
+    expect(password).toHaveAttribute("type", "text");
+    expect(confirmation).toHaveAttribute("type", "password");
+    expect(passwordToggle).toHaveAccessibleName("Скрыть пароль");
+    await user.click(confirmationToggle);
+    expect(confirmation).toHaveAttribute("type", "text");
+    expect(confirmationToggle).toHaveAccessibleName("Скрыть пароль");
+    await user.click(passwordToggle);
+    expect(password).toHaveAttribute("type", "password");
+    expect(confirmation).toHaveAttribute("type", "text");
+    await user.click(confirmationToggle);
+    expect(confirmation).toHaveAttribute("type", "password");
+    expect(password).toHaveValue("safe-student-password");
+    expect(confirmation).toHaveValue("safe-student-password");
+    expect(screen.getAllByRole("button", { name: "Показать пароль" })).toHaveLength(2);
+    expect(fetchMock.mock.calls.filter(([, options]) => options?.method === "POST")).toHaveLength(0);
     await user.click(screen.getByRole("button", { name: "Создать аккаунт" }));
     expect(await screen.findByRole("heading", { name: "Каталог" })).toBeVisible();
 
@@ -89,6 +116,10 @@ describe("registration page", () => {
     await screen.findByRole("heading", { name: "Создать аккаунт" });
     await user.type(screen.getByLabelText("Логин"), "existing-user");
     await user.type(screen.getByLabelText("Пароль"), "safe-student-password");
+    await user.type(screen.getByLabelText("Подтверждение пароля"), "different-password");
+    await user.click(screen.getByRole("button", { name: "Создать аккаунт" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Пароли не совпадают.");
+    await user.clear(screen.getByLabelText("Подтверждение пароля"));
     await user.type(screen.getByLabelText("Подтверждение пароля"), "safe-student-password");
     await user.click(screen.getByRole("button", { name: "Создать аккаунт" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Этот логин уже занят");

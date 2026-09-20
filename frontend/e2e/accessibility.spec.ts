@@ -149,11 +149,33 @@ test("login remains accessible by keyboard in both themes at 320px", async ({ pa
   await auditPage(page, "login dark mobile", 5);
 
   await page.getByLabel("Логин").fill("student");
-  await page.getByLabel("Пароль").fill("incorrect-password");
+  await page.getByLabel("Пароль", { exact: true }).fill("incorrect-password");
   await page.getByRole("button", { name: "Войти" }).click();
   await expect(page.getByRole("alert")).toContainText(
     "Не удалось войти. Проверьте данные или повторите позже.",
   );
+});
+
+test("password controls fit mobile auth fields in both themes", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 900 });
+  await mockLoggedOut(page);
+  for (const path of ["/login", "/register"]) {
+    await page.goto(path);
+    for (const theme of ["Светлое", "Тёмное"] as const) {
+      await selectTheme(page, theme);
+      await auditPage(page, `${path} password controls ${theme}`, 7);
+      const field = page.getByLabel("Пароль", { exact: true });
+      await field.fill("visible-test-password");
+      const toggle = page.getByRole("button", { name: "Показать пароль", exact: true }).first();
+      await toggle.click();
+      await expect(field).toHaveAttribute("type", "text");
+      await expect(field).toHaveValue("visible-test-password");
+      await expect(field).toBeFocused();
+      expect(await field.evaluate((input) => parseFloat(getComputedStyle(input).paddingRight))).toBeGreaterThanOrEqual(44);
+      await page.getByRole("button", { name: "Скрыть пароль", exact: true }).click();
+      await expect(field).toHaveAttribute("type", "password");
+    }
+  }
 });
 
 test("editor, import and user management pass responsive accessibility checks", async ({

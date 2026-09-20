@@ -44,7 +44,7 @@ def test_application_factory_creates_isolated_apps() -> None:
 
 def test_stale_environment_cannot_override_release_version(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ACKB_APP_VERSION", "1.0.1")
-    assert settings().app_version == "1.6.0"
+    assert settings().app_version == "1.6.1"
 
 
 def test_liveness_does_not_touch_database_and_preserves_safe_request_id() -> None:
@@ -55,7 +55,7 @@ def test_liveness_does_not_touch_database_and_preserves_safe_request_id() -> Non
     assert response.json() == {
         "status": "ok",
         "service": "Arduino Component Knowledge Base",
-        "version": "1.6.0",
+        "version": "1.6.1",
     }
     assert response.headers["X-Request-ID"] == "test-request-1"
     assert database.ping_calls == 0
