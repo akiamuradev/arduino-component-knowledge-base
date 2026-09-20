@@ -8,6 +8,7 @@ import { replaceSessionCache } from "../auth/session-cache";
 import { BrandMark } from "../components/BrandMark";
 import { type OledState, OledLoginDisplay } from "../components/OledLoginDisplay";
 import { ThemeToggle } from "../components/ThemeToggle";
+import { PasswordInput } from "../components/PasswordInput";
 import { PRODUCT_BRAND } from "../config/brand";
 
 interface LoginLocationState {
@@ -87,14 +88,13 @@ export function LoginPage() {
             value={login}
           />
           <label htmlFor="password">Пароль</label>
-          <input
+          <PasswordInput
             autoComplete="current-password"
             id="password"
             maxLength={128}
             onChange={updateCredential("password")}
             required
             placeholder="••••••••••••"
-            type="password"
             value={password}
           />
           <div aria-live="polite" className="auth-announcement">

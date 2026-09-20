@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here. Versions follow semantic versioning.
 
+## [1.6.1] - 2026-09-20
+
+### Added
+
+- Password visibility controls on login and registration fields, with keyboard and
+  screen-reader accessible show/hide actions.
+
 ## [1.6.0] - 2026-09-12
 
 ### Added

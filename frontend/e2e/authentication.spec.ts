@@ -67,7 +67,7 @@ test("an administrator signs in, reaches the dashboard and signs out", async ({ 
   await page.goto("/admin");
   await expect(page).toHaveURL(/\/login$/);
   await page.getByLabel("Логин").fill("administrator");
-  await page.getByLabel("Пароль").fill("local-test-passphrase");
+  await page.getByLabel("Пароль", { exact: true }).fill("local-test-passphrase");
   await page.getByRole("button", { name: "Войти" }).click();
 
   await expect(page).toHaveURL(/\/admin$/);

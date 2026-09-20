@@ -8,6 +8,7 @@ import { replaceSessionCache } from "../auth/session-cache";
 import { BrandMark } from "../components/BrandMark";
 import { type OledState, OledLoginDisplay } from "../components/OledLoginDisplay";
 import { ThemeToggle } from "../components/ThemeToggle";
+import { PasswordInput } from "../components/PasswordInput";
 import { PRODUCT_BRAND } from "../config/brand";
 
 export function RegisterPage() {
@@ -90,25 +91,23 @@ export function RegisterPage() {
               value={login}
             />
             <label htmlFor="register-password">Пароль</label>
-            <input
+            <PasswordInput
               autoComplete="new-password"
               id="register-password"
               maxLength={128}
               minLength={12}
               onChange={update(setPassword)}
               required
-              type="password"
               value={password}
             />
             <label htmlFor="register-confirmation">Подтверждение пароля</label>
-            <input
+            <PasswordInput
               autoComplete="new-password"
               id="register-confirmation"
               maxLength={128}
               minLength={12}
               onChange={update(setConfirmation)}
               required
-              type="password"
               value={confirmation}
             />
             <div aria-live="polite" className="auth-announcement">
