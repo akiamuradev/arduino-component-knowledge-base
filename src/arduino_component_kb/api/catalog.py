@@ -795,6 +795,15 @@ async def _commit(session: AsyncSession, action: str, actor: Principal, card: Ca
 
 
 def _error(error: Exception) -> HTTPException:
+    if isinstance(error, IntegrityError):
+        # asyncpg puts the PostgreSQL constraint on the wrapped cause; psycopg
+        # exposes it on diag. Never parse/return SQL or driver exception text.
+        for original in (error.orig, getattr(error.orig, "__cause__", None)):
+            constraint = getattr(original, "constraint_name", None) or getattr(
+                getattr(original, "diag", None), "constraint_name", None
+            )
+            if constraint == "components_slug_key":
+                return _error(CatalogValidationError.field(["slug"], "slug_already_exists"))
     if isinstance(error, ComponentMediaNotFoundError):
         return HTTPException(404, detail={"code": "component_media_not_found"})
     if isinstance(error, ComponentNotFoundError):
@@ -803,6 +812,7 @@ def _error(error: Exception) -> HTTPException:
         return HTTPException(409, detail={"code": "revision_conflict"})
     if isinstance(error, CatalogValidationError):
         field_errors = {
+            "validation_failed",
             "invalid_slug",
             "duplicate_alias",
             "duplicate_tag",
@@ -811,9 +821,16 @@ def _error(error: Exception) -> HTTPException:
             "too_many_aliases",
             "too_many_tags",
             "invalid_specification",
+            "category_invalid",
+            "category_unavailable",
+            "component_collection_limit_exceeded",
+            "invalid_compatibility",
+            "invalid_code_example",
+            "merge_target_invalid",
+            "merge_fields_invalid",
         }
         return HTTPException(
-            422 if error.code in field_errors else 409, detail={"code": error.code}
+            422 if error.code in field_errors else 409, detail={**error.details, "code": error.code}
         )
     return HTTPException(409, detail={"code": "catalog_conflict"})
 

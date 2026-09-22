@@ -1,6 +1,7 @@
 import { type ClipboardEvent, type KeyboardEvent, useRef } from "react";
 
 import type { TechnicalSpecificationInput } from "../api/contracts";
+import { type ValidationIssue, validationIssueMessage } from "../api/errors";
 import {
   duplicateSpecificationKeys,
   insertPastedSpecifications,
@@ -15,9 +16,10 @@ import {
 interface Props {
   items: TechnicalSpecificationInput[];
   onChange: (items: TechnicalSpecificationInput[]) => void;
+  issues?: ValidationIssue[];
 }
 
-export function TechnicalSpecificationsEditor({ items, onChange }: Props) {
+export function TechnicalSpecificationsEditor({ items, onChange, issues = [] }: Props) {
   const labelInputs = useRef<(HTMLInputElement | null)[]>([]);
   const duplicates = duplicateSpecificationKeys(items);
   const actualCount = items.filter((item) => !isEmptySpecification(item)).length;
@@ -57,14 +59,21 @@ export function TechnicalSpecificationsEditor({ items, onChange }: Props) {
           const error = specificationError(item);
           const generatedKey = item.key.trim() || specificationKey(item.label);
           const duplicate = !isEmptySpecification(item) && duplicates.has(generatedKey);
-          const message = error ?? (duplicate ? "Такая характеристика уже добавлена." : null);
-          const errorId = `specification-error-${String(index)}`;
-          return <tr className={message === null ? undefined : "specification-editor__row--invalid"} key={`${item.key}:${String(index)}`}>
+          const serverMessage = (field: string) => {
+            const issue = issues.find(({ path }) => path.length === 3 && path[0] === "specifications" && path[1] === index && path[2] === field);
+            return issue ? validationIssueMessage(issue) : null;
+          };
+          const labelMessage = (error && !item.label.trim() ? error : null)
+            ?? (duplicate ? "Такая характеристика уже добавлена." : null) ?? serverMessage("label");
+          const valueMessage = (error && !item.value_text.trim() ? error : null) ?? serverMessage("value_text");
+          const labelErrorId = `specification-label-error-${String(index)}`;
+          const valueErrorId = `specification-value-error-${String(index)}`;
+          return <tr className={labelMessage === null && valueMessage === null ? undefined : "specification-editor__row--invalid"} key={`${item.key}:${String(index)}`}>
             <td data-label="Характеристика">
               <label className="sr-only" htmlFor={`specification-label-${String(index)}`}>Характеристика {String(index + 1)}</label>
               <input
-                aria-describedby={message === null ? undefined : errorId}
-                aria-invalid={message === null ? undefined : true}
+                aria-describedby={labelMessage === null ? undefined : labelErrorId}
+                aria-invalid={labelMessage === null ? undefined : true}
                 id={`specification-label-${String(index)}`}
                 maxLength={160}
                 onChange={(event) => { update(index, "label", event.target.value); }}
@@ -73,13 +82,13 @@ export function TechnicalSpecificationsEditor({ items, onChange }: Props) {
                 ref={(element) => { labelInputs.current[index] = element; }}
                 value={item.label}
               />
-              {message === null ? null : <span className="specification-editor__error" id={errorId}>{message}</span>}
+              {labelMessage === null ? null : <span className="specification-editor__error" id={labelErrorId}>{labelMessage}</span>}
             </td>
             <td data-label="Значение">
               <label className="sr-only" htmlFor={`specification-value-${String(index)}`}>Значение характеристики {String(index + 1)}</label>
               <input
-                aria-describedby={message === null ? undefined : errorId}
-                aria-invalid={message === null ? undefined : true}
+                aria-describedby={valueMessage === null ? undefined : valueErrorId}
+                aria-invalid={valueMessage === null ? undefined : true}
                 id={`specification-value-${String(index)}`}
                 maxLength={2000}
                 onChange={(event) => { update(index, "value_text", event.target.value); }}
@@ -88,6 +97,7 @@ export function TechnicalSpecificationsEditor({ items, onChange }: Props) {
                 placeholder="Например, 5 В"
                 value={item.value_text}
               />
+              {valueMessage === null ? null : <span className="specification-editor__error" id={valueErrorId}>{valueMessage}</span>}
             </td>
             <td className="specification-editor__delete-cell">
               {isEmptySpecification(item) ? null : <button aria-label={`Удалить характеристику ${String(index + 1)}`} className="button button--quiet" onClick={() => { remove(index); }} type="button">×</button>}

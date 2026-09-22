@@ -58,6 +58,9 @@ describe("technical specification mapping", () => {
   });
 
   it("ignores the empty trailing row and avoids displaying a unit twice", () => {
+    expect(specificationDisplayValue({ value_text: "4 МБ", unit: "КБ" })).toBe("4 МБ");
+    expect(specificationDisplayValue({ value_text: "4МБ", unit: "КБ" })).toBe("4МБ");
+    expect(specificationDisplayValue({ value_text: " 5000 мВ ", unit: "В" })).toBe(" 5000 мВ ");
     expect(specificationInputs([row("Архитектура", "8-bit AVR"), emptySpecification()]))
       .toHaveLength(1);
     expect(specificationDisplayValue({ value_text: "5 В", unit: "В" })).toBe("5 В");

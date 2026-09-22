@@ -18,6 +18,16 @@ _CODE_MESSAGES: Final[dict[str, str]] = {
     "authentication_rate_limited": "Слишком много попыток. Подождите и попробуйте снова.",
     "authentication_required": "Войдите, чтобы продолжить.",
     "catalog_conflict": "Данные уже изменились. Обновите страницу и повторите действие.",
+    "category_invalid": "Проверьте название и адрес категории.",
+    "category_unavailable": "Выберите существующую активную категорию.",
+    "category_in_use": "Категория используется карточками или содержит активные подкатегории.",
+    "component_collection_limit_exceeded": "Превышено допустимое количество строк карточки.",
+    "invalid_compatibility": "Проверьте строки совместимости: поля и повторы.",
+    "invalid_code_example": "Проверьте поля учебных примеров и списки библиотек.",
+    "merge_target_invalid": "Выберите одну из объединяемых карточек для сохранения.",
+    "merge_fields_invalid": "Проверьте выбранные поля и источники объединения.",
+    "publication_source_required": "Добавьте сведения об источнике перед публикацией.",
+    "duplicate_review_required": "Перед публикацией завершите проверку возможных дубликатов.",
     "component_not_found": "Карточка компонента не найдена.",
     "correction_proposal_decision_invalid": "Выберите итог предложения исправления.",
     "correction_proposal_resolved": "Это предложение уже обработано.",
@@ -132,15 +142,61 @@ async def http_exception_handler(request: Request, error: Exception) -> JSONResp
             "failure_code": code,
         },
     )
+    payload = public_error_payload(
+        status_code=error.status_code, code=code, request_id=_request_id(request)
+    )
+    details = safe_validation_details(error.detail) if code == "validation_failed" else None
+    if details:
+        payload["error"]["details"] = details
     return JSONResponse(
         status_code=error.status_code,
-        content=public_error_payload(
-            status_code=error.status_code,
-            code=code,
-            request_id=_request_id(request),
-        ),
+        content=payload,
         headers=error.headers,
     )
+
+
+def safe_validation_details(detail: object) -> dict[str, object] | None:
+    """Only expose the explicit catalog diagnostic vocabulary, never driver/input dumps."""
+    if not isinstance(detail, dict) or not isinstance(detail.get("issues"), list):
+        return None
+    issues: list[dict[str, object]] = []
+    codes = {
+        "slug_already_exists",
+        "slug_change_forbidden",
+        "incompatible_unit",
+        "expected_numeric_value",
+        "expected_text_value",
+        "specification_definition_conflict",
+        "numeric_value_out_of_range",
+    }
+    for issue in detail["issues"][:50]:
+        if (
+            not isinstance(issue, dict)
+            or not isinstance(issue.get("code"), str)
+            or issue["code"] not in codes
+        ):
+            continue
+        path = issue.get("path")
+        if not isinstance(path, list) or not (
+            path == ["slug"]
+            or (
+                len(path) == 3
+                and path[0] == "specifications"
+                and type(path[1]) is int
+                and 0 <= path[1] < 50
+                and path[2] in ("label", "value_text")
+            )
+        ):
+            continue
+        meta = issue.get("meta")
+        safe_meta = {
+            key: value[:160] if isinstance(value, str) else None
+            for key, value in (meta.items() if isinstance(meta, dict) else ())
+            if key in {"label", "entered_unit", "expected_unit", "expected_family"}
+            and (isinstance(value, str) or value is None)
+        }
+        issues.append({"path": path, "code": issue["code"], "meta": safe_meta})
+    return {"issues": issues} if issues else None
 
 
 async def validation_exception_handler(request: Request, error: Exception) -> JSONResponse:

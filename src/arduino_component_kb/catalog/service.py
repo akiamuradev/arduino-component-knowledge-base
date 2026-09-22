@@ -60,6 +60,12 @@ from arduino_component_kb.catalog.models import (
     CodeExample as CodeExampleRow,
 )
 from arduino_component_kb.catalog.normalization import normalize_exact_identity
+from arduino_component_kb.catalog.units import (
+    convert_numeric_value,
+    fits_numeric_storage,
+    normalize_unit_symbol,
+    unit_family,
+)
 from arduino_component_kb.media.domain import (
     ComponentImageMutation,
     ComponentMedia,
@@ -106,11 +112,11 @@ class CatalogService:
         self, key: str, name: str, parent_id: UUID | None, description: str | None, position: int
     ) -> CategoryItem:
         if not _SLUG.fullmatch(key) or not name.strip():
-            raise CatalogValidationError
+            raise CatalogValidationError("category_invalid")
         if parent_id is not None:
             parent = await self.session.get(Category, parent_id)
             if parent is None or not parent.is_active:
-                raise CatalogValidationError
+                raise CatalogValidationError("category_unavailable")
         row = Category(
             id=uuid4(),
             key=key,
@@ -141,7 +147,7 @@ class CatalogService:
             .where(Category.parent_id == category_id, Category.is_active.is_(True))
         )
         if usage != 0 or children != 0:
-            raise CatalogValidationError
+            raise CatalogValidationError("category_in_use")
         row.is_active = False
 
     async def list_cards(self, status: ComponentStatus | None = None) -> list[CatalogCard]:
@@ -569,7 +575,7 @@ class CatalogService:
         self._require_editable(row)
         previous_status = ComponentStatus(row.status)
         if row.published_at is not None and data.slug != row.slug:
-            raise CatalogValidationError
+            raise CatalogValidationError.field(["slug"], "slug_change_forbidden")
         await self._validate(data)
         for key, value in self._columns(data).items():
             setattr(row, key, value)
@@ -872,10 +878,10 @@ class CatalogService:
                 ),
             )
         )
-        if (
-            not row.manual_original and not source_rows and not legacy_sources
-        ) or high_duplicates != 0:
-            raise CatalogValidationError
+        if not row.manual_original and not source_rows and not legacy_sources:
+            raise CatalogValidationError("publication_source_required")
+        if high_duplicates != 0:
+            raise CatalogValidationError("duplicate_review_required")
         if not row.manual_original and source_rows:
             self._validate_publish_sources(source_rows)
         await self._validate_publish_media(row.id)
@@ -919,7 +925,7 @@ class CatalogService:
         if left.revision != left_revision or right.revision != right_revision:
             raise RevisionConflictError
         if survivor_component_id not in by_id:
-            raise CatalogValidationError
+            raise CatalogValidationError("merge_target_invalid")
         survivor = by_id[survivor_component_id]
         loser = right if survivor is left else left
         survivor_previous_status = ComponentStatus(survivor.status)
@@ -950,7 +956,7 @@ class CatalogService:
             if not set(field_sources).issubset(allowed) or any(
                 source_id not in by_id for source_id in field_sources.values()
             ):
-                raise CatalogValidationError
+                raise CatalogValidationError("merge_fields_invalid")
             source_data = {
                 component_id: await self._data(row) for component_id, row in by_id.items()
             }
@@ -1106,25 +1112,16 @@ class CatalogService:
             if len({_normalized(value) for value in values}) != len(values):
                 raise CatalogValidationError(f"duplicate_{field}")
         if (
-            not _SLUG.fullmatch(data.slug)
-            or len(data.aliases) > 20
-            or len(data.tags) > 20
-            or any(not value.strip() or len(value.strip()) > 100 for value in data.aliases)
-            or any(not value.strip() or len(value.strip()) > 100 for value in data.tags)
-            or len(data.specifications) > 50
+            len(data.specifications) > 50
             or len(data.compatibility) > 30
             or len(data.code_examples) > 10
         ):
-            raise CatalogValidationError
+            raise CatalogValidationError("component_collection_limit_exceeded")
         category = await self.session.get(Category, data.primary_category_id)
         if category is None or not category.is_active:
-            raise CatalogValidationError
-        if len({_normalized(x) for x in data.aliases}) != len(data.aliases) or len(
-            {_normalized(x) for x in data.tags}
-        ) != len(data.tags):
-            raise CatalogValidationError
+            raise CatalogValidationError("category_unavailable")
         specification_keys: set[str] = set()
-        for item in data.specifications:
+        for position, item in enumerate(data.specifications):
             if (
                 not _SLUG.fullmatch(item.key)
                 or not item.label.strip()
@@ -1139,15 +1136,17 @@ class CatalogService:
                 try:
                     number = Decimal(item.value_number)
                 except InvalidOperation as error:
-                    raise CatalogValidationError from error
-                exponent = number.as_tuple().exponent
-                if (
-                    not number.is_finite()
-                    or not isinstance(exponent, int)
-                    or exponent < -8
-                    or number.adjusted() > 15
-                ):
-                    raise CatalogValidationError
+                    raise CatalogValidationError.field(
+                        ["specifications", position, "value_text"],
+                        "expected_numeric_value",
+                        label=item.label,
+                    ) from error
+                if not fits_numeric_storage(number):
+                    raise CatalogValidationError.field(
+                        ["specifications", position, "value_text"],
+                        "numeric_value_out_of_range",
+                        label=item.label,
+                    )
             specification_keys.add(item.key)
         compatibility_keys: set[tuple[str, str, str]] = set()
         for compatibility_item in data.compatibility:
@@ -1167,7 +1166,7 @@ class CatalogService:
                 or (compatibility_item.notes is not None and len(compatibility_item.notes) > 2000)
                 or key in compatibility_keys
             ):
-                raise CatalogValidationError
+                raise CatalogValidationError("invalid_compatibility")
             compatibility_keys.add(key)
         for example in data.code_examples:
             if (
@@ -1185,7 +1184,7 @@ class CatalogService:
                 or any(not item.strip() or len(item) > 100 for item in example.libraries)
                 or len({_normalized(item) for item in example.libraries}) != len(example.libraries)
             ):
-                raise CatalogValidationError
+                raise CatalogValidationError("invalid_code_example")
 
     @staticmethod
     def _columns(data: DraftData) -> dict[str, object]:
@@ -1249,12 +1248,15 @@ class CatalogService:
             )
         )
         for position, item in enumerate(data.specifications):
-            unit = await self._unit(item.unit)
             definition = await self.session.scalar(
                 select(PropertyDefinition).where(PropertyDefinition.key == item.key)
             )
             value_type = "number" if item.value_number is not None else "text"
+            number = Decimal(item.value_number) if item.value_number is not None else None
+            if number is not None and number.is_zero():
+                number = Decimal(0)
             if definition is None:
+                unit = await self._unit(item.unit)
                 definition = PropertyDefinition(
                     id=uuid4(),
                     key=item.key,
@@ -1265,21 +1267,59 @@ class CatalogService:
                 )
                 self.session.add(definition)
                 await self.session.flush()
-            elif (
-                definition.label != item.label.strip()
-                or definition.value_type != value_type
-                or definition.unit_id != (unit.id if unit is not None else None)
-            ):
-                raise CatalogValidationError
+            else:
+                canonical = (
+                    await self.session.get(Unit, definition.unit_id) if definition.unit_id else None
+                )
+                expected = canonical.symbol if canonical else None
+                path: list[str | int] = ["specifications", position, "value_text"]
+                if definition.label != item.label.strip() or definition.value_type not in {
+                    "number",
+                    "text",
+                }:
+                    raise CatalogValidationError.field(
+                        ["specifications", position, "label"],
+                        "specification_definition_conflict",
+                        label=item.label,
+                    )
+                if definition.value_type != value_type:
+                    raise CatalogValidationError.field(
+                        path,
+                        "expected_numeric_value"
+                        if definition.value_type == "number"
+                        else "expected_text_value",
+                        label=item.label,
+                        expected_unit=expected,
+                    )
+                if number is not None:
+                    number = convert_numeric_value(number, item.unit, expected)
+                    incompatible = number is None
+                else:
+                    incompatible = normalize_unit_symbol(item.unit or "") != normalize_unit_symbol(
+                        expected or ""
+                    )
+                if incompatible:
+                    raise CatalogValidationError.field(
+                        path,
+                        "incompatible_unit",
+                        label=item.label,
+                        entered_unit=item.unit,
+                        expected_unit=expected,
+                        expected_family=unit_family(expected),
+                    )
+            if number is not None and not fits_numeric_storage(number):
+                raise CatalogValidationError.field(
+                    ["specifications", position, "value_text"],
+                    "numeric_value_out_of_range",
+                    label=item.label,
+                )
             self.session.add(
                 ComponentProperty(
                     id=uuid4(),
                     component_id=component_id,
                     definition_id=definition.id,
-                    value_text=item.value_text.strip(),
-                    value_number=(
-                        Decimal(item.value_number) if item.value_number is not None else None
-                    ),
+                    value_text=item.value_text,
+                    value_number=number,
                     position=position,
                 )
             )
@@ -1303,7 +1343,7 @@ class CatalogService:
     async def _unit(self, symbol: str | None) -> Unit | None:
         if symbol is None or not symbol.strip():
             return None
-        normalized = symbol.strip()
+        normalized = normalize_unit_symbol(symbol)
         unit = await self.session.scalar(select(Unit).where(Unit.symbol == normalized))
         if unit is None:
             unit = Unit(

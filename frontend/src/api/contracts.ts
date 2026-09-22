@@ -311,6 +311,7 @@ export interface ApiErrorBody {
     message?: string;
     retryable?: boolean;
     request_id?: string | null;
+    details?: Readonly<Record<string, unknown>>;
   };
   /** Temporary compatibility with servers deployed before the unified error envelope. */
   detail?: {

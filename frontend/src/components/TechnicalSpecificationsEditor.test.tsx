@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it } from "vitest";
@@ -13,6 +13,31 @@ function Harness({ initial = [] }: { initial?: TechnicalSpecificationInput[] }) 
 }
 
 describe("technical specifications editor", () => {
+  it("places server issues under their exact row and field with accessible descriptions", () => {
+    const items = Array.from({ length: 8 }, (_, index) => ({ ...emptySpecification(), key: `p${String(index)}`, label: `Параметр ${String(index)}`, value_text: "4 мс" }));
+    render(<TechnicalSpecificationsEditor items={items} onChange={() => undefined} issues={[
+      { path: ["specifications", 7, "value_text"], code: "incompatible_unit", meta: { label: "Flash-память", entered_unit: "мс", expected_unit: "КБ" } },
+      { path: ["specifications", 2, "label"], code: "specification_definition_conflict", meta: { label: "Параметр 2" } },
+    ]} />);
+    const value = screen.getByLabelText("Значение характеристики 8");
+    expect(value).toHaveAttribute("aria-invalid", "true");
+    expect(value).toHaveAttribute("aria-describedby", "specification-value-error-7");
+    expect(value).toHaveAccessibleDescription(/«мс» нельзя использовать/u);
+    const cell = value.parentElement;
+    if (!cell) throw new Error("Missing value cell");
+    expect(within(cell).getByText(/Ожидается единица «КБ»/u)).toBeVisible();
+    expect(screen.getByLabelText("Характеристика 8")).not.toHaveAttribute("aria-invalid");
+    expect(screen.getByLabelText("Характеристика 3")).toHaveAccessibleDescription(/не соответствует/u);
+    expect(screen.getByLabelText("Значение характеристики 3")).not.toHaveAttribute("aria-invalid");
+  });
+
+  it("gives missing-value client validation precedence over a server issue", () => {
+    render(<TechnicalSpecificationsEditor items={[{ ...emptySpecification(), label: "Flash", value_text: "" }]} onChange={() => undefined} issues={[
+      { path: ["specifications", 0, "value_text"], code: "expected_numeric_value", meta: { label: "Flash" } },
+    ]} />);
+    expect(screen.getByLabelText("Значение характеристики 1")).toHaveAccessibleDescription("Укажите значение характеристики.");
+    expect(screen.queryByText(/ожидается одно числовое/u)).not.toBeInTheDocument();
+  });
   it("adds through two visible fields, keeps a trailing row and deletes a populated row", async () => {
     const user = userEvent.setup();
     render(<Harness />);

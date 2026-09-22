@@ -246,6 +246,13 @@ class RevisionConflictError(CatalogError):
 
 
 class CatalogValidationError(CatalogError):
-    def __init__(self, code: str = "catalog_conflict") -> None:
+    def __init__(
+        self, code: str = "catalog_conflict", details: dict[str, object] | None = None
+    ) -> None:
         self.code = code
+        self.details = details or {}
         super().__init__(code)
+
+    @classmethod
+    def field(cls, path: list[str | int], code: str, **meta: str | None) -> CatalogValidationError:
+        return cls("validation_failed", {"issues": [{"path": path, "code": code, "meta": meta}]})
