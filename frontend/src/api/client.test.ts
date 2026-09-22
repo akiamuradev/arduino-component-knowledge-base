@@ -8,6 +8,15 @@ afterEach(() => {
 });
 
 describe("apiRequest", () => {
+  it("preserves structured validation details and request diagnostics", async () => {
+    const details = { issues: [{ path: ["slug"], code: "slug_already_exists", meta: {} }] };
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({
+      error: { code: "validation_failed", details, request_id: "field-error-request", retryable: false },
+    }), { status: 422, headers: { "Content-Type": "application/json" } })));
+    await expect(apiRequest("/workspace/components/id/sync")).rejects.toMatchObject({
+      status: 422, code: "validation_failed", details, requestId: "field-error-request", retryable: false,
+    });
+  });
   it("uses same-origin cookies and attaches the CSRF token to mutations", async () => {
     document.cookie = "ackb_csrf=csrf-value; Path=/";
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(

@@ -3,7 +3,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { type KeyboardEvent, type SyntheticEvent, useRef, useState } from "react";
+import { type KeyboardEvent, type SyntheticEvent, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import type {
@@ -23,7 +23,8 @@ import type {
 } from "../api/contracts";
 import { api, apiRequest, ApiError } from "../api/client";
 import { LegacyLicensePanel } from "../imports/LegacyLicensePanel";
-import { userErrorMessage } from "../api/errors";
+import { userErrorMessage, validationIssues, validationIssueMessage, type ValidationIssue } from "../api/errors";
+import { focusValidationIssue } from "../editor/validation-focus";
 import { hasPermission } from "../auth/permissions";
 import { useCurrentUser } from "../auth/queries";
 import { ErrorState, LoadingState } from "../components/AsyncStates";
@@ -343,7 +344,17 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
   const currentUser = useCurrentUser();
   const uploadingRef = useRef(false);
   const [uploadBusy, setUploadBusy] = useState(false);
+  const [focusRequest, setFocusRequest] = useState<ValidationIssue[] | null>(null);
+  useEffect(() => {
+    if (focusRequest) focusValidationIssue(focusRequest);
+  }, [focusRequest]);
+  const explicitFailure = (error: unknown) => {
+    const issues = validationIssues(error);
+    setView("edit");
+    setFocusRequest(issues);
+  };
   const sync = useComponentSync<EditorState, ComponentCard>({
+    onExplicitFailure: explicitFailure,
     initial: card === undefined ? emptyState(categories) : stateFromCard(card), card,
     recoveryKey: `${RECOVERY_PREFIX}${currentUser.data?.id ?? "unknown"}:${card?.id ?? "new"}`,
     validateRecovery: validRecovery, validate: validateEditor,
@@ -368,7 +379,7 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
   const setState = (updater: (current: EditorState) => EditorState) => {
     sync.controller.edit(updater(sync.controller.snapshot().state));
   };
-  const save = { isPending: sync.status === "syncing", mutate: () => { void sync.controller.flush().catch(() => undefined); } };
+  const save = { isPending: sync.status === "syncing", mutate: () => { void sync.controller.flush().catch(explicitFailure); } };
   const lifecycle = {
     isPending: sync.commandPending,
     mutate: (action: LifecycleAction) => {
@@ -379,7 +390,7 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
         setArchiveConfirmation(false);
         void queryClient.invalidateQueries({ queryKey: workspaceKeys.componentHistory(saved.id) });
         void queryClient.invalidateQueries({ queryKey: workspaceKeys.componentLists });
-      }).catch(() => undefined);
+      }).catch(explicitFailure);
     },
   };
   const canPublish = currentUser.data === undefined
@@ -409,6 +420,9 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
   });
   const [reloadError, setReloadError] = useState<unknown>(null);
   const otherError = sync.status !== "conflict" && sync.error ? sync.error : undefined;
+  const serverIssues = validationIssues(otherError);
+  const slugIssue = serverIssues.find(({ path }) => path.length === 1 && path[0] === "slug");
+  const slugError = sync.fieldErrors.slug ?? (slugIssue ? validationIssueMessage(slugIssue) : undefined);
   const problems = publicationProblems(state);
   const duplicateSpecificationKeySet = duplicateSpecificationKeys(state.specifications);
   const invalidSpecificationIndex = state.specifications.findIndex((item) => {
@@ -459,9 +473,7 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
   const submit = (event: SyntheticEvent<HTMLFormElement, SubmitEvent>) => {
     event.preventDefault();
     if (invalidSpecificationIndex >= 0) {
-      document.getElementById(
-        `specification-label-${String(invalidSpecificationIndex)}`,
-      )?.focus();
+      setFocusRequest([]);
       return;
     }
     save.mutate();
@@ -554,7 +566,7 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
         </div>
       )}
       {reloadError !== null && <p role="alert">Не удалось загрузить версию: {userErrorMessage(reloadError)}</p>}
-      {otherError === undefined ? null : <div className="inline-error" role="alert">Операция не выполнена: {backendValidation ?? userErrorMessage(otherError).toLocaleLowerCase("ru-RU")} Изменения остаются в редакторе.</div>}
+      {otherError === undefined ? null : <div className="inline-error" role="alert">{serverIssues.length ? userErrorMessage(otherError) : <>Операция не выполнена: {backendValidation ?? userErrorMessage(otherError).toLocaleLowerCase("ru-RU")}</>} Изменения остаются в редакторе.</div>}
       {otherError instanceof ApiError && <details><summary>Диагностика синхронизации</summary>
         <p>Код: {otherError.code}</p>{otherError.requestId && <p>Идентификатор запроса: {otherError.requestId}</p>}
       </details>}
@@ -581,8 +593,8 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
           <fieldset className="editor-document" disabled={!editable || sync.commandPending || sync.recovery !== null}>
           <fieldset><legend>Идентификация</legend><div className="form-grid">
             <EditorField label="Название" value={state.title} maxLength={160} onChange={(value) => { update("title", value); }} />
-            <EditorField label="Адрес страницы (создаётся автоматически)" value={state.slug} maxLength={160} errorId={sync.fieldErrors.slug ? "slug-error" : undefined} onChange={(value) => { update("slug", value); }} />
-            {sync.fieldErrors.slug && <p id="slug-error" className="field-error">{sync.fieldErrors.slug}</p>}
+            <EditorField id="component-slug" label="Адрес страницы (создаётся автоматически)" value={state.slug} maxLength={160} errorId={slugError ? "slug-error" : undefined} onChange={(value) => { update("slug", value); }} />
+            {slugError && <p id="slug-error" className="field-error">{slugError}</p>}
             <EditorField label="Производитель" value={state.manufacturer} maxLength={120} onChange={(value) => { update("manufacturer", value); }} />
             <EditorField label="Модель" value={state.model} maxLength={120} onChange={(value) => { update("model", value); }} />
             <label>Категория<select value={state.primaryCategoryId} onChange={(event) => { update("primaryCategoryId", event.target.value); }}>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
@@ -628,6 +640,7 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
           <fieldset><legend>Характеристики</legend><p className="field-help">Заполняйте как таблицу. Число, единица измерения и технический ключ определяются автоматически, когда это безопасно.</p>
             <TechnicalSpecificationsEditor
               items={state.specifications}
+              issues={serverIssues}
               onChange={(items) => { update("specifications", items); }}
             />
           </fieldset>
@@ -762,9 +775,9 @@ function ComponentHistory({ componentId }: { componentId: string }) {
   );
 }
 
-interface FieldProps { label: string; value: string; maxLength?: number; required?: boolean; errorId?: string; onChange: (value: string) => void; }
-function EditorField({ label, value, maxLength, required, errorId, onChange }: FieldProps) {
-  return <label>{label}<input aria-invalid={Boolean(errorId)} aria-describedby={errorId} value={value} maxLength={maxLength} required={required} onChange={(event) => { onChange(event.target.value); }} /></label>;
+interface FieldProps { id?: string; label: string; value: string; maxLength?: number; required?: boolean; errorId?: string; onChange: (value: string) => void; }
+function EditorField({ id, label, value, maxLength, required, errorId, onChange }: FieldProps) {
+  return <label>{label}<input id={id} aria-invalid={Boolean(errorId)} aria-describedby={errorId} value={value} maxLength={maxLength} required={required} onChange={(event) => { onChange(event.target.value); }} /></label>;
 }
 function EditorTextArea({ label, value, maxLength, required, errorId, onChange, rows = 4 }: FieldProps & { rows?: number }) {
   return <label>{label}<textarea aria-invalid={Boolean(errorId)} aria-describedby={errorId} value={value} maxLength={maxLength} required={required} rows={rows} onChange={(event) => { onChange(event.target.value); }} /></label>;

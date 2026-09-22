@@ -16,6 +16,11 @@ function memoryStorage(): Storage {
 }
 
 beforeEach(() => {
+  Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+    configurable: true,
+    writable: true,
+    value: vi.fn(),
+  });
   Object.defineProperty(window, "localStorage", {
     configurable: true,
     value: memoryStorage(),

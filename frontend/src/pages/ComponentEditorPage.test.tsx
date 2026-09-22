@@ -173,6 +173,43 @@ afterEach(() => {
 });
 
 describe("component editor", () => {
+  it.each(["background", "sync", "lifecycle", "shortcut"])("focuses a structured error only after explicit action (%s)", async (action) => {
+    const explicit = action !== "background";
+    document.cookie = "ackb_csrf=csrf-value; Path=/";
+    const scroll = vi.fn();
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(() => Promise.resolve(jsonResponse({ error: {
+      code: "validation_failed", request_id: "diagnostic-request", details: { issues: [{
+        path: ["specifications", 0, "value_text"], code: "expected_numeric_value", meta: { label: "Частота", expected_unit: "МГц" },
+      }] },
+    } }, 422)));
+    vi.stubGlobal("fetch", fetchMock);
+    renderEditor();
+    const value = screen.getByLabelText("Значение характеристики 1");
+    Object.defineProperty(value, "scrollIntoView", { value: scroll, configurable: true });
+    fireEvent.change(value, { target: { value: "80 / 160 МГц" } });
+    const title = screen.getAllByLabelText("Название")[0];
+    if (!title) throw new Error("Missing title input");
+    title.focus();
+    if (action === "sync") fireEvent.click(screen.getByRole("button", { name: "Синхронизировать сейчас" }));
+    if (action === "lifecycle") fireEvent.click(screen.getByRole("button", { name: "Отправить на проверку" }));
+    if (action === "shortcut") fireEvent.keyDown(window, { key: "s", ctrlKey: true });
+    await waitFor(() => { expect(value).toHaveAttribute("aria-invalid", "true"); }, { timeout: 2500 });
+    expect(screen.getByRole("alert")).toHaveTextContent("Не удалось сохранить: исправьте выделенные поля.");
+    expect(screen.getByText(/Идентификатор запроса: diagnostic-request/u)).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock.mock.calls[0]?.[1]?.method).toBe("PUT");
+    if (explicit) {
+      await waitFor(() => { expect(value).toHaveFocus(); });
+      expect(scroll).toHaveBeenCalledExactlyOnceWith({ block: "center", behavior: "smooth" });
+      title.focus();
+      fireEvent.change(title, { target: { value: "Другая плата" } });
+      expect(title).toHaveFocus();
+      expect(scroll).toHaveBeenCalledTimes(1);
+    } else {
+      expect(title).toHaveFocus();
+      expect(scroll).not.toHaveBeenCalled();
+    }
+  });
   it("explains the real UNO alias duplicates inline and autosaves after correction", async () => {
     document.cookie = "ackb_csrf=csrf-value; Path=/";
     const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (_url, options) => {
@@ -336,6 +373,19 @@ describe("component editor", () => {
     expect(fetchMock).not.toHaveBeenCalled();
     expect(screen.getByText("Укажите название характеристики.")).toBeVisible();
     expect(screen.getByLabelText("Характеристика 1")).toHaveFocus();
+  });
+
+  it("focuses the missing value rather than the populated label on explicit client validation", async () => {
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetchMock);
+    renderNewEditor();
+    await userEvent.type(screen.getByLabelText("Характеристика 1"), "Flash-память");
+    const value = screen.getByLabelText("Значение характеристики 1");
+    const scroll = vi.spyOn(value, "scrollIntoView");
+    await userEvent.click(screen.getByRole("button", { name: "Синхронизировать сейчас" }));
+    expect(value).toHaveFocus();
+    expect(scroll).toHaveBeenCalledExactlyOnceWith({ block: "center", behavior: "smooth" });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("places the persistent image editor between identification and learning content", () => {

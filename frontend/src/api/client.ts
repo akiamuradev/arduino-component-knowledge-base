@@ -116,7 +116,9 @@ function errorDetails(body: unknown): Readonly<Record<string, unknown>> | undefi
   if (typeof body !== "object" || body === null) {
     return undefined;
   }
-  return (body as ApiErrorBody).detail;
+  const candidate: unknown = (body as ApiErrorBody).error?.details ?? (body as ApiErrorBody).detail;
+  return typeof candidate === "object" && candidate !== null && !Array.isArray(candidate)
+    ? candidate as Readonly<Record<string, unknown>> : undefined;
 }
 
 function errorMessage(body: unknown): string {

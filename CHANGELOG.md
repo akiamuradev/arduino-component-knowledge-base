@@ -2,6 +2,30 @@
 
 All notable changes to this project are documented here. Versions follow semantic versioning.
 
+## [1.6.2] - 2026-09-22
+
+### Added
+
+- Structured editor diagnostics with precise duplicate-slug and specification
+  errors, accessible field descriptions and retained request IDs.
+- Automatic Decimal-based conversion of compatible specification units, including
+  binary byte sizes; bits remain a separate family. Existing definitions retain
+  their canonical units while human-entered display values are preserved.
+- Focus and centered scrolling to invalid fields after explicit synchronization,
+  keyboard save or lifecycle actions; reduced-motion preferences are respected.
+  Background autosave never moves focus or scrolls the editor.
+
+### Fixed
+
+- Human values such as `4 МБ` no longer acquire a second canonical unit (`КБ`).
+- Ambiguous numeric input and incompatible units now identify the offending field
+  instead of reporting a generic catalog conflict. Unrepresentable conversions
+  report storage precision/range errors rather than silently rounding.
+
+### Compatibility
+
+- No database migration or new dependency is required.
+
 ## [1.6.1] - 2026-09-20
 
 ### Added

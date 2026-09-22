@@ -172,6 +172,8 @@ export function specificationDisplayValue(
   item: Pick<TechnicalSpecificationInput, "value_text" | "unit">,
 ): string {
   const value = item.value_text.trim();
+  // Display text is independent of canonical numeric metadata and its precision limits.
+  if (/^[+-]?\d+(?:[.,]\d+)?\s*[\p{L}%°Ωµμ][^\s]*$/u.test(value)) return item.value_text;
   const unit = item.unit?.trim();
   if (unit === undefined || unit === "") return value;
   return value === unit || value.endsWith(` ${unit}`) ? value : `${value} ${unit}`;

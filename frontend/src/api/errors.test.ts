@@ -6,9 +6,21 @@ import {
   isRetryableError,
   processingFailureMessage,
   userErrorMessage,
+  validationIssues,
+  validationIssueMessage,
 } from "./errors";
 
 describe("safe user errors", () => {
+  it("parses structured diagnostics defensively and localizes safe metadata", () => {
+    const issue = { path: ["specifications", 7, "value_text"], code: "expected_numeric_value", meta: { label: "Тактовая частота", expected_unit: "МГц" } };
+    const error = new ApiError(422, "validation_failed", { issues: [null, {}, { ...issue, path: ["specifications", -1] }, { ...issue, code: [] }, issue] });
+    expect(validationIssues(error)).toEqual([issue]);
+    expect(validationIssueMessage(issue)).toBe("Для «Тактовая частота» ожидается одно числовое значение в МГц.");
+    expect(userErrorMessage(error)).toBe("Не удалось сохранить: исправьте выделенные поля.");
+    expect(validationIssues(new ApiError(409, "catalog_conflict", { issues: [issue] }))).toEqual([]);
+    expect(validationIssues(new ApiError(422, "validation_failed", { issues: {} }))).toEqual([]);
+    expect(validationIssueMessage({ path: ["slug"], code: "future_code", meta: {} })).toBe("Проверьте значение поля.");
+  });
   it("explains permissions without exposing a server code", () => {
     const error = new ApiError(403, "permission_denied");
     expect(userErrorMessage(error)).toBe("Это действие недоступно для вашей роли.");

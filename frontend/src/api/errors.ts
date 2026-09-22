@@ -1,5 +1,46 @@
 import { ApiError } from "./client";
 
+export interface ValidationIssue {
+  path: (string | number)[];
+  code: string;
+  meta: Record<string, unknown>;
+}
+
+function record(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+export function validationIssues(error: unknown): ValidationIssue[] {
+  if (!(error instanceof ApiError) || error.code !== "validation_failed") return [];
+  const issues = error.details?.issues;
+  if (!Array.isArray(issues)) return [];
+  return issues.slice(0, 50).flatMap((value: unknown): ValidationIssue[] => {
+    if (!record(value) || typeof value.code !== "string" || !/^[a-z][a-z0-9_]{0,79}$/.test(value.code)
+      || !Array.isArray(value.path) || value.path.length === 0 || value.path.length > 8
+      || !value.path.every((part: unknown) => (typeof part === "string" && part.length <= 100)
+        || (typeof part === "number" && Number.isSafeInteger(part) && part >= 0))) return [];
+    return [{ path: value.path as (string | number)[], code: value.code,
+      meta: record(value.meta) ? value.meta : {} }];
+  });
+}
+
+export function validationIssueMessage(issue: ValidationIssue): string {
+  const text = (key: string, fallback: string) => typeof issue.meta[key] === "string"
+    ? issue.meta[key].slice(0, 160) : fallback;
+  const label = text("label", "характеристики");
+  const unit = text("expected_unit", "");
+  switch (issue.code) {
+    case "slug_already_exists": return "Этот адрес страницы уже занят. Укажите другой.";
+    case "slug_change_forbidden": return "Адрес уже опубликованной карточки нельзя изменить.";
+    case "incompatible_unit": return `«${text("entered_unit", "без единицы") || "без единицы"}» нельзя использовать для характеристики «${label}». Ожидается единица «${unit || "без единицы"}» или совместимая единица того же типа.`;
+    case "expected_numeric_value": return `Для «${label}» ожидается одно числовое значение${unit ? ` в ${unit}` : ""}.`;
+    case "expected_text_value": return `Для «${label}» ожидается текстовое значение. Выберите другую характеристику для числового значения.`;
+    case "specification_definition_conflict": return `Название или тип характеристики «${label}» не соответствует существующему определению. Укажите другое название.`;
+    case "numeric_value_out_of_range": return `Значение «${label}» выходит за допустимый диапазон или точность хранения.`;
+    default: return "Проверьте значение поля.";
+  }
+}
+
 const ERROR_MESSAGES: Readonly<Record<string, string>> = {
   duplicate_alias: "Альтернативные имена повторяются без учёта регистра. Удалите повтор.",
   duplicate_tag: "Теги повторяются без учёта регистра. Удалите повтор.",
@@ -42,6 +83,7 @@ export function userErrorMessage(
   fallback = "Не удалось выполнить действие. Попробуйте снова.",
 ): string {
   if (!(error instanceof ApiError)) return fallback;
+  if (validationIssues(error).length) return "Не удалось сохранить: исправьте выделенные поля.";
   return ERROR_MESSAGES[error.code] ?? error.message;
 }
 
