@@ -5,6 +5,8 @@ x-app-environment: &app-environment
   ACKB_DATABASE_URL: postgresql+asyncpg://${ACKB_POSTGRES_USER:-ackb}:${ACKB_POSTGRES_PASSWORD:?set ACKB_POSTGRES_PASSWORD}@postgres:5432/${ACKB_POSTGRES_DB:-ackb}
   ACKB_AUTH_THROTTLE_PEPPER: ${ACKB_AUTH_THROTTLE_PEPPER:?set ACKB_AUTH_THROTTLE_PEPPER}
   ACKB_SESSION_COOKIE_SECURE: "false"
+  ACKB_SESSION_TTL_MINUTES: ${ACKB_SESSION_TTL_MINUTES:-480}
+  ACKB_REMEMBERED_SESSION_TTL_DAYS: ${ACKB_REMEMBERED_SESSION_TTL_DAYS:-30}
   ACKB_REDIS_URL: redis://redis:6379/0
   ACKB_MINIO_ENDPOINT: minio:9000
   ACKB_MINIO_ACCESS_KEY: ${ACKB_MINIO_ROOT_USER:?set ACKB_MINIO_ROOT_USER}
@@ -55,7 +57,7 @@ x-app-image: &app-image
   build:
     context: .
     dockerfile: Dockerfile
-  image: arduino-component-kb/backend:1.6.2
+  image: arduino-component-kb/backend:1.6.3
   environment: *app-environment
   restart: unless-stopped
   networks:
@@ -276,7 +278,7 @@ services:
       dockerfile: Dockerfile
       args:
         ACKB_BUILD_GIT_SHA: ${ACKB_BUILD_GIT_SHA:-}
-    image: arduino-component-kb/frontend:1.6.2
+    image: arduino-component-kb/frontend:1.6.3
     healthcheck:
       test: ["CMD-SHELL", "wget --quiet --tries=1 --output-document=- http://127.0.0.1:8080/container-health | grep -q ok"]
       interval: 10s
@@ -291,7 +293,7 @@ services:
     build:
       context: deploy/reverse-proxy
       dockerfile: Dockerfile
-    image: arduino-component-kb/reverse-proxy:1.6.2
+    image: arduino-component-kb/reverse-proxy:1.6.3
     ports:
       - "${ACKB_HTTP_PORT:-8080}:8080"
     depends_on:

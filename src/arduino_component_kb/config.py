@@ -52,7 +52,7 @@ class Settings(DatabaseSettings):
     """Validated runtime configuration loaded from ACKB_* variables."""
 
     app_name: str = "Arduino Component Knowledge Base"
-    app_version: str = "1.6.2"
+    app_version: str = "1.6.3"
     environment: Environment = "production"
     database_echo: bool = False
     database_pool_size: int = Field(default=5, ge=1, le=50)
@@ -64,6 +64,7 @@ class Settings(DatabaseSettings):
     trusted_hosts: str = "localhost,127.0.0.1,testserver"
     auth_throttle_pepper: SecretStr = Field(repr=False, min_length=32)
     session_ttl_minutes: int = Field(default=480, ge=15, le=1440)
+    remembered_session_ttl_days: int = Field(default=30, ge=1, le=90)
     session_cookie_secure: bool = True
     auth_failure_limit: int = Field(default=5, ge=3, le=20)
     auth_failure_window_seconds: int = Field(default=900, ge=60, le=3600)

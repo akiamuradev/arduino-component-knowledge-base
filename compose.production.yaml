@@ -9,6 +9,7 @@ x-production-environment: &production-environment
   ACKB_JOB_DISPATCH_STALE_SECONDS: ${ACKB_JOB_DISPATCH_STALE_SECONDS:-60}
   ACKB_LEGACY_KICAD_CARD_IMPORT_ENABLED: "false"
   ACKB_SESSION_TTL_MINUTES: ${ACKB_SESSION_TTL_MINUTES:-480}
+  ACKB_REMEMBERED_SESSION_TTL_DAYS: ${ACKB_REMEMBERED_SESSION_TTL_DAYS:-30}
   ACKB_SESSION_COOKIE_SECURE: "true"
   ACKB_TRUSTED_HOSTS: ${ACKB_INTERNAL_HOSTNAME:?set ACKB_INTERNAL_HOSTNAME}
   ACKB_DATABASE_URL: postgresql+asyncpg://${ACKB_POSTGRES_RUNTIME_USER:?set ACKB_POSTGRES_RUNTIME_USER}:${ACKB_POSTGRES_RUNTIME_PASSWORD:?set ACKB_POSTGRES_RUNTIME_PASSWORD}@postgres:5432/${ACKB_POSTGRES_DB:-ackb}
@@ -122,7 +123,7 @@ services:
 
   database-restore-migrate:
     <<: *production-app
-    image: arduino-component-kb/backend:1.6.2
+    image: arduino-component-kb/backend:1.6.3
     profiles: [restore]
     command: [alembic, upgrade, head]
     environment:

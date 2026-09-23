@@ -32,6 +32,7 @@ export interface User {
 export interface LoginInput {
   login: string;
   password: string;
+  remember: boolean;
 }
 
 export interface RegisterInput {

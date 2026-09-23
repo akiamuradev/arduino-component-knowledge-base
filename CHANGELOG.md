@@ -2,6 +2,24 @@
 
 All notable changes to this project are documented here. Versions follow semantic versioning.
 
+## [1.6.3] - 2026-09-24
+
+### Added
+
+- Optional "Запомнить на этом устройстве" login mode with persistent browser
+  sessions. Both session and CSRF cookies use the same lifetime.
+- Remembered sessions use `ACKB_REMEMBERED_SESSION_TTL_DAYS` (30 days by default,
+  configurable from 1 to 90). Ordinary login uses browser-session cookies and the
+  existing `ACKB_SESSION_TTL_MINUTES` server-side expiry.
+
+### Compatibility
+
+- No database migration is required. Logout and session revocation are unchanged.
+- Existing login clients that omit `remember` receive an ordinary session.
+- Registration continues to create an ordinary, non-remembered session.
+- Browser session restoration may retain session cookies after closing a browser;
+  use logout on shared devices. Server-side expiry and revocation always apply.
+
 ## [1.6.2] - 2026-09-22
 
 ### Added

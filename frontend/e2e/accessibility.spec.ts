@@ -150,10 +150,16 @@ test("login remains accessible by keyboard in both themes at 320px", async ({ pa
 
   await page.getByLabel("Логин").fill("student");
   await page.getByLabel("Пароль", { exact: true }).fill("incorrect-password");
+  const remember = page.getByRole("checkbox", { name: "Запомнить на этом устройстве" });
+  await expect(remember).not.toBeChecked();
+  await remember.focus();
+  await page.keyboard.press("Space");
+  await expect(remember).toBeChecked();
   await page.getByRole("button", { name: "Войти" }).click();
   await expect(page.getByRole("alert")).toContainText(
     "Не удалось войти. Проверьте данные или повторите позже.",
   );
+  await expect(remember).toBeChecked();
 });
 
 test("password controls fit mobile auth fields in both themes", async ({ page }) => {
