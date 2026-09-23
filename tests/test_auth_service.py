@@ -58,6 +58,23 @@ async def test_blocked_login_is_audited_and_never_checks_credentials() -> None:
     repository.audit.assert_awaited_once()
 
 
+async def test_logout_revokes_even_a_long_lived_session() -> None:
+    repository = repository_mock()
+    principal = Principal(
+        uuid4(),
+        "student",
+        "Student",
+        frozenset({Role.STUDENT}),
+        uuid4(),
+        "csrf",
+        datetime.now(UTC) + timedelta(days=30),
+    )
+    await AuthService(repository, settings(), PasswordManager()).logout(principal, "logout-request")
+    repository.revoke_session.assert_awaited_once()
+    assert repository.revoke_session.await_args.args[0] == principal.session_id
+    assert repository.audit.await_args.kwargs["action"] == "auth.logout"
+
+
 async def test_invalid_credentials_increment_both_persistent_throttles() -> None:
     credential_input = "untrusted input"
     repository = repository_mock()
@@ -102,7 +119,10 @@ async def test_malformed_login_uses_a_non_user_sentinel() -> None:
 
 
 @pytest.mark.parametrize("role", list(Role))
-async def test_valid_login_uses_only_repository_roles_for_every_role(role: Role) -> None:
+@pytest.mark.parametrize("remember", [False, True])
+async def test_valid_login_uses_only_repository_roles_for_every_role(
+    role: Role, remember: bool
+) -> None:
     credential_input = "correct horse battery staple"
     passwords = PasswordManager()
     user = UserIdentity(
@@ -135,12 +155,16 @@ async def test_valid_login_uses_only_repository_roles_for_every_role(role: Role)
         )
 
     repository.create_session.side_effect = create_session
-    service = AuthService(repository, settings(), passwords)
+    configured = settings().model_copy(
+        update={"session_ttl_minutes": 123, "remembered_session_ttl_days": 17}
+    )
+    service = AuthService(repository, configured, passwords)
     result = await service.login(
         login="Teacher",
         password=credential_input,
         client_identifier="127.0.0.1",
         request_id="request-3",
+        remember=remember,
     )
     call = repository.create_session.await_args
     assert call is not None
@@ -148,6 +172,10 @@ async def test_valid_login_uses_only_repository_roles_for_every_role(role: Role)
     assert result.csrf_token not in str(call)
     assert result.principal.roles == frozenset({role})
     assert len(call.kwargs["token_hash"]) == 64
+    assert call.kwargs["expires_at"] - call.kwargs["now"] == (
+        timedelta(days=17) if remember else timedelta(minutes=123)
+    )
+    assert result.principal.expires_at == call.kwargs["expires_at"]
     repository.audit.assert_awaited_once()
 
 
@@ -237,6 +265,11 @@ async def test_public_registration_creates_only_student_and_starts_session() -> 
     assert create_call.kwargs["actor_id"] is None
     assert result.principal.roles == frozenset({Role.STUDENT})
     repository.create_session.assert_awaited_once()
+    session_call = repository.create_session.await_args
+    assert session_call is not None
+    assert session_call.kwargs["expires_at"] - session_call.kwargs["now"] == timedelta(
+        minutes=service.settings.session_ttl_minutes
+    )
     audit_call = repository.audit.await_args
     assert audit_call is not None
     assert audit_call.kwargs["action"] == "identity.self_registered"

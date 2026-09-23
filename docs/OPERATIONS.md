@@ -92,7 +92,17 @@ history.
 | Импорт | `ACKB_IMPORT_JOB_MAX_ATTEMPTS`, `ACKB_IMPORT_LOCK_TTL_SECONDS`, `ACKB_IMPORT_LOCK_WAIT_SECONDS`, `ACKB_IMPORT_PIPELINE_MODE`, `ACKB_IMPORT_PIPELINE_STAGE_TIMEOUT_SECONDS`, `ACKB_IMPORT_PIPELINE_SAFE_RETRY_ATTEMPTS` | Для 1.0.0 authoritative switch не включать; baseline — `disabled` |
 | KiCad shadow index | `ACKB_KICAD_INDEX_ARTIFACT_PATH`, `ACKB_KICAD_INDEX_EXPECTED_REVISION`, `ACKB_KICAD_INDEX_EXPECTED_SHA256` | Нужны только для отдельно принятого shadow mode |
 | Production policy | `ACKB_LOG_LEVEL`, `ACKB_DOCS_ENABLED`, `ACKB_DATABASE_ECHO`, `ACKB_LEGACY_KICAD_CARD_IMPORT_ENABLED`, `ACKB_SESSION_COOKIE_SECURE`, `ACKB_SESSION_TTL_MINUTES` | Не ослаблять значения production template |
+| Remembered login | `ACKB_REMEMBERED_SESSION_TTL_DAYS` | 30 дней по умолчанию, допустимо 1–90; применяется только при отмеченном «Запомнить на этом устройстве» |
 | Provenance inventory | `ACKB_APP_VERSION`, `ACKB_COMMIT_SHA`, `ACKB_BUILD_DATE` | Учёт развёртывания для preflight; не переопределяет метаданные сайта |
+
+Обычный вход и регистрация выдают session-cookie и CSRF-cookie без `Max-Age`;
+сервер ограничивает срок через `ACKB_SESSION_TTL_MINUTES` (обычно 480 минут).
+При запоминании обе cookies получают одинаковый `Max-Age`, соответствующий
+серверному сроку `ACKB_REMEMBERED_SESSION_TTL_DAYS`. Отзыв сессий и выход работают
+в обоих режимах. Восстановление сеанса браузера может сохранять даже сессионные
+cookies: на общем компьютере завершайте работу кнопкой выхода.
+Изменение настроек TTL действует на новые сессии; существующие сохраняют записанный
+`expires_at` и могут быть отозваны обычными средствами.
 
 Проверьте права файла и весь production contract. Preflight не меняет систему:
 

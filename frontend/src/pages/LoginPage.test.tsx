@@ -1,5 +1,5 @@
 import { QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
@@ -9,7 +9,7 @@ import { ThemeProvider } from "../theme/ThemeProvider";
 import { LoginPage } from "./LoginPage";
 
 describe("login page", () => {
-  it("submits only credentials and has no client-side role selector", async () => {
+  it.each([false, true])("submits credentials and remember=%s without a client-side role selector", async (remember) => {
     const fetchMock = vi.fn<typeof fetch>().mockImplementation((_input, options) => {
       if (options?.method === "POST") {
         return Promise.resolve(new Response(JSON.stringify({ detail: { code: "invalid_credentials" } }), { status: 401, headers: { "Content-Type": "application/json" } }));
@@ -21,6 +21,9 @@ describe("login page", () => {
     const user = userEvent.setup();
     const view = render(<ThemeProvider><QueryClientProvider client={client}><MemoryRouter><LoginPage /></MemoryRouter></QueryClientProvider></ThemeProvider>);
     await screen.findByRole("heading", { name: "Вход в систему" });
+    const checkbox = screen.getByRole("checkbox", { name: "Запомнить на этом устройстве" });
+    expect(checkbox).not.toBeChecked();
+    expect(screen.getByLabelText("Запомнить на этом устройстве")).toBe(checkbox);
     expect(screen.queryByRole("radio")).not.toBeInTheDocument();
     expect(view.container).toHaveTextContent("СИСТЕМА ГОТОВА");
     const password = screen.getByLabelText("Пароль");
@@ -48,6 +51,12 @@ describe("login page", () => {
     expect(password).toHaveAttribute("type", "password");
     expect(password).toHaveValue("invalid-password");
     expect(fetchMock.mock.calls.filter(([, options]) => options?.method === "POST")).toHaveLength(0);
+    if (remember) {
+      await user.tab();
+      expect(checkbox).toHaveFocus();
+      await user.keyboard(" ");
+      expect(checkbox).toBeChecked();
+    }
     await user.click(screen.getByRole("button", { name: "Войти" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Не удалось войти");
     expect(view.container).toHaveTextContent("ДОСТУП ЗАПРЕЩЁН");
@@ -59,9 +68,29 @@ describe("login page", () => {
     const body = fetchMock.mock.calls.find(([, options]) => options?.method === "POST")?.[1]?.body;
     if (typeof body !== "string") throw new Error("login request body must be a string");
     const submitted = JSON.parse(body) as Record<string, unknown>;
-    expect(submitted).toEqual({ login: "admin", password: "invalid-password" });
+    expect(submitted).toEqual({ login: "admin", password: "invalid-password", remember });
+    expect(checkbox).toHaveProperty("checked", remember);
     expect(submitted).not.toHaveProperty("role");
     expect(screen.getByRole("link", { name: "Создать аккаунт" })).toHaveAttribute("href", "/register");
     expect(screen.getByRole("link", { name: /GitHub автора/ })).toHaveAttribute("rel", "noopener noreferrer");
+  });
+
+  it("keeps the checked state during a pending request and after a failure", async () => {
+    let finish: ((response: Response) => void) | undefined;
+    const pending = new Promise<Response>((resolve) => { finish = resolve; });
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockImplementation((_input, options) => options?.method === "POST"
+      ? pending : Promise.resolve(new Response("{}", { status: 401 }))));
+    const user = userEvent.setup();
+    render(<ThemeProvider><QueryClientProvider client={createQueryClient()}><MemoryRouter><LoginPage /></MemoryRouter></QueryClientProvider></ThemeProvider>);
+    await user.type(screen.getByLabelText("Логин"), "student");
+    await user.type(screen.getByLabelText("Пароль"), "test-password");
+    const checkbox = screen.getByLabelText("Запомнить на этом устройстве");
+    await user.click(checkbox);
+    await user.click(screen.getByRole("button", { name: "Войти" }));
+    expect(screen.getByRole("button", { name: "Проверяем…" })).toBeDisabled();
+    expect(checkbox).toBeChecked();
+    await act(async () => { finish?.(new Response("{}", { status: 401 })); await pending; });
+    expect(await screen.findByRole("alert")).toHaveTextContent("Не удалось войти");
+    expect(checkbox).toBeChecked();
   });
 });

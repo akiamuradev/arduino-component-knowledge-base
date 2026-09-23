@@ -22,6 +22,7 @@ export function LoginPage() {
   const location = useLocation();
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
+  const [remember, setRemember] = useState(false);
   const state = location.state as LoginLocationState | null;
   const target =
     state?.from?.startsWith("/") === true && !state.from.startsWith("//")
@@ -41,7 +42,7 @@ export function LoginPage() {
 
   const submit = (event: SyntheticEvent<HTMLFormElement, SubmitEvent>) => {
     event.preventDefault();
-    mutation.mutate({ login, password });
+    mutation.mutate({ login, password, remember });
   };
   const errorCode = mutation.error instanceof ApiError ? mutation.error.code : undefined;
   const oledState: OledState = mutation.isPending
@@ -97,6 +98,10 @@ export function LoginPage() {
             placeholder="••••••••••••"
             value={password}
           />
+          <label className="login-remember">
+            <input type="checkbox" checked={remember} onChange={(event) => { setRemember(event.target.checked); }} />
+            <span>Запомнить на этом устройстве</span>
+          </label>
           <div aria-live="polite" className="auth-announcement">
             {mutation.isPending ? "Проверяем учётные данные." : mutation.isSuccess ? "Вход выполнен." : ""}
           </div>

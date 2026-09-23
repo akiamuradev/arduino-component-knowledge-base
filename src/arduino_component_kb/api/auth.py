@@ -41,6 +41,7 @@ class LoginRequest(BaseModel):
 
     login: str = Field(min_length=1, max_length=100)
     password: str = Field(min_length=1, max_length=128)
+    remember: bool = False
 
 
 class RegisterRequest(BaseModel):
@@ -109,6 +110,7 @@ async def login(
         result = await service.login(
             login=payload.login,
             password=payload.password,
+            remember=payload.remember,
             client_identifier=client_identifier,
             request_id=current_request_id(),
         )
@@ -126,7 +128,7 @@ async def login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"code": "invalid_credentials"},
         )
-    _set_session_cookies(response, result, service.settings)
+    _set_session_cookies(response, result, service.settings, remember=payload.remember)
     response.headers["Cache-Control"] = "no-store"
     return LoginResponse(
         user=user_response(result.principal),
@@ -199,8 +201,10 @@ async def logout(
     return LogoutResponse()
 
 
-def _set_session_cookies(response: Response, result: LoginResult, settings: Settings) -> None:
-    max_age = settings.session_ttl_minutes * 60
+def _set_session_cookies(
+    response: Response, result: LoginResult, settings: Settings, *, remember: bool = False
+) -> None:
+    max_age = settings.remembered_session_ttl_days * 86400 if remember else None
     response.set_cookie(
         SESSION_COOKIE,
         result.session_token,

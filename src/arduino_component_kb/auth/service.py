@@ -53,6 +53,7 @@ class AuthService:
         password: str,
         client_identifier: str,
         request_id: str | None,
+        remember: bool = False,
     ) -> LoginResult:
         now = datetime.now(UTC)
         try:
@@ -94,7 +95,7 @@ class AuthService:
             raise InvalidCredentialsError
 
         await self.repository.clear_failures(keys)
-        result = await self._start_session(user, now)
+        result = await self._start_session(user, now, remember=remember)
         replacement_hash = (
             self.passwords.hash(password)
             if self.passwords.needs_rehash(user.password_hash)
@@ -461,10 +462,17 @@ class AuthService:
         pepper = self.settings.auth_throttle_pepper.get_secret_value().encode()
         return hmac.new(pepper, f"{kind}:{value}".encode(), hashlib.sha256).hexdigest()
 
-    async def _start_session(self, user: UserIdentity, now: datetime) -> LoginResult:
+    async def _start_session(
+        self, user: UserIdentity, now: datetime, *, remember: bool = False
+    ) -> LoginResult:
         raw_session = secrets.token_urlsafe(32)
         raw_csrf = secrets.token_urlsafe(32)
-        expires_at = now + timedelta(minutes=self.settings.session_ttl_minutes)
+        lifetime = (
+            timedelta(days=self.settings.remembered_session_ttl_days)
+            if remember
+            else timedelta(minutes=self.settings.session_ttl_minutes)
+        )
+        expires_at = now + lifetime
         principal = await self.repository.create_session(
             user,
             token_hash=token_hash(raw_session),

@@ -77,6 +77,7 @@ test("an administrator signs in, reaches the dashboard and signs out", async ({ 
   expect(submittedPayload).toEqual({
     login: "administrator",
     password: "local-test-passphrase",
+    remember: false,
   });
   await page.getByLabel("Меню пользователя: Integration Administrator").click();
   await page.getByRole("button", { name: "Выйти", exact: true }).click();

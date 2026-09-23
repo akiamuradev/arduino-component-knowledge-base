@@ -260,6 +260,8 @@ code, pre { font-family: var(--font-mono); }
 .editor-form .editor-document { border: 0; padding: 0; margin: 0; background: transparent; }
 .password-input { position: relative; min-width: 0; }
 .login-card .password-input input[type] { width: 100%; padding-right: 3.5rem; }
+.login-card form > .login-remember { align-items: center; color: var(--color-text-muted); display: flex; font-weight: 500; gap: var(--space-2); min-height: 2.75rem; cursor: pointer; }
+.login-remember input[type="checkbox"] { accent-color: var(--color-accent); flex: 0 0 auto; height: 1.1rem; margin: 0; width: 1.1rem; }
 .password-input__toggle { position: absolute; right: 0.125rem; top: 50%; transform: translateY(-50%); display: grid; place-items: center; width: 2.75rem; height: 2.75rem; padding: 0; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--color-text-muted); cursor: pointer; }
 .password-input__toggle:hover { background: var(--color-surface-secondary); color: var(--color-text); }
 .password-input__toggle:focus-visible { outline-offset: -3px; }
