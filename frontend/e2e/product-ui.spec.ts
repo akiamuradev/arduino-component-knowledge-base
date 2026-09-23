@@ -142,9 +142,48 @@ async function mockLoggedOut(page: Page) {
 }
 
 async function selectTheme(page: Page, label: "Светлое" | "Тёмное" | "Как на устройстве") {
-  await page.getByRole("button", { name: /^Оформление:/ }).click();
-  await page.getByRole("menuitemradio", { name: label }).click();
+  await page.getByRole("button", { name: "Настройки сайта" }).click();
+  await page.getByRole("radio", { name: label }).click();
+  await page.keyboard.press("Escape");
 }
+
+test("authenticated settings keep semantic and PCB brand colors while updating accents", async ({ page }) => {
+  await mockCatalog(page);
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Каталог компонентов" })).toBeVisible();
+  const colors = () => page.evaluate(() => {
+    const root = getComputedStyle(document.documentElement);
+    const logo = document.querySelector(".ackb-logo");
+    const board = document.querySelector(".hero-board-art");
+    if (!logo || !board) throw new Error("Brand artwork missing");
+    return {
+      semantic: ["success", "warning", "danger", "info"].map((name) => root.getPropertyValue(`--color-${name}`)),
+      brand: getComputedStyle(logo).color,
+      board: getComputedStyle(board).color,
+    };
+  });
+  const before = await colors();
+  const trigger = page.getByRole("button", { name: "Настройки сайта" });
+  await trigger.click();
+  await page.getByRole("radio", { name: "Violet" }).check();
+  await expect(page.locator("html")).toHaveCSS("--color-accent", "#A970FF");
+  expect(await colors()).toEqual(before);
+  await page.getByRole("radio", { name: "Свой цвет" }).check();
+  const wheel = page.locator(".settings-color-wheel");
+  const bounds = await wheel.boundingBox();
+  if (!bounds) throw new Error("Color wheel missing");
+  await wheel.click({ position: { x: bounds.width - 2, y: bounds.height / 2 } });
+  await expect(page.getByLabel("Красный (R)")).toHaveValue("255");
+  await expect(page.getByLabel("HEX", { exact: true })).not.toHaveValue("#A970FF");
+  const selected = await page.getByLabel("HEX", { exact: true }).inputValue();
+  await page.getByRole("slider", { name: "Яркость" }).fill("0");
+  await expect(page.getByLabel("HEX", { exact: true })).toHaveValue("#000000");
+  await page.getByRole("slider", { name: "Яркость" }).fill("100");
+  await expect(page.getByLabel("HEX", { exact: true })).toHaveValue(selected);
+  await page.mouse.click(4, 4);
+  await expect(page.getByRole("dialog", { name: "Настройки сайта" })).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+});
 
 test("gallery keeps portrait and scheme geometry stable and opens a keyboard lightbox", async ({ page }) => {
   await mockCatalog(page);
@@ -408,8 +447,8 @@ test("student browses the catalog, switches theme and opens sourced learning con
   await expect(page.locator(".account__copy small")).toHaveText("Ученик");
   await expect(page.getByRole("navigation", { name: "Основная навигация" }).getByRole("link"))
     .toHaveText(["Каталог"]);
-  const themeTrigger = page.getByRole("button", { name: /^Оформление:/ });
-  await expect(themeTrigger).toHaveAttribute("title", "Настроить оформление");
+  const themeTrigger = page.getByRole("button", { name: "Настройки сайта" });
+  await expect(themeTrigger).toHaveAttribute("title", "Настройки сайта");
   await expect(themeTrigger).toHaveCSS("height", "44px");
   await expect(themeTrigger).toHaveCSS("width", "44px");
   await expect(page.locator(".hardware-board")).toHaveAttribute("aria-hidden", "true");
@@ -483,14 +522,14 @@ test("editor navigation remains usable at 320px and hides administrator tools", 
   await expect(page.getByRole("heading", { name: "Администрирование" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Пользователи" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Диагностика" })).toHaveCount(0);
-  await page.getByRole("button", { name: /^Оформление:/ }).click();
-  await expect(page.getByRole("menu", { name: "Выбор оформления" })).toBeVisible();
+  await page.getByRole("button", { name: "Настройки сайта" }).click();
+  await expect(page.getByRole("dialog", { name: "Настройки сайта" })).toBeVisible();
   const overflows = await page.evaluate(
     () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
   );
   expect(overflows).toBe(false);
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("menu", { name: "Выбор оформления" })).toHaveCount(0);
+  await expect(page.getByRole("dialog", { name: "Настройки сайта" })).toHaveCount(0);
 });
 
 test("captures approved responsive theme views", async ({ page }) => {

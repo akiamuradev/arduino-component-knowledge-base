@@ -121,8 +121,9 @@ async function mockAdministration(page: Page): Promise<void> {
 }
 
 async function selectTheme(page: Page, label: "Светлое" | "Тёмное"): Promise<void> {
-  await page.getByRole("button", { name: /^Оформление:/ }).click();
-  await page.getByRole("menuitemradio", { name: label }).click();
+  await page.getByRole("button", { name: "Настройки сайта" }).click();
+  await page.getByRole("radio", { name: label }).click();
+  await page.keyboard.press("Escape");
 }
 
 async function auditPage(
@@ -135,6 +136,50 @@ async function auditPage(
   await expectControlTargets(page, context);
   await expectKeyboardFocusVisible(page, context, keyboardSteps);
 }
+
+test("site settings support keyboard, custom color, contrast and focus return at 320px", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 900 });
+  await mockLoggedOut(page);
+  await page.addInitScript(() => { localStorage.setItem("ackb-theme", "dark"); });
+  await page.goto("/login");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  const trigger = page.getByRole("button", { name: "Настройки сайта" });
+  await trigger.focus();
+  await page.keyboard.press("Enter");
+  const dialog = page.getByRole("dialog", { name: "Настройки сайта" });
+  await expect(dialog).toBeVisible();
+  await expect(page.getByRole("button", { name: "Закрыть настройки сайта" })).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("radio", { name: "Тёмное" })).toBeFocused();
+  await page.getByRole("radio", { name: "Свой цвет" }).check();
+  await page.getByLabel("HEX", { exact: true }).fill("#B45CFF");
+  await expect(page.getByLabel("Красный (R)")).toHaveValue("180");
+  await expect(page.getByLabel("Зелёный (G)")).toHaveValue("92");
+  await expect(page.getByLabel("Синий (B)")).toHaveValue("255");
+  await page.getByLabel("Красный (R)").fill("256");
+  await expect(page.getByLabel("Красный (R)")).toHaveAttribute("aria-invalid", "true");
+  await expect(page.locator("html")).toHaveCSS("--color-accent", "#B45CFF");
+  await page.getByLabel("Красный (R)").fill("180");
+  for (const theme of ["Светлое", "Тёмное"]) {
+    await page.getByRole("radio", { name: theme }).check();
+    for (const hex of ["#B45CFF", "#FFFFFF", "#000000"]) {
+      await page.getByLabel("HEX", { exact: true }).fill(hex);
+      await expectNoAccessibilityViolations(page, `settings ${theme} ${hex}`);
+    }
+    await expectNoHorizontalOverflow(page, `settings ${theme}`);
+  }
+  // Native dialog cycles focus internally even when the preview is the last control.
+  await page.getByRole("link", { name: "Ссылка", exact: true }).focus();
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("button", { name: "Закрыть настройки сайта" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  await page.reload();
+  await trigger.click();
+  await expect(page.getByLabel("HEX", { exact: true })).toHaveValue("#000000");
+  await page.keyboard.press("Escape");
+});
 
 test("login remains accessible by keyboard in both themes at 320px", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 900 });
