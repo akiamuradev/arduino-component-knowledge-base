@@ -9,6 +9,19 @@ import { ThemeProvider } from "../theme/ThemeProvider";
 import { LoginPage } from "./LoginPage";
 
 describe("login page", () => {
+  it("opens shared site settings before authentication without submitting credentials", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response("{}", { status: 401 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<ThemeProvider><QueryClientProvider client={createQueryClient()}><MemoryRouter><LoginPage /></MemoryRouter></QueryClientProvider></ThemeProvider>);
+    await user.click(screen.getByRole("button", { name: "Настройки сайта" }));
+    expect(screen.getByRole("dialog", { name: "Настройки сайта" })).toBeVisible();
+    await user.click(screen.getByRole("radio", { name: "Cyan" }));
+    expect(document.documentElement.style.getPropertyValue("--color-accent")).toBe("#23C6D8");
+    await user.click(screen.getByRole("button", { name: "Закрыть настройки сайта" }));
+    expect(screen.getByRole("button", { name: "Настройки сайта" })).toHaveFocus();
+    expect(fetchMock.mock.calls.filter(([, options]) => options?.method === "POST")).toHaveLength(0);
+  });
   it.each([false, true])("submits credentials and remember=%s without a client-side role selector", async (remember) => {
     const fetchMock = vi.fn<typeof fetch>().mockImplementation((_input, options) => {
       if (options?.method === "POST") {

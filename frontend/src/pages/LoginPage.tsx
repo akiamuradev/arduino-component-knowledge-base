@@ -7,7 +7,7 @@ import { useCurrentUser } from "../auth/queries";
 import { replaceSessionCache } from "../auth/session-cache";
 import { BrandMark } from "../components/BrandMark";
 import { type OledState, OledLoginDisplay } from "../components/OledLoginDisplay";
-import { ThemeToggle } from "../components/ThemeToggle";
+import { SiteSettingsButton } from "../components/SiteSettingsButton";
 import { PasswordInput } from "../components/PasswordInput";
 import { PRODUCT_BRAND } from "../config/brand";
 
@@ -70,7 +70,7 @@ export function LoginPage() {
         <OledLoginDisplay state={oledState} />
       </section>
       <section className="login-panel">
-        <div className="login-panel__theme"><ThemeToggle /></div>
+        <div className="login-panel__theme"><SiteSettingsButton /></div>
         <div className="login-card" aria-labelledby="login-heading">
         <div className="login-card__heading">
           <p className="eyebrow">Локальная учётная запись</p>

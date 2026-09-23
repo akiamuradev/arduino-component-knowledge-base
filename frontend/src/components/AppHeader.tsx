@@ -9,7 +9,7 @@ import { replaceSessionCache } from "../auth/session-cache";
 import { PRODUCT_BRAND } from "../config/brand";
 import { primaryRoleLabel } from "../config/uiLabels";
 import { LogoHeader } from "./branding/Logo";
-import { ThemeToggle } from "./ThemeToggle";
+import { SiteSettingsButton } from "./SiteSettingsButton";
 
 export function AppHeader() {
   const currentUser = useCurrentUser();
@@ -53,7 +53,7 @@ export function AppHeader() {
             <NavLink end={item.end} key={item.path} to={item.path}>{item.label}</NavLink>
           ))}
         </nav>
-        <ThemeToggle />
+        <SiteSettingsButton />
         <details className="user-menu">
           <summary aria-label={`Меню пользователя: ${currentUser.data.display_name}`}>
             <span className="account__avatar" aria-hidden="true">{avatarLetter}</span>

@@ -2,6 +2,29 @@
 
 All notable changes to this project are documented here. Versions follow semantic versioning.
 
+## [1.7.0] - 2026-09-24
+
+### Added
+
+- Unified site settings panel in the application header, login and registration.
+- Five selectable UI accent presets: ACKB Green, Cyan, Blue, Violet and Orange.
+- Custom RGB/HEX accent picker with a hue/saturation wheel, brightness control
+  and keyboard-accessible inputs. Invalid drafts retain the previous valid color.
+- Persistent browser-local appearance preferences and a compact live preview.
+- Contrast-aware accent text, borders and button foregrounds in both themes.
+
+### Changed
+
+- Theme selection now lives inside the unified site settings interface.
+- ACKB brand and PCB colors are separated from customizable UI interaction
+  accents; semantic success, warning, danger and information colors stay independent.
+
+### Compatibility
+
+- Existing stored light/dark/system theme preferences migrate automatically.
+- No database migration or backend API change is required.
+- Preferences remain local to the browser profile and contain no account data.
+
 ## [1.6.3] - 2026-09-24
 
 ### Added

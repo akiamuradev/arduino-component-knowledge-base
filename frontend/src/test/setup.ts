@@ -16,6 +16,16 @@ function memoryStorage(): Storage {
 }
 
 beforeEach(() => {
+  // jsdom does not implement the native dialog lifecycle/focus behavior.
+  Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
+    configurable: true, value: function (this: HTMLDialogElement) {
+      this.setAttribute("open", "");
+      this.querySelector<HTMLElement>("[autofocus],button,input,select,textarea,a[href]")?.focus();
+    },
+  });
+  Object.defineProperty(HTMLDialogElement.prototype, "close", {
+    configurable: true, value: function (this: HTMLDialogElement) { this.removeAttribute("open"); },
+  });
   Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
     configurable: true,
     writable: true,
