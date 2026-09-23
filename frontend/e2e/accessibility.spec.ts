@@ -181,6 +181,43 @@ test("site settings support keyboard, custom color, contrast and focus return at
   await page.keyboard.press("Escape");
 });
 
+test("saved palette migrates, stays accessible at 320px and preserves the active color on deletion", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 900 });
+  await mockLoggedOut(page);
+  await page.addInitScript(() => {
+    if (!localStorage.getItem("ackb-ui-preferences")) localStorage.setItem("ackb-ui-preferences", JSON.stringify({
+      version: 1, theme: "dark", accent: { type: "custom", value: "#B45CFF" },
+    }));
+  });
+  await page.goto("/login");
+  await page.getByRole("button", { name: "Настройки сайта" }).click();
+  await expect(page.getByLabel("HEX", { exact: true })).toHaveValue("#B45CFF");
+  await page.getByRole("button", { name: "Сохранить цвет" }).click();
+  const swatch = page.getByRole("button", { name: "#B45CFF", exact: true });
+  await expect(swatch).toHaveAttribute("aria-pressed", "true");
+  await page.getByLabel("HEX", { exact: true }).fill("broken");
+  await expect(page.getByRole("button", { name: "Сохранить цвет" })).toBeDisabled();
+  await swatch.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByLabel("HEX", { exact: true })).toHaveValue("#B45CFF");
+  for (const theme of ["Светлое", "Тёмное"]) {
+    await page.getByRole("radio", { name: theme }).check();
+    await expectNoAccessibilityViolations(page, `saved accents ${theme}`);
+    await expectNoHorizontalOverflow(page, `saved accents ${theme}`);
+    await expectControlTargets(page, `saved accents ${theme}`);
+  }
+  await page.reload();
+  await page.getByRole("button", { name: "Настройки сайта" }).click();
+  await expect(swatch).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Удалить цвет #B45CFF" }).focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("region", { name: "Мои цвета" })).toHaveCount(0);
+  await expect(page.getByRole("radio", { name: "Свой цвет" })).toBeFocused();
+  await expect(page.getByLabel("HEX", { exact: true })).toHaveValue("#B45CFF");
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("button", { name: "Настройки сайта" })).toBeFocused();
+});
+
 test("login remains accessible by keyboard in both themes at 320px", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 900 });
   await mockLoggedOut(page);

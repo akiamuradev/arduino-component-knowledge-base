@@ -1,14 +1,16 @@
-import { useId, useState, type PointerEvent } from "react";
+import { useCallback, useEffect, useId, useState, type PointerEvent } from "react";
 import { clamp, hexToHsv, hexToRgb, hsvToHex, normalizeHex, rgbToHex, type Hsv } from "../theme/colors";
 
-function ColorField({ label, value, numeric = false, onValid }: {
+function ColorField({ label, value, numeric = false, onValid, onValidityChange }: {
   label: string; value: string; numeric?: boolean; onValid: (value: string) => void;
+  onValidityChange: (field: string, valid: boolean) => void;
 }) {
   const id = useId();
   const [previous, setPrevious] = useState(value);
   const [draft, setDraft] = useState(value);
   if (previous !== value) { setPrevious(value); setDraft(value); }
   const valid = numeric ? /^\d{1,3}$/.test(draft) && Number(draft) <= 255 : normalizeHex(draft) !== null;
+  useEffect(() => { onValidityChange(label, valid); }, [label, valid, onValidityChange]);
   return <div className="settings-color-field">
     <label htmlFor={id}>{label}</label>
     <input id={id} type="text" inputMode={numeric ? "numeric" : "text"} value={draft}
@@ -22,7 +24,19 @@ function ColorField({ label, value, numeric = false, onValid }: {
   </div>;
 }
 
-export function CustomAccentPicker({ color, onChange }: { color: string; onChange: (color: string) => void }) {
+export function CustomAccentPicker({ color, onChange, onValidityChange }: {
+  color: string; onChange: (color: string) => void; onValidityChange: (valid: boolean) => void;
+}) {
+  const [invalidFields, setInvalidFields] = useState<Set<string>>(() => new Set());
+  const fieldValidity = useCallback((field: string, valid: boolean) => {
+    setInvalidFields((old) => {
+      if (old.has(field) === !valid) return old;
+      const next = new Set(old);
+      if (valid) next.delete(field); else next.add(field);
+      return next;
+    });
+  }, []);
+  useEffect(() => { onValidityChange(invalidFields.size === 0); }, [invalidFields, onValidityChange]);
   const [previous, setPrevious] = useState(color);
   const [hsv, setHsv] = useState(() => hexToHsv(color));
   // Keep hue/saturation at black (and hue at gray), where RGB cannot encode them.
@@ -62,10 +76,10 @@ export function CustomAccentPicker({ color, onChange }: { color: string; onChang
         onChange={(event) => { update({ ...hsv, v: Number(event.target.value) / 100 }); }} />
       <output>{Math.round(hsv.v * 100)}%</output>
     </label>
-    <ColorField label="HEX" value={color} onValid={onChange} />
+    <ColorField label="HEX" value={color} onValid={onChange} onValidityChange={fieldValidity} />
     <div className="settings-rgb">
       {([['r', 'Красный (R)'], ['g', 'Зелёный (G)'], ['b', 'Синий (B)']] as const).map(([channel, label]) =>
-        <ColorField key={channel} label={label} numeric value={String(rgb[channel])}
+        <ColorField key={channel} label={label} numeric value={String(rgb[channel])} onValidityChange={fieldValidity}
           onValid={(value) => { onChange(rgbToHex({ ...rgb, [channel]: Number(value) })); }} />)}
     </div>
   </div>;

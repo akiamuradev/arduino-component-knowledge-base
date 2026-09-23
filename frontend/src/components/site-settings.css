@@ -17,6 +17,13 @@
 .settings-swatch input{position:absolute;inset:0;width:44px;height:44px;margin:0;opacity:0;cursor:pointer;z-index:1}
 .settings-swatch>span{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;border:1px solid var(--color-border)}
 .settings-swatch:has(:checked)>span{outline:2px solid var(--color-accent-border);outline-offset:3px}
+.settings-swatch[aria-pressed=true]>span{outline:2px solid var(--color-accent-border);outline-offset:3px}
+button.settings-swatch{border:0;padding:0;background:transparent;border-radius:var(--radius-md)}
+.settings-saved{margin-top:var(--space-3)}
+.settings-saved h3{font-size:.85rem;margin:0 0 var(--space-2)}
+.settings-saved__item{display:flex;align-items:center;gap:var(--space-1)}
+.settings-saved__remove{display:grid;place-items:center;width:32px;height:32px;padding:6px;background:var(--color-surface-secondary);color:var(--color-text);border:1px solid var(--color-border);border-radius:var(--radius-sm);cursor:pointer}
+.settings-saved__remove svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round}
 .settings-swatch:has(:focus-visible){outline:3px solid var(--color-accent-border);outline-offset:2px;border-radius:var(--radius-md)}
 .settings-hint{font-size:.8rem;color:var(--color-text-muted);margin:0 0 var(--space-3)}
 .settings-color-wheel{position:relative;width:180px;height:180px;max-width:100%;margin:var(--space-3) auto;border-radius:50%;touch-action:none;cursor:crosshair;background:radial-gradient(circle,#fff 0%,transparent 70.71%),conic-gradient(from 90deg,red,#ff0,#0f0,#0ff,#00f,#f0f,red)}
