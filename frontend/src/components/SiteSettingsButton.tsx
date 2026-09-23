@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type 
 import { createPortal } from "react-dom";
 import { ACCENT_PRESETS, onAccent, type AccentPreset } from "../theme/colors";
 import { useTheme } from "../theme/context";
+import { MAX_SAVED_ACCENTS } from "../theme/preferences";
 import { CustomAccentPicker } from "./CustomAccentPicker";
 import "./site-settings.css";
 
@@ -10,7 +11,11 @@ function SiteSettingsPanel({ anchor, onClose }: { anchor: RefObject<HTMLButtonEl
   const close = useRef<HTMLButtonElement>(null);
   const lastControl = useRef<HTMLAnchorElement>(null);
   const id = useId();
-  const { preference, setPreference, accent, accentColor, setAccentPreset, setCustomAccent } = useTheme();
+  const { preference, setPreference, accent, accentColor, setAccentPreset, setCustomAccent,
+    savedAccents, saveCurrentAccent, removeSavedAccent } = useTheme();
+  const [validDraft, setValidDraft] = useState(true);
+  const [pickerReset, setPickerReset] = useState(0);
+  const customChoice = useRef<HTMLInputElement>(null);
   useLayoutEffect(() => {
     const element = dialog.current;
     if (!element) return;
@@ -76,9 +81,39 @@ function SiteSettingsPanel({ anchor, onClose }: { anchor: RefObject<HTMLButtonEl
           </span>
         </label>;
       })}</div>
-      <label className="settings-custom-choice"><input type="radio" name={`${id}-accent`} checked={accent.type === "custom"}
+      <label className="settings-custom-choice"><input ref={customChoice} type="radio" name={`${id}-accent`} checked={accent.type === "custom"}
         onChange={() => { setCustomAccent(accentColor); }} /><span>Свой цвет</span></label>
-      {accent.type === "custom" && <CustomAccentPicker color={accentColor} onChange={setCustomAccent} />}
+      {accent.type === "custom" && <>
+        <CustomAccentPicker key={pickerReset} color={accentColor} onChange={setCustomAccent} onValidityChange={setValidDraft} />
+        <button type="button" className="button button--quiet" disabled={!validDraft || savedAccents.includes(accentColor) || savedAccents.length >= MAX_SAVED_ACCENTS}
+          onClick={saveCurrentAccent}>Сохранить цвет</button>
+      </>}
+      {savedAccents.length >= MAX_SAVED_ACCENTS && <p className="settings-hint">Можно сохранить до 12 цветов.</p>}
+      {savedAccents.length > 0 && <section className="settings-saved" aria-labelledby={`${id}-saved-title`}>
+        <h3 id={`${id}-saved-title`}>Мои цвета</h3>
+        <div className="settings-swatches">{savedAccents.map((hex) => {
+          const selected = accent.type === "custom" && accentColor === hex;
+          return <div className="settings-saved__item" key={hex}>
+            <button type="button" className="settings-swatch" aria-label={hex} title={hex} aria-pressed={selected}
+              onClick={() => { setCustomAccent(hex); setPickerReset((old) => old + 1); }}>
+              <span style={{ background: hex, color: onAccent(hex) }} aria-hidden="true">
+                {selected && <svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6" /></svg>}
+              </span>
+            </button>
+            <button type="button" className="settings-saved__remove" aria-label={`Удалить цвет ${hex}`} title={`Удалить цвет ${hex}`}
+              onClick={(event) => {
+                // Deleting the focused control must not leave focus on the page body.
+                const item = event.currentTarget.parentElement;
+                const neighbor = item?.nextElementSibling ?? item?.previousElementSibling;
+                const next = neighbor?.querySelector<HTMLButtonElement>("button") ?? customChoice.current;
+                removeSavedAccent(hex);
+                next?.focus();
+              }}>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+            </button>
+          </div>;
+        })}</div>
+      </section>}
     </fieldset>
     <section className="settings-preview" aria-label="Предпросмотр">
       <h3>Предпросмотр</h3>

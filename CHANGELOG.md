@@ -2,6 +2,27 @@
 
 All notable changes to this project are documented here. Versions follow semantic versioning.
 
+## [1.7.1] - 2026-09-24
+
+### Added
+
+- Custom accent colors can now be saved as reusable personal presets (up to 12
+  unique colors per browser profile).
+- Saved accent presets can be applied or removed directly from site settings,
+  with keyboard-accessible swatches and separate remove controls.
+- Saving is disabled for invalid HEX/RGB drafts, duplicates and full palettes.
+
+### Changed
+
+- Appearance preferences storage upgraded to version 2 with automatic migration
+  from existing 1.7.0 preferences.
+
+### Compatibility
+
+- Existing theme and accent selections migrate automatically; legacy theme-only
+  preferences remain supported. Removing a saved color does not reset the accent.
+- No database migration or backend API change is required.
+
 ## [1.7.0] - 2026-09-24
 
 ### Added

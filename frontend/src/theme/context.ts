@@ -13,6 +13,9 @@ export interface ThemeContextValue {
   tokens: Record<string, string>;
   setAccentPreset: (preset: AccentPreset) => void;
   setCustomAccent: (hex: string) => void;
+  savedAccents: string[];
+  saveCurrentAccent: () => void;
+  removeSavedAccent: (hex: string) => void;
 }
 
 export const ThemeContext = createContext<ThemeContextValue | null>(null);

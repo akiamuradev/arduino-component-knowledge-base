@@ -33,6 +33,6 @@ describe("accent color utilities", () => {
     localStorage.setItem(PREFERENCES_KEY, "broken");
     expect(readPreferences().theme).toBe("dark");
     localStorage.setItem(PREFERENCES_KEY, JSON.stringify({ version: 1, theme: "light", accent: { type: "custom", value: "b45cff" }, password: "discard" }));
-    expect(readPreferences()).toEqual({ version: 1, theme: "light", accent: { type: "custom", value: "#B45CFF" } });
+    expect(readPreferences()).toEqual({ version: 2, theme: "light", accent: { type: "custom", value: "#B45CFF" }, savedAccents: [] });
   });
 });

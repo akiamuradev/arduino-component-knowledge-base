@@ -1,7 +1,7 @@
 import { type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { ThemeContext, type ThemePreference } from "./context";
 import { ACCENT_PRESETS, accentHex, accentTokens, normalizeHex, type AccentPreset } from "./colors";
-import { PREFERENCES_KEY, isTheme, parsePreferences, persistPreferences, readPreferences } from "./preferences";
+import { MAX_SAVED_ACCENTS, PREFERENCES_KEY, isTheme, parsePreferences, persistPreferences, readPreferences } from "./preferences";
 
 const DARK_QUERY = "(prefers-color-scheme: dark)";
 
@@ -47,8 +47,22 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const hex = normalizeHex(value);
     if (hex) setPreferences((old) => ({ ...old, accent: { type: "custom", value: hex } }));
   }, []);
+  const saveCurrentAccent = useCallback(() => {
+    setPreferences((old) => {
+      if (old.accent.type !== "custom" || old.savedAccents.length >= MAX_SAVED_ACCENTS) return old;
+      const hex = normalizeHex(old.accent.value);
+      if (!hex || old.savedAccents.includes(hex)) return old;
+      return { ...old, savedAccents: [...old.savedAccents, hex] };
+    });
+  }, []);
+  const removeSavedAccent = useCallback((value: string) => {
+    const hex = normalizeHex(value);
+    if (hex) setPreferences((old) => ({ ...old, savedAccents: old.savedAccents.filter((saved) => saved !== hex) }));
+  }, []);
   const value = useMemo(() => ({ preference, resolvedTheme, setPreference, accent: preferences.accent,
-    accentColor, tokens, setAccentPreset, setCustomAccent }),
-  [preference, resolvedTheme, setPreference, preferences.accent, accentColor, tokens, setAccentPreset, setCustomAccent]);
+    accentColor, tokens, setAccentPreset, setCustomAccent, savedAccents: preferences.savedAccents,
+    saveCurrentAccent, removeSavedAccent }),
+  [preference, resolvedTheme, setPreference, preferences.accent, accentColor, tokens, setAccentPreset, setCustomAccent,
+    preferences.savedAccents, saveCurrentAccent, removeSavedAccent]);
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }

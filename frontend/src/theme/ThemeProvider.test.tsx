@@ -20,7 +20,7 @@ describe("site appearance preferences", () => {
     mount();
     expect(document.documentElement.dataset.themePreference).toBe(theme);
     expect(document.documentElement.dataset.theme).toBe(theme === "dark" ? "dark" : "light");
-    expect(current()).toEqual({ version: 1, theme, accent: { type: "preset", value: "green" } });
+    expect(current()).toEqual({ version: 2, theme, accent: { type: "preset", value: "green" }, savedAccents: [] });
     expect(document.documentElement.style.getPropertyValue("--color-accent")).toBe("#32CD32");
   });
 
@@ -133,7 +133,7 @@ describe("site appearance preferences", () => {
 
   it("reads valid cross-tab changes but ignores malformed ones", () => {
     mount();
-    const record = { version: 1, theme: "dark", accent: { type: "custom", value: "#B45CFF" } };
+    const record = { version: 2, theme: "dark", accent: { type: "custom", value: "#B45CFF" }, savedAccents: [] };
     act(() => { window.dispatchEvent(new StorageEvent("storage", { key: PREFERENCES_KEY, newValue: JSON.stringify(record) })); });
     expect(current()).toEqual(record);
     act(() => { window.dispatchEvent(new StorageEvent("storage", { key: PREFERENCES_KEY, newValue: "broken" })); });
