@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented here. Versions follow semantic versioning.
 
+## [1.7.3] - 2026-09-24
+
+### Added
+
+- Neutral institutional affiliation blocks in the footer and on the About page
+  for МПК ЛГПУ and ЛГПУ, with original organization logos and website links.
+- Responsive, keyboard-accessible institution cards sharing one verified
+  organization/logo/URL configuration in both light and dark themes.
+
+### Compatibility
+
+- Existing service links, appearance preferences and build provenance are
+  preserved. No database migration or backend API change is required.
+
 ## [1.7.2] - 2026-09-24
 
 ### Changed
