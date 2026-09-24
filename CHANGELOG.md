@@ -2,6 +2,26 @@
 
 All notable changes to this project are documented here. Versions follow semantic versioning.
 
+## [1.7.4] - 2026-09-25
+
+### Added
+
+- An authenticated in-app editorial guide rendered from a single version-controlled
+  Markdown source, with readable tables, safe links and stable section anchors.
+- A card-editor shortcut to the filling rules in a new tab, preserving editing context.
+
+### Changed
+
+- Redesigned the compact footer into three columns: product and attribution on
+  the left, unchanged institutional chips in the center, and vertical service
+  links/build metadata on the right.
+- On mobile, the footer becomes a centered stack with the same content and chips.
+
+### Compatibility
+
+- No database migration or backend API change is required. Existing editor
+  synchronization and appearance preferences are preserved.
+
 ## [1.7.3] - 2026-09-24
 
 ### Added
