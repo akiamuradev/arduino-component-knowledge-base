@@ -1,6 +1,40 @@
 import { expect, test } from "@playwright/test";
 import { expectNoAccessibilityViolations, expectNoHorizontalOverflow } from "./support/accessibility";
 
+test("footer is compact without resizing institution chips or losing content", async ({ page }) => {
+  await page.goto("/license");
+  const footer = page.locator("footer");
+  // Baseline footer heights were 214px (desktop), 248px (tablet), 441px (mobile).
+  for (const [width, maxHeight, chipWidth, chipHeight] of [
+    [1440, 150, 250, 74], [768, 184, 250, 74], [390, 315, 358, 90], [320, 315, 288, 90],
+  ]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const theme of ["Светлое", "Тёмное"]) {
+      await page.getByRole("button", { name: "Настройки сайта" }).click();
+      await page.getByRole("radio", { name: theme }).check();
+      await page.keyboard.press("Escape");
+      await footer.scrollIntoViewIfNeeded();
+      const bounds = await footer.boundingBox();
+      expect(bounds?.height).toBeLessThanOrEqual(maxHeight);
+      await expect(footer.locator(".app-footer__brand")).toContainText("Автор:");
+      await expect(footer.getByRole("heading", { name: /Связано с образовательными организациями/ })).toBeVisible();
+      for (const name of ["О системе", "Источники материалов", "GNU GPL v3.0 или новее"]) {
+        await expect(footer.getByRole("link", { name, exact: true })).toBeVisible();
+      }
+      await expect(footer.locator(".build-info")).toBeVisible();
+      for (const card of await footer.locator(".institution-card").all()) {
+        const chip = await card.boundingBox();
+        expect(chip?.width).toBe(chipWidth);
+        expect(chip?.height).toBe(chipHeight);
+        await expect(card).toHaveCSS("padding", "8px");
+        await expect(card).toHaveCSS("gap", "8px");
+      }
+      await expectNoHorizontalOverflow(page, `compact footer ${String(width)} ${theme}`);
+      await expectNoAccessibilityViolations(page, `compact footer ${String(width)} ${theme}`);
+    }
+  }
+});
+
 test("institution cards retain logo mapping, keyboard access and mobile theme layout", async ({ page }) => {
   await page.goto("/license");
   const section = page.getByRole("region", { name: /Связано с образовательными организациями/ });
