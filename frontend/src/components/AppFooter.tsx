@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 
 import { PRODUCT_BRAND } from "../config/brand";
 import { BuildInfo } from "./BuildInfo";
+import { InstitutionAffiliations } from "./InstitutionAffiliations";
 
 export function AppFooter() {
   return (
@@ -16,6 +17,7 @@ export function AppFooter() {
         <Link to={PRODUCT_BRAND.licenseUrl}>{PRODUCT_BRAND.licenseName}</Link>
       </nav>
       <BuildInfo compact />
+      <InstitutionAffiliations compact />
     </footer>
   );
 }

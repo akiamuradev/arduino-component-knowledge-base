@@ -428,7 +428,7 @@ describe("component editor", () => {
 
     expect(screen.getByRole("heading", { name: "Arduino Uno", level: 1 })).toBeVisible();
     expect(screen.getByText("<img src=x onerror=alert(1)>")).toBeVisible();
-    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+    expect(within(screen.getByRole("main")).queryByRole("img")).not.toBeInTheDocument();
     expect(screen.getByText("Проверить подключение питания.")).toBeVisible();
     expect(screen.getByText("Частота")).toBeVisible();
     expect(screen.getByText("16 МГц")).toBeVisible();

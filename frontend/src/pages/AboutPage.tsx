@@ -1,4 +1,5 @@
 import { BuildInfo } from "../components/BuildInfo";
+import { InstitutionAffiliations } from "../components/InstitutionAffiliations";
 import { LogoPrimary } from "../components/branding/Logo";
 import { PRODUCT_BRAND } from "../config/brand";
 
@@ -25,6 +26,7 @@ export function AboutPage() {
         <Link className="text-link" to="/sources">Открыть реестр источников →</Link>
       </section>
       <section className="about-build"><p className="section-kicker">Сборка</p><h2>Информация о сборке</h2><BuildInfo /></section>
+      <InstitutionAffiliations />
     </article>
   );
 }
