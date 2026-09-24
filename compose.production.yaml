@@ -123,7 +123,7 @@ services:
 
   database-restore-migrate:
     <<: *production-app
-    image: arduino-component-kb/backend:1.7.3
+    image: arduino-component-kb/backend:1.7.4
     profiles: [restore]
     command: [alembic, upgrade, head]
     environment:

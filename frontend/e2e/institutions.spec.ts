@@ -4,9 +4,9 @@ import { expectNoAccessibilityViolations, expectNoHorizontalOverflow } from "./s
 test("footer is compact without resizing institution chips or losing content", async ({ page }) => {
   await page.goto("/license");
   const footer = page.locator("footer");
-  // Baseline footer heights were 214px (desktop), 248px (tablet), 441px (mobile).
-  for (const [width, maxHeight, chipWidth, chipHeight] of [
-    [1440, 150, 250, 74], [768, 184, 250, 74], [390, 315, 358, 90], [320, 315, 288, 90],
+  // The three-column layout keeps a strict height budget, but not a machine-specific text height.
+  for (const [width, maxHeight, chipHeight] of [
+    [1440, 145, 74], [768, 205, 74], [390, 395, 90], [320, 415, 90],
   ]) {
     await page.setViewportSize({ width, height: 900 });
     for (const theme of ["Светлое", "Тёмное"]) {
@@ -24,10 +24,32 @@ test("footer is compact without resizing institution chips or losing content", a
       await expect(footer.locator(".build-info")).toBeVisible();
       for (const card of await footer.locator(".institution-card").all()) {
         const chip = await card.boundingBox();
-        expect(chip?.width).toBe(chipWidth);
+        expect(chip?.width).toBeGreaterThanOrEqual(180);
         expect(chip?.height).toBe(chipHeight);
         await expect(card).toHaveCSS("padding", "8px");
         await expect(card).toHaveCSS("gap", "8px");
+      }
+      const brand = await footer.locator(".app-footer__brand").boundingBox();
+      const institutions = await footer.locator(".institutions").boundingBox();
+      const services = await footer.locator(".app-footer__services").boundingBox();
+      if (!brand || !institutions || !services) throw new Error("Footer columns missing");
+      if (width >= 768) {
+        expect(brand.x + brand.width).toBeLessThanOrEqual(institutions.x);
+        expect(institutions.x + institutions.width).toBeLessThanOrEqual(services.x);
+        const chips = await footer.locator(".institution-card").all();
+        const first = await chips[0]?.boundingBox();
+        const second = await chips[1]?.boundingBox();
+        expect(first?.y).toBe(second?.y);
+      } else {
+        expect(brand.y + brand.height).toBeLessThanOrEqual(institutions.y);
+        expect(institutions.y + institutions.height).toBeLessThanOrEqual(services.y);
+        expect(Math.abs(institutions.x + institutions.width / 2 - width / 2)).toBeLessThan(1);
+      }
+      const links = await footer.locator("nav a").all();
+      for (let index = 1; index < links.length; index += 1) {
+        const before = await links[index - 1]?.boundingBox();
+        const after = await links[index]?.boundingBox();
+        expect(after?.y).toBeGreaterThanOrEqual((before?.y ?? 0) + (before?.height ?? 0));
       }
       await expectNoHorizontalOverflow(page, `compact footer ${String(width)} ${theme}`);
       await expectNoAccessibilityViolations(page, `compact footer ${String(width)} ${theme}`);

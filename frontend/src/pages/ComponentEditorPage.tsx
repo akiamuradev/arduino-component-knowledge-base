@@ -4,7 +4,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { type KeyboardEvent, type SyntheticEvent, useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import type {
   Category,
@@ -527,23 +527,26 @@ function ComponentEditorForm({ mode, card, categories, reloadServer }: EditorFor
           </p>
           {sync.dirty && <small>{sync.localStored ? "Изменения сохранены на этом устройстве" : "Локальное восстановление недоступно — не закрывайте страницу"}</small>}
         </div>
-        <div className="editor-tabs" aria-label="Режим редактора" role="tablist">
-          {availableViews.map((editorView, index) => (
-            <button
-              aria-controls={`editor-panel-${editorView}`}
-              aria-selected={view === editorView}
-              className={view === editorView ? "active" : ""}
-              id={`editor-tab-${editorView}`}
-              key={editorView}
-              onClick={() => { setView(editorView); }}
-              onKeyDown={(event) => { moveViewFocus(event, index); }}
-              role="tab"
-              tabIndex={view === editorView ? 0 : -1}
-              type="button"
-            >
-              {EDITOR_VIEW_LABELS[editorView]}
-            </button>
-          ))}
+        <div className="editor-header__actions">
+          <Link className="button button--quiet" to="/editor-guide" target="_blank" rel="noopener noreferrer">Правила заполнения<span className="sr-only"> — в новой вкладке</span> <span aria-hidden="true">↗</span></Link>
+          <div className="editor-tabs" aria-label="Режим редактора" role="tablist">
+            {availableViews.map((editorView, index) => (
+              <button
+                aria-controls={`editor-panel-${editorView}`}
+                aria-selected={view === editorView}
+                className={view === editorView ? "active" : ""}
+                id={`editor-tab-${editorView}`}
+                key={editorView}
+                onClick={() => { setView(editorView); }}
+                onKeyDown={(event) => { moveViewFocus(event, index); }}
+                role="tab"
+                tabIndex={view === editorView ? 0 : -1}
+                type="button"
+              >
+                {EDITOR_VIEW_LABELS[editorView]}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

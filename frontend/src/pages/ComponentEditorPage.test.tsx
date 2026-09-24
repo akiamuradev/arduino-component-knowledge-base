@@ -435,6 +435,19 @@ describe("component editor", () => {
     expect(screen.getByText("Arduino Uno", { selector: "strong" })).toBeVisible();
   });
 
+  it("opens filling rules in a new tab without changing the editor draft", async () => {
+    renderEditor(card);
+    const title = within(screen.getByRole("group", { name: "Идентификация" })).getByRole("textbox", { name: "Название" });
+    fireEvent.change(title, { target: { value: "Arduino Uno — правка" } });
+    const guide = screen.getByRole("link", { name: /Правила заполнения/ });
+    expect(guide).toHaveAttribute("href", "/editor-guide");
+    expect(guide).toHaveAttribute("target", "_blank");
+    expect(guide).toHaveAttribute("rel", "noopener noreferrer");
+    await userEvent.click(guide);
+    expect(title).toHaveValue("Arduino Uno — правка");
+    expect(screen.getByRole("tab", { name: "Редактор" })).toHaveAttribute("aria-selected", "true");
+  });
+
   it("renders editor image state as a primary-first preview gallery", async () => {
     vi.stubGlobal(
       "fetch",

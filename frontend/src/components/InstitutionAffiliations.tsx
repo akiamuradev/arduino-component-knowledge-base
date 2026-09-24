@@ -3,11 +3,12 @@ import { useId } from "react";
 import { EDUCATIONAL_INSTITUTIONS } from "../config/institutions";
 import "./institution-affiliations.css";
 
-export function InstitutionAffiliations({ compact = false }: { compact?: boolean }) {
-  const headingId = useId();
+export function InstitutionAffiliations({ compact = false, labelledBy }: { compact?: boolean; labelledBy?: string }) {
+  const generatedId = useId();
+  const headingId = labelledBy ?? generatedId;
   return (
     <section className={`institutions${compact ? " institutions--compact" : ""}`} aria-labelledby={headingId}>
-      <h2 id={headingId}>Связано с образовательными организациями{compact && <span className="sr-only"> — в подвале сайта</span>}</h2>
+      {!labelledBy && <h2 id={headingId}>Связано с образовательными организациями{compact && <span className="sr-only"> — в подвале сайта</span>}</h2>}
       <div className="institutions__cards">
         {EDUCATIONAL_INSTITUTIONS.map((institution) => (
           <a className="institution-card" key={institution.id} href={institution.url} target="_blank" rel="noopener noreferrer">

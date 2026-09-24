@@ -1,4 +1,5 @@
 import type { RouteObject } from "react-router-dom";
+import { LoadingState } from "../components/AsyncStates";
 
 import { AdminLayout } from "../layouts/AdminLayout";
 import { StudentLayout } from "../layouts/StudentLayout";
@@ -47,6 +48,7 @@ export const routes: RouteObject[] = [
           { index: true, element: <CatalogPage /> },
           { path: "/components/:slug", element: <CatalogComponentPage /> },
           { path: "/about", element: <AboutPage /> },
+          { path: "/editor-guide", hydrateFallbackElement: <LoadingState label="Загружаем руководство…" />, lazy: async () => ({ Component: (await import("../pages/EditorGuidePage")).EditorGuidePage }) },
           { path: "/sources", element: <SourcesPage /> },
         ],
       },
