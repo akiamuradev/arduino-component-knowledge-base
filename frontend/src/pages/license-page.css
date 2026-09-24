@@ -1,0 +1,38 @@
+.license-header{display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);padding:var(--space-4) clamp(1rem,4vw,4rem);border-bottom:1px solid var(--color-border);background:var(--color-elevated)}
+.license-header__brand,.license-header nav{display:flex;align-items:center;gap:var(--space-4)}
+.license-header__brand{text-decoration:none;font-weight:750;min-width:0}
+.license-header nav>a{display:inline-flex;align-items:center;min-height:44px}
+.license-page{width:100%;max-width:1440px;margin:0 auto;padding:clamp(1rem,4vw,4rem);min-width:0}
+.license-hero{max-width:72ch;padding-block:var(--space-5) var(--space-7)}
+.license-hero h1{font-size:clamp(2rem,5vw,4rem);margin:var(--space-3) 0;overflow-wrap:anywhere}
+.license-badge{display:inline-block;border:1px solid var(--color-accent-border);border-radius:var(--radius-pill);padding:var(--space-2) var(--space-3);color:var(--color-accent-text);background:var(--color-accent-soft);font-family:var(--font-mono);font-size:.85rem}
+.license-lede{font-size:1.1rem;line-height:1.75}
+.license-identity{display:grid;gap:var(--space-2);line-height:1.5;font-size:.9rem;overflow-wrap:anywhere}
+.license-identity code{font-size:.8rem}
+.license-actions,.license-reference-links{display:flex;flex-wrap:wrap;gap:var(--space-3);margin-top:var(--space-5)}
+.license-overview>p,.license-third-party>p{color:var(--color-text-muted);line-height:1.7;max-width:78ch}
+.license-page h2{font-size:clamp(1.4rem,3vw,2rem);line-height:1.25}
+.license-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--space-4);margin-block:var(--space-5)}
+.license-cards section{padding:var(--space-4);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface)}
+.license-cards h3{font-size:1rem;color:var(--color-accent-text);margin:0 0 var(--space-3)}
+.license-cards p{font-size:.9rem;line-height:1.7;margin:0}
+.license-third-party{padding:var(--space-5);border-left:3px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface-secondary);margin-block:var(--space-6) var(--space-7)}
+.license-third-party h2{margin-top:0}
+.license-reference-links a{overflow-wrap:anywhere;min-width:0;display:inline-flex;align-items:center;min-height:44px}
+.license-reading-layout{display:grid;grid-template-columns:minmax(220px,280px) minmax(0,1fr);gap:var(--space-6);align-items:start}
+.license-toc{position:sticky;top:var(--space-4);font-size:.85rem;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-elevated);padding:var(--space-3)}
+.license-toc summary{min-height:44px;align-content:center;font-weight:750}
+.license-toc nav{display:grid;gap:var(--space-1);max-height:calc(100dvh - 8rem);overflow:auto;padding:var(--space-1)}
+.license-toc a{display:block;padding:var(--space-2);line-height:1.5;text-decoration:none;border-radius:var(--radius-sm);overflow-wrap:anywhere}
+.license-toc a:hover,.license-toc a:focus-visible{background:var(--color-accent-soft);color:var(--color-accent-text)}
+.license-document{min-width:0;max-width:78ch;padding:clamp(1rem,3vw,2rem);background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg)}
+.license-document__source{font-size:.85rem}
+.license-document__body{font-family:var(--font-ui);font-size:1rem;line-height:1.8;overflow-wrap:anywhere}
+.license-document__body p{margin:0 0 1.25em;white-space:normal}
+.license-document__body h3{font-size:1.15rem;line-height:1.55;margin:var(--space-7) 0 var(--space-4);font-weight:750}
+.license-page [id]{scroll-margin-top:var(--space-5)}
+.license-toc .license-toc__title{font-size:1rem;margin:var(--space-2)}
+@media(min-width:901px){.license-toc summary{display:none}}
+@media(max-width:900px){.license-reading-layout{grid-template-columns:1fr}.license-toc{position:static}.license-toc__title{display:none}.license-toc summary{cursor:pointer}.license-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:480px){.license-header__brand span{display:none}.license-cards{grid-template-columns:1fr}.license-document{padding:var(--space-4)}}
+@media(prefers-reduced-motion:reduce){.license-shell,.license-shell *{scroll-behavior:auto;transition:none}}

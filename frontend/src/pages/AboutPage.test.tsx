@@ -9,7 +9,7 @@ import { AboutPage } from "./AboutPage";
 describe("about page", () => {
   it("shows the same license and author in the site footer", () => {
     render(<MemoryRouter><AppFooter /></MemoryRouter>);
-    expect(screen.getByRole("link", { name: "GNU GPL v3.0 или новее" })).toHaveAttribute("href", "/LICENCE.txt");
+    expect(screen.getByRole("link", { name: "GNU GPL v3.0 или новее" })).toHaveAttribute("href", "/license");
     expect(screen.getByRole("link", { name: "akiamuradev" })).toHaveAttribute("href", "https://github.com/akiamuradev");
   });
   it("keeps product authorship, license, build data and source policy explicit", () => {
@@ -20,7 +20,7 @@ describe("about page", () => {
     expect(PRODUCT_BRAND.authorName).toBe("akiamuradev");
     expect(PRODUCT_BRAND.licenseName).toBe("GNU GPL v3.0 или новее");
     expect(PRODUCT_BRAND.licenseSpdx).toBe("GPL-3.0-or-later");
-    expect(screen.getByRole("link", { name: /Открыть текст лицензии/ })).toHaveAttribute("href", "/LICENCE.txt");
+    expect(screen.getByRole("link", { name: /Открыть текст лицензии/ })).toHaveAttribute("href", "/license");
     expect(screen.getByText(/подтверждённый снимок источника отсутствует/i)).toBeVisible();
     expect(screen.getByText(/Seeed Studio Wiki и официальные библиотеки KiCad/i)).toBeVisible();
     expect(screen.getByText(/все зарегистрированные источники неактивны/i)).toBeVisible();

@@ -7,7 +7,7 @@ export const PRODUCT_BRAND = Object.freeze({
   copyright: "© 2026 akiamuradev",
   licenseName: "GNU GPL v3.0 или новее",
   licenseSpdx: "GPL-3.0-or-later",
-  licenseUrl: "/LICENCE.txt",
+  licenseUrl: "/license",
 });
 
 function environmentValue(value: string | undefined, fallback: string): string {

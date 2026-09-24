@@ -26,3 +26,13 @@ def test_release_builder_rejects_uncommitted_sources() -> None:
     ):
         with pytest.raises(SystemExit, match="working-tree changes"):
             build_environment(Path("unused"))
+
+
+def test_release_builder_rejects_mismatched_license_copy() -> None:
+    root = Path(__file__).resolve().parents[1]
+    with (
+        patch("scripts.build_images.subprocess.check_output", return_value=""),
+        patch("scripts.build_images.Path.read_bytes", side_effect=[b"canonical", b"stale"]),
+    ):
+        with pytest.raises(SystemExit, match="license copy differs"):
+            build_environment(root)

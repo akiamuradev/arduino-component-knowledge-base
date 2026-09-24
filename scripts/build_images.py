@@ -23,6 +23,8 @@ def build_environment(root: Path) -> dict[str, str]:
     frontend = json.loads((root / "frontend/package.json").read_text())["version"]
     if version != frontend:
         raise SystemExit("Frontend and project versions differ; run scripts/release_contract.py.")
+    if (root / "LICENCE").read_bytes() != (root / "frontend/public/LICENCE.txt").read_bytes():
+        raise SystemExit("Frontend license copy differs from canonical LICENCE.")
     return {
         **os.environ,
         "ACKB_BUILD_GIT_SHA": git("rev-parse", "HEAD"),
