@@ -14,6 +14,9 @@ All notable changes to this project are documented here. Versions follow semanti
 
 ### Changed
 
+- The ACKB license is now presented as a public, readable legal page with a
+  concise GPL overview, third-party licensing notices, a responsive table of
+  contents and the complete, unchanged canonical license text.
 - Appearance preferences storage upgraded to version 2 with automatic migration
   from existing 1.7.0 preferences.
 

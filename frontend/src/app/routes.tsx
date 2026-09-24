@@ -8,6 +8,7 @@ import { AdministratorManagementPage } from "../pages/AdministratorManagementPag
 import { AdminImportPage } from "../pages/AdminImportPage";
 import { AuditLogPage } from "../pages/AuditLogPage";
 import { AboutPage } from "../pages/AboutPage";
+import { LicensePage } from "../pages/LicensePage";
 import { CatalogPage } from "../pages/CatalogPage";
 import { CatalogComponentPage } from "../pages/CatalogComponentPage";
 import { ComponentEditorPage } from "../pages/ComponentEditorPage";
@@ -25,6 +26,7 @@ import {
 } from "../routing/guards";
 
 export const routes: RouteObject[] = [
+  { path: "/license", element: <LicensePage />, errorElement: <RouteErrorPage /> },
   {
     path: "/login",
     element: <LoginPage />,
