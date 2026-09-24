@@ -1,0 +1,5 @@
+# Explicitly selected only by isolated CI smoke scripts. Never auto-loaded.
+services:
+  minio:
+    image: ackb-ci/minio:9e49d5e7a648
+    pull_policy: never

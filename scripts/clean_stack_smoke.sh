@@ -5,11 +5,15 @@ readonly ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly TEMPORARY_DIR="$(mktemp -d)"
 readonly ACKB_CLEAN_PROJECT="ackb-clean-${RANDOM}-${RANDOM}"
 readonly ENVIRONMENT_FILE="${TEMPORARY_DIR}/environment"
-readonly -a COMPOSE_ARGUMENTS=(
+COMPOSE_ARGUMENTS=(
   --project-name "$ACKB_CLEAN_PROJECT"
   --env-file "$ENVIRONMENT_FILE"
   --file "$ROOT_DIR/compose.yaml"
 )
+if [[ "${ACKB_CI_MINIO_SOURCE:-false}" == "true" ]]; then
+  COMPOSE_ARGUMENTS+=(--file "$ROOT_DIR/compose.ci.yaml")
+fi
+readonly COMPOSE_ARGUMENTS
 
 cleanup() {
   local exit_status=$?
