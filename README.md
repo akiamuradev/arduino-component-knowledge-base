@@ -32,7 +32,7 @@ sensors, actuators, displays, and related electronic components.
 
 Arduino Component Knowledge Base (ACKB) gives students a searchable catalogue while teachers,
 editors, and administrators maintain the material through a controlled review process. The
-current application version is **1.7.4**.
+current application version is **1.7.5**.
 
 Developed and maintained by [akiamuradev](https://github.com/akiamuradev).
 
