@@ -32,7 +32,7 @@ sensors, actuators, displays, and related electronic components.
 
 Arduino Component Knowledge Base (ACKB) gives students a searchable catalogue while teachers,
 editors, and administrators maintain the material through a controlled review process. The
-current application version is **1.7.4**.
+current application version is **1.7.5**.
 
 Developed and maintained by [akiamuradev](https://github.com/akiamuradev).
 
@@ -40,19 +40,38 @@ A clean installation contains categories and approved source definitions, but no
 automatically published cards. Imported material always starts as a draft; it becomes visible to
 students only after review, approval, and explicit publication.
 
-## Highlights in v1.0.0
+## Current capabilities
 
-- responsive Russian-language React interface with light, dark, and system themes;
-- catalogue search, category and difficulty filters, component pages, and multiple-image galleries;
-- server-enforced roles for students, teachers, temporary editors, and administrators;
-- student-only public registration plus administrator-controlled password reset and admin creation;
-- draft, review, approval, publication, hide, archive, and immutable revision history;
-- teacher correction proposals that never overwrite published content directly;
-- versioned Seeed Studio Wiki and KiCad Symbols adapters with preserved provenance and license snapshots; all sources are currently inactive for new imports;
-- exact and fuzzy duplicate detection with administrator-only merge decisions;
-- private MinIO media, validated image/video processing, and durable Redis/Dramatiq jobs;
-- audit events, Argon2id passwords, opaque sessions, CSRF protection, and throttling;
-- reproducible Docker Compose deployment, Alembic migrations, backup, restore, and upgrade checks.
+- A Russian-language, full-width desktop workspace with responsive mobile layout,
+  catalogue search, category/difficulty filters, component details and multiple-image galleries.
+- Controlled draft → review → approval → explicit publication, immutable published snapshots,
+  revision history, hide/archive actions and separate teacher correction proposals.
+- A synchronized card editor with optimistic edit tokens and conflict handling; structured
+  validation diagnostics, field navigation and explicit conversion between compatible
+  specification units. The authenticated filling guide opens in a separate tab without
+  replacing the draft.
+- Server-enforced `student`, `teacher`, temporary `editor` and `administrator` roles;
+  student-only registration, administrator-controlled account/password management, password
+  visibility controls and optional remembered login sessions.
+- Light/dark/system themes, custom RGB/HEX accents and saved browser-local accent presets.
+  Brand colors remain independent of UI accents.
+- A public `/license` page with the complete GNU GPL text and neutral institutional affiliation
+  blocks linking to МПК ЛГПУ and ЛГПУ.
+- A legacy ZIP/XLSX importer with private source uploads, analysis before application,
+  administrator review, explicit plan confirmation and draft-only application. Source rights
+  must be verified before publication; see the [legacy importer guide](docs/LEGACY_IMPORTER.md).
+- Exact/fuzzy duplicate candidates with administrator-only merge decisions. Registered
+  Seeed Studio Wiki/KiCad Symbols adapters preserve provenance and license snapshots, but
+  external sources are **inactive for new imports**. The evidence-first pipeline remains
+  **disabled/shadow**, not an authoritative production import path.
+- Private MinIO media with validated image/video processing; PostgreSQL-backed durable job
+  dispatch, Redis/Dramatiq workers and reconciliation of interrupted work.
+- Audit trail, Argon2id password hashing, opaque server-side sessions, CSRF protection and
+  persistent login throttling; the backend is always the authorization authority.
+- Provenance-aware image builds, Alembic migrations, production preflight and deployment smoke
+  checks, plus backup/restore procedures covering PostgreSQL and private object storage.
+
+These describe the implemented code, not proof of a deployed release. See the release gate below.
 
 ## Screenshots
 
@@ -91,7 +110,7 @@ duplicate merge always requires a separate administrator decision. See
 
 ## Quick start
 
-Requirements: Docker Engine, the Docker Compose plugin, Git, `curl`, and `openssl`. Clone the
+Requirements: Docker Engine, the Docker Compose plugin, Git, Python 3.12+, `curl`, and `openssl`. Clone the
 default branch into a native Linux filesystem:
 
 ```bash
@@ -101,8 +120,9 @@ cd arduino-component-knowledge-base
 bash scripts/linux_bootstrap.sh
 ```
 
-The bootstrap creates an ignored `.env` with random local credentials and mode `0600`, builds the
-stack, and waits for the health checks. It does not print generated secrets. Open
+The bootstrap creates an ignored `.env` with random local credentials and mode `0600`, validates
+Compose, builds images through `python3 scripts/build_images.py`, starts them with
+`docker compose up --no-build --detach`, and waits for health checks. It does not print generated secrets. Open
 <http://localhost:8080>.
 
 Verify the deployment:
@@ -119,12 +139,17 @@ existing release checkout, preserve its `.env` and volumes:
 
 ```bash
 git pull --ff-only origin main
-docker compose up --build -d
+docker compose config --quiet
+python3 scripts/build_images.py
+docker compose up --no-build --detach
 python3 scripts/compose_smoke.py
 ```
 
 Do not replace `.env` while reusing an existing PostgreSQL volume. For production deployment,
 backup, restore, and upgrade procedures, use the [Operations guide](docs/OPERATIONS.md).
+The commands above are for the local stack, not a production upgrade shortcut. The image builder
+requires a clean committed checkout and obtains the version from project metadata and the full
+SHA from Git; old `.env` values cannot override site build metadata.
 
 ## Create the first administrator
 
@@ -147,8 +172,9 @@ there is no self-service recovery or collection of email, phone, 2FA, or recover
 
 1. An editor or administrator creates a manual draft. Registered Seeed/KiCad adapters remain
    available for controlled validation, but their sources are inactive for new import jobs.
-2. If a source is explicitly reactivated under an approved policy, the selected import entry
-   becomes a draft and is never published automatically.
+2. The separate legacy ZIP/XLSX workflow analyzes a private bundle and requires administrator
+   review and typed confirmation before applying its plan. Repository imports require explicit
+   source reactivation under an approved policy. Neither path publishes automatically.
 3. The editor completes the card and resolves duplicate candidates.
 4. The editor submits it for review; an administrator requests changes or approves it.
 5. An administrator explicitly publishes the approved revision.
@@ -192,8 +218,31 @@ npm run test:e2e
 ```
 
 Container checks and the PostgreSQL/MinIO integration environment are documented in
-[Testing](docs/TESTING.md). The `quality` workflow runs the complete mandatory release gate on
-every push and pull request.
+[Testing](docs/TESTING.md). The `quality` workflow runs the mandatory CI checks on
+every push and pull request; it does not deploy or verify production.
+
+Regenerate the four README screenshots from deterministic test-only fixtures (inside `frontend`):
+
+```bash
+ACKB_UPDATE_SCREENSHOTS=1 npm run test:e2e -- --grep "captures approved responsive theme views"
+```
+
+Screenshots document the UI; they do not replace layout assertions or production checks.
+
+## Release and deployment gate
+
+A release is complete only when **all mandatory GitHub CI checks succeed**, an authorized
+deployment after merge to `main` succeeds, and the running production build is verified.
+Check running containers, production smoke tests and site/API metadata against the deployed
+checkout: actual version, full Git SHA and actual build date/time. Frontend `/build-info.json`
+records version/SHA/build time; backend `/health` exposes the application version. A stale or mismatching
+value leaves the release incomplete, even if the application works.
+
+Local tests, CHANGELOG, tags, GitHub Releases or a merged PR are not substitutes for that check.
+Report version, full commit SHA, build date, CI status, production smoke result and confirmation
+that production serves that exact build. If deployment is not authorized, do not deploy and
+explicitly leave the production gate open. See [Contributing](CONTRIBUTING.md) and
+[Operations](docs/OPERATIONS.md) for the complete workflow.
 
 ## Documentation
 

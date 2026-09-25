@@ -2,6 +2,24 @@
 
 All notable changes to this project are documented here. Versions follow semantic versioning.
 
+## [1.7.5] - 2026-09-25
+
+### Changed
+
+- Full-width desktop application layout with responsive gutters, including the
+  catalog, component detail and editor preview; long copy retains readable widths.
+- Dashboard heading actions align naturally to the right and wrap on narrow screens.
+- Institutional footer affiliations are geometrically centered independently of
+  brand and build metadata width, with unchanged chips and mobile stacking.
+- Preserved responsive behavior, keyboard focus, and local width limits for search,
+  authentication forms, legal content and the editorial guide.
+- Refreshed both READMEs with current capabilities, provenance-aware setup commands
+  and the mandatory production verification gate; regenerated deterministic UI screenshots.
+
+### Compatibility
+
+- No database migration or backend API change is required.
+
 ## [1.7.4] - 2026-09-25
 
 ### Added
