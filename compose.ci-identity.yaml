@@ -1,0 +1,5 @@
+# Apply after compose.production.yaml only for the isolated identity smoke test.
+services:
+  minio-identity-init:
+    image: ackb-ci/minio:9e49d5e7a648
+    pull_policy: never

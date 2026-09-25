@@ -1,4 +1,5 @@
 import { BuildInfo } from "../components/BuildInfo";
+import { InstitutionAffiliations } from "../components/InstitutionAffiliations";
 import { LogoPrimary } from "../components/branding/Logo";
 import { PRODUCT_BRAND } from "../config/brand";
 
@@ -12,7 +13,7 @@ export function AboutPage() {
       <div className="about-grid">
         <section><p className="section-kicker">Назначение</p><h2>Каталог и редакция</h2><p>Поиск компонентов, техническая документация, подготовка и проверка материалов перед публикацией.</p></section>
         <section><p className="section-kicker">Автор платформы</p><h2>{PRODUCT_BRAND.authorName}</h2><p>Программный продукт разработан {PRODUCT_BRAND.authorName}.</p><a className="text-link" href={PRODUCT_BRAND.officialRepository} target="_blank" rel="noopener noreferrer">Официальный репозиторий <span aria-hidden="true">↗</span></a></section>
-        <section><p className="section-kicker">Лицензия приложения</p><h2>{PRODUCT_BRAND.licenseName}</h2><p>Код ACKB распространяется по GNU GPL версии 3.0 или любой более поздней версии (GPL-3.0-or-later). Автор: akiamuradev. Импортированные материалы сохраняют лицензии Seeed Studio Wiki или официальных библиотек KiCad и собственные сведения об авторстве.</p><a className="text-link" href={PRODUCT_BRAND.licenseUrl} target="_blank" rel="noopener noreferrer">Открыть текст лицензии <span aria-hidden="true">↗</span></a></section>
+        <section><p className="section-kicker">Лицензия приложения</p><h2>{PRODUCT_BRAND.licenseName}</h2><p>Код ACKB распространяется по GNU GPL версии 3.0 или любой более поздней версии (GPL-3.0-or-later). Автор: akiamuradev. Импортированные материалы сохраняют лицензии Seeed Studio Wiki или официальных библиотек KiCad и собственные сведения об авторстве.</p><Link className="text-link" to={PRODUCT_BRAND.licenseUrl}>Открыть текст лицензии →</Link></section>
 
         <section><p className="section-kicker">Архитектура</p><h2>Разграничение доступа</h2><p>Доступ к каталогу, редактированию материалов и управлению системой определяется правами учётной записи.</p></section>
       </div>
@@ -25,6 +26,7 @@ export function AboutPage() {
         <Link className="text-link" to="/sources">Открыть реестр источников →</Link>
       </section>
       <section className="about-build"><p className="section-kicker">Сборка</p><h2>Информация о сборке</h2><BuildInfo /></section>
+      <InstitutionAffiliations />
     </article>
   );
 }

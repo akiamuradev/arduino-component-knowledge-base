@@ -1,4 +1,5 @@
 import type { RouteObject } from "react-router-dom";
+import { LoadingState } from "../components/AsyncStates";
 
 import { AdminLayout } from "../layouts/AdminLayout";
 import { StudentLayout } from "../layouts/StudentLayout";
@@ -8,6 +9,7 @@ import { AdministratorManagementPage } from "../pages/AdministratorManagementPag
 import { AdminImportPage } from "../pages/AdminImportPage";
 import { AuditLogPage } from "../pages/AuditLogPage";
 import { AboutPage } from "../pages/AboutPage";
+import { LicensePage } from "../pages/LicensePage";
 import { CatalogPage } from "../pages/CatalogPage";
 import { CatalogComponentPage } from "../pages/CatalogComponentPage";
 import { ComponentEditorPage } from "../pages/ComponentEditorPage";
@@ -25,6 +27,7 @@ import {
 } from "../routing/guards";
 
 export const routes: RouteObject[] = [
+  { path: "/license", element: <LicensePage />, errorElement: <RouteErrorPage /> },
   {
     path: "/login",
     element: <LoginPage />,
@@ -45,6 +48,7 @@ export const routes: RouteObject[] = [
           { index: true, element: <CatalogPage /> },
           { path: "/components/:slug", element: <CatalogComponentPage /> },
           { path: "/about", element: <AboutPage /> },
+          { path: "/editor-guide", hydrateFallbackElement: <LoadingState label="Загружаем руководство…" />, lazy: async () => ({ Component: (await import("../pages/EditorGuidePage")).EditorGuidePage }) },
           { path: "/sources", element: <SourcesPage /> },
         ],
       },

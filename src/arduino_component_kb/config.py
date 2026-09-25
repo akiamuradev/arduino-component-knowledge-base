@@ -52,7 +52,7 @@ class Settings(DatabaseSettings):
     """Validated runtime configuration loaded from ACKB_* variables."""
 
     app_name: str = "Arduino Component Knowledge Base"
-    app_version: str = "1.7.1"
+    app_version: str = "1.7.4"
     environment: Environment = "production"
     database_echo: bool = False
     database_pool_size: int = Field(default=5, ge=1, le=50)
