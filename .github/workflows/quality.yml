@@ -87,12 +87,14 @@ jobs:
           enable-cache: true
           cache-suffix: integration
       - run: uv sync --frozen --extra dev
+      - name: Build pinned MinIO source for isolated CI
+        run: docker build --tag ackb-ci/minio:9e49d5e7a648 deploy/minio-ci
       - name: Start isolated MinIO
         run: >-
           docker run --detach --name ackb-test-minio --publish 9000:9000
           --env MINIO_ROOT_USER=test-access
           --env MINIO_ROOT_PASSWORD=test-secret-placeholder
-          quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z.hotfix.7aa24e772@sha256:cf3dadcfa1fb0324f43958bad1abba986d53c4ecc04d4d50b46c7dcda28bd3cd
+          ackb-ci/minio:9e49d5e7a648
           server /data
       - name: Wait for MinIO
         run: |
@@ -137,8 +139,10 @@ jobs:
       - run: docker compose config --quiet
       - run: bash scripts/production_contract_smoke.sh
       - run: python3 scripts/build_images.py
-      - run: ACKB_CLEAN_STACK_SKIP_BUILD=true bash scripts/clean_stack_smoke.sh
-      - run: bash scripts/production_identity_smoke.sh
+      - name: Build pinned MinIO source for isolated CI
+        run: docker build --tag ackb-ci/minio:9e49d5e7a648 deploy/minio-ci
+      - run: ACKB_CI_MINIO_SOURCE=true ACKB_CLEAN_STACK_SKIP_BUILD=true bash scripts/clean_stack_smoke.sh
+      - run: ACKB_CI_MINIO_SOURCE=true bash scripts/production_identity_smoke.sh
       - run: bash scripts/database_restore_smoke.sh
 
   release-quality-gate:

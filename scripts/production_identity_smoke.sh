@@ -5,12 +5,16 @@ readonly ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly TEMPORARY_DIR="$(mktemp -d)"
 readonly ACKB_SECURITY_PROJECT="ackb-security-${RANDOM}-${RANDOM}"
 readonly ENVIRONMENT_FILE="${TEMPORARY_DIR}/environment"
-readonly -a COMPOSE_ARGUMENTS=(
+COMPOSE_ARGUMENTS=(
   --project-name "$ACKB_SECURITY_PROJECT"
   --env-file "$ENVIRONMENT_FILE"
   --file "$ROOT_DIR/compose.yaml"
   --file "$ROOT_DIR/compose.production.yaml"
 )
+if [[ "${ACKB_CI_MINIO_SOURCE:-false}" == "true" ]]; then
+  COMPOSE_ARGUMENTS+=(--file "$ROOT_DIR/compose.ci.yaml" --file "$ROOT_DIR/compose.ci-identity.yaml")
+fi
+readonly COMPOSE_ARGUMENTS
 
 cleanup() {
   docker compose "${COMPOSE_ARGUMENTS[@]}" down --volumes --remove-orphans >/dev/null 2>&1 || true

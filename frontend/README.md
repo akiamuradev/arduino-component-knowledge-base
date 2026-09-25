@@ -99,6 +99,13 @@ Orange `#FF9D3D`. «Свой цвет» открывает круг оттенк
 
 ## Локальный запуск
 
+Публичный `/license` не требует сессии. Полный юридический текст статически
+встраивается при сборке из `public/LICENCE.txt`: Vite и `scripts/build_images.py`
+проверяют точное совпадение с каноническим `LICENCE` в корне репозитория.
+Существующая release-contract проверка также сохраняется. Разметка делит текст
+только на абзацы и заголовки, не меняя слов, пунктуации и нумерации; исходный
+`/LICENCE.txt` остаётся доступен. Оглавление строится из тех же заголовков.
+
 ```bash
 npm ci
 npm run dev
@@ -142,3 +149,10 @@ production bundle:
 ```bash
 ACKB_UPDATE_SCREENSHOTS=1 npx playwright test e2e/product-ui.spec.ts --grep "captures approved"
 ```
+# Editorial guide
+
+`src/content/editorial-guide.md` is the single canonical card-filling guide.
+Edit that Markdown file directly; do not duplicate its content in JSX or public
+assets. The authenticated `/editor-guide` route renders it with react-markdown,
+GFM tables and prefixed heading anchors (`guide-…`). Raw HTML is disabled.
+The card editor opens the guide in a separate tab without leaving the draft.

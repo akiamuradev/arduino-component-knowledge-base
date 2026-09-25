@@ -20,6 +20,50 @@ REQUIRED_SERVICES = {
 }
 
 
+def test_ci_minio_build_is_pinned_and_shared_by_both_jobs() -> None:
+    workflow = (ROOT / ".github/workflows/quality.yml").read_text()
+    dockerfile = (ROOT / "deploy/minio-ci/Dockerfile").read_text()
+    image = "ackb-ci/minio:9e49d5e7a648"
+    assert workflow.count(f"docker build --tag {image} deploy/minio-ci") == 2
+    assert "quay.io/minio/minio" not in workflow
+    assert "continue-on-error" not in workflow
+    for source, checksum in (
+        (
+            "minio/minio/tar.gz/9e49d5e7a648f00e26f2246f4dc28e6b07f8c84a",
+            "45521908307306e925c98d629e1c17d78c8b72b6ee242b1bfb1409f7d8ee5841",
+        ),
+        (
+            "minio/mc/tar.gz/7394ce0dd2a80935aded936b09fa12cbb3cb8096",
+            "95cd293c7119f16921a6dc515a1fb74a2227f19fd994b9c8b770a154e802ac44",
+        ),
+    ):
+        assert f"https://codeload.github.com/{source}" in dockerfile
+        assert checksum in dockerfile
+    assert dockerfile.count("sha256sum -c -") == 2
+    assert dockerfile.count("go mod verify") == 2
+    assert dockerfile.count("@sha256:") == 2
+    assert ":latest" not in dockerfile
+    assert "GOTOOLCHAIN=local GOFLAGS=-mod=readonly" in dockerfile
+    for filename in ("compose.ci.yaml", "compose.ci-identity.yaml"):
+        override = (ROOT / filename).read_text()
+        assert f"image: {image}" in override
+        assert "pull_policy: never" in override
+
+
+def test_ci_minio_override_is_opt_in_and_preserves_production_contract() -> None:
+    for filename in ("clean_stack_smoke.sh", "production_identity_smoke.sh"):
+        script = (ROOT / "scripts" / filename).read_text()
+        assert 'if [[ "${ACKB_CI_MINIO_SOURCE:-false}" == "true" ]]; then' in script
+        assert '--file "$ROOT_DIR/compose.ci.yaml"' in script
+        assert 'docker compose "${COMPOSE_ARGUMENTS[@]}"' in script
+    identity = (ROOT / "scripts/production_identity_smoke.sh").read_text()
+    assert '--file "$ROOT_DIR/compose.ci-identity.yaml"' in identity
+    for filename in ("compose.yaml", "compose.production.yaml"):
+        production = (ROOT / filename).read_text()
+        assert "ackb-ci/minio" not in production
+        assert "quay.io/minio/minio:" in production
+
+
 def test_required_container_files_exist() -> None:
     paths = (
         ROOT / "Dockerfile",

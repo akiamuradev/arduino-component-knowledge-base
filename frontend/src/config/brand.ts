@@ -7,7 +7,7 @@ export const PRODUCT_BRAND = Object.freeze({
   copyright: "© 2026 akiamuradev",
   licenseName: "GNU GPL v3.0 или новее",
   licenseSpdx: "GPL-3.0-or-later",
-  licenseUrl: "/LICENCE.txt",
+  licenseUrl: "/license",
 });
 
 function environmentValue(value: string | undefined, fallback: string): string {
@@ -16,7 +16,7 @@ function environmentValue(value: string | undefined, fallback: string): string {
 }
 
 export const BUILD_INFO = Object.freeze({
-  version: environmentValue(import.meta.env.VITE_APP_VERSION, "1.7.1"),
+  version: environmentValue(import.meta.env.VITE_APP_VERSION, "1.7.4"),
   commitSha: environmentValue(
     import.meta.env.VITE_COMMIT_SHA,
     "не указан",

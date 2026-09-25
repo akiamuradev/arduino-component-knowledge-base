@@ -3,7 +3,7 @@
   "private": true,
   "license": "GPL-3.0-or-later",
   "author": "akiamuradev",
-  "version": "1.7.1",
+  "version": "1.7.4",
   "type": "module",
   "packageManager": "npm@11.13.0",
   "engines": {
@@ -25,7 +25,10 @@
     "@tanstack/react-query": "5.102.8",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "react-router-dom": "7.18.3"
+    "react-markdown": "10.1.0",
+    "react-router-dom": "7.18.3",
+    "rehype-slug": "6.0.0",
+    "remark-gfm": "4.0.1"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",
