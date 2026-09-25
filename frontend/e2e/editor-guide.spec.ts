@@ -16,10 +16,13 @@ test("editor preview fills its workspace while copy stays readable", async ({ pa
     await page.setViewportSize({ width, height: 900 });
     const preview = page.locator(".component-preview");
     await expect(preview).toBeVisible();
-    const geometry = await preview.evaluate((element) => ({
-      width: element.getBoundingClientRect().width,
-      parentWidth: element.parentElement!.clientWidth,
-    }));
+    const geometry = await preview.evaluate((element) => {
+      if (!element.parentElement) throw new Error("Preview workspace missing");
+      return {
+        width: element.getBoundingClientRect().width,
+        parentWidth: element.parentElement.clientWidth,
+      };
+    });
     expect(geometry.width).toBeCloseTo(geometry.parentWidth, 0);
     await expect(preview.locator(".preview-body p").first()).not.toHaveCSS("max-width", "none");
     await expectNoHorizontalOverflow(page, `editor preview ${String(width)}`);
