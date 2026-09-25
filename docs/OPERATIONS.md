@@ -1,4 +1,4 @@
-# Эксплуатация ACKB 1.0.0
+# Эксплуатация ACKB
 
 Этот документ предназначен для системного администратора ACKB. Он описывает установку,
 обновление, обслуживание и восстановление одной production VM на Ubuntu Server 24.04 LTS.
@@ -89,7 +89,7 @@ history.
 | Сеть | `ACKB_INTERNAL_HOSTNAME`, `ACKB_BIND_ADDRESS` | DNS должен указывать на static IP VM |
 | TLS | `ACKB_EDGE_TLS_CERT_FILE`, `ACKB_EDGE_TLS_KEY_FILE`, `ACKB_MINIO_TLS_CERT_FILE`, `ACKB_MINIO_TLS_KEY_FILE`, `ACKB_CA_BUNDLE_FILE` | Только абсолютные пути; keys имеют mode `0400` или `0600` |
 | Обработка файлов | `ACKB_FFPROBE_TIMEOUT_SECONDS`, `ACKB_FFMPEG_TIMEOUT_SECONDS`, `ACKB_FFMPEG_THREADS`, `ACKB_MEDIA_JOB_MAX_ATTEMPTS`, `ACKB_MEDIA_JOB_LEASE_SECONDS` | Сначала оставить проверенный template baseline |
-| Импорт | `ACKB_IMPORT_JOB_MAX_ATTEMPTS`, `ACKB_IMPORT_LOCK_TTL_SECONDS`, `ACKB_IMPORT_LOCK_WAIT_SECONDS`, `ACKB_IMPORT_PIPELINE_MODE`, `ACKB_IMPORT_PIPELINE_STAGE_TIMEOUT_SECONDS`, `ACKB_IMPORT_PIPELINE_SAFE_RETRY_ATTEMPTS` | Для 1.0.0 authoritative switch не включать; baseline — `disabled` |
+| Импорт | `ACKB_IMPORT_JOB_MAX_ATTEMPTS`, `ACKB_IMPORT_LOCK_TTL_SECONDS`, `ACKB_IMPORT_LOCK_WAIT_SECONDS`, `ACKB_IMPORT_PIPELINE_MODE`, `ACKB_IMPORT_PIPELINE_STAGE_TIMEOUT_SECONDS`, `ACKB_IMPORT_PIPELINE_SAFE_RETRY_ATTEMPTS` | Authoritative switch не включать без отдельных gates; baseline — `disabled` |
 | KiCad shadow index | `ACKB_KICAD_INDEX_ARTIFACT_PATH`, `ACKB_KICAD_INDEX_EXPECTED_REVISION`, `ACKB_KICAD_INDEX_EXPECTED_SHA256` | Нужны только для отдельно принятого shadow mode |
 | Production policy | `ACKB_LOG_LEVEL`, `ACKB_DOCS_ENABLED`, `ACKB_DATABASE_ECHO`, `ACKB_LEGACY_KICAD_CARD_IMPORT_ENABLED`, `ACKB_SESSION_COOKIE_SECURE`, `ACKB_SESSION_TTL_MINUTES` | Не ослаблять значения production template |
 | Remembered login | `ACKB_REMEMBERED_SESSION_TTL_DAYS` | 30 дней по умолчанию, допустимо 1–90; применяется только при отмеченном «Запомнить на этом устройстве» |
@@ -325,8 +325,9 @@ git checkout --detach <approved-new-full-commit-sha>
 git rev-parse HEAD
 ```
 
-5. Обновите только `ACKB_APP_VERSION`, `ACKB_COMMIT_SHA` и `ACKB_BUILD_DATE` в сохранённом
-   `.env.production` для учёта развёртывания; остальные secrets не заменяйте.
+5. Для учёта развёртывания `ACKB_APP_VERSION`, `ACKB_COMMIT_SHA` и `ACKB_BUILD_DATE` в сохранённом
+   `.env.production` берите только из реального checkout и inventory соответствующей сборки,
+   не придумывайте значения и не переносите дату старой сборки. Остальные secrets не заменяйте.
    Эти значения больше не задают версию/SHA/дату на сайте. Wrapper (Python ≥3.11)
    читает версию проекта и Git HEAD из чистого checkout, а frontend фиксирует UTC
    в момент сборки. Без SHA Docker-сборка завершается ошибкой. Выполните preflight.
@@ -423,17 +424,17 @@ $compose ps -a
 $compose logs --since 30m --tail 300 migrate backend worker parser-worker
 ```
 
-2. Если после обновления ещё не было business writes формата 1.0.0 и release notes подтверждают
-   обратимый schema rollback, выполните downgrade кодом новой версии до предыдущего ACKB 0.21.0
-   head:
+2. Если release notes подтверждают отсутствие изменений схемы (как в 1.7.5), downgrade не нужен.
+   При изменении схемы rollback допустим только до записанного pre-upgrade Alembic head,
+   после проверки обратимости каждой миграции и до открытия writers. Не используйте старый
+   фиксированный revision из исторического примера:
 
 ```fish
-$compose run --rm --no-deps migrate alembic downgrade 20260721_16
+$compose run --rm --no-deps migrate alembic downgrade <verified-pre-upgrade-alembic-revision>
 $compose run --rm --no-deps migrate alembic current
 ```
 
-Downgrade ACKB 1.0.0 удаляет новые 1.0.0 tables и поля, включая предложения исправлений,
-editor grant history и новые import/review данные. Не выполняйте его после открытия writers:
+Downgrade может удалить таблицы, поля и данные соответствующих миграций. Не выполняйте его после открытия writers:
 перейдите сразу к восстановлению согласованной pre-upgrade пары. Даже до открытия writers
 downgrade допустим только при наличии проверенного pre-upgrade dump.
 
@@ -444,8 +445,9 @@ git checkout --detach <approved-previous-full-commit-sha>
 git rev-parse HEAD
 ```
 
-4. Верните старые `ACKB_APP_VERSION`, `ACKB_COMMIT_SHA`, `ACKB_BUILD_DATE`, не меняя secrets,
-   выполните preflight, пересоберите и запустите:
+4. Не меняя secrets, сверьте inventory с выбранным checkout, выполните preflight,
+   пересоберите и запустите. Новая сборка старого commit получает новое фактическое время,
+   а не прежний `ACKB_BUILD_DATE`; после запуска проверьте `/build-info.json` и `/health`:
 
 ```fish
 ./scripts/production_preflight.sh .env.production

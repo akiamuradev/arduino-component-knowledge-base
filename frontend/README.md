@@ -21,8 +21,8 @@ React + strict TypeScript приложение на Vite. Оно обращае�
 ## Product UI
 
 - дизайн использует централизованные CSS-токены графитово-бежевой палитры и акцент `#32CD32`;
-- тема хранит только пользовательское предпочтение `ackb-theme`; права и auth state туда не
-  записываются; внешний blocking script применяет тему до старта React;
+- тема и акценты хранят косметические предпочтения в `ackb-ui-preferences` с миграцией
+  старого `ackb-theme`; права и auth state туда не записываются;
 - оформление выбирается одной доступной кнопкой с меню, единым набором SVG-иконок и вариантами
   «Светлое», «Тёмное», «Как на устройстве»; меню поддерживает клавиатурную навигацию;
 - `/about` показывает автора `akiamuradev`, фактическую GNU GPL v3.0 or later License,
@@ -34,10 +34,10 @@ React + strict TypeScript приложение на Vite. Оно обращае�
   permissions из `/auth/me`; на мобильном экране основная навигация остаётся доступной;
 - редакционная навигация разделяет работу с материалами и административные инструменты.
 
-Public catalog API пока не отдаёт связанные media/download URL и provenance. Frontend содержит
-optional typed contracts `CatalogMedia`, `SourceAttribution` и `ContentProvenance`, но не создаёт
-фиктивные production-данные. `MediaGallery` и `SourceAttributionBlock` появляются только при
-наличии metadata. `/sources` намеренно не создан до появления агрегирующего backend endpoint.
+Published catalog API отдаёт metadata медиа и источников из опубликованного снимка.
+`MediaGallery` и `SourceAttributionBlock` появляются при наличии соответствующих данных;
+frontend не создаёт фиктивные production-данные. `/sources` показывает реестр источников,
+включая неактивные, без автоматического разрешения импорта.
 
 ## Editorial workspace contract
 
@@ -56,9 +56,11 @@ optional typed contracts `CatalogMedia`, `SourceAttribution` и `ContentProvenan
 - `POST /api/v1/workspace/components/{id}/publish`;
 - `POST /api/v1/workspace/components/{id}/archive`.
 
-Все mutations включают CSRF; update/publish/archive передают optimistic `revision`.
-`revision_conflict` не ретраится и не перезаписывает локальную форму. Пока FastAPI не
-реализует эти endpoints, dashboard/editor показывают явное состояние ошибки.
+Все mutations включают CSRF. Редактор синхронизируется через
+`POST /api/v1/workspace/components/{id}/sync` с optimistic `edit_token`; переходы workflow
+выполняются через server-owned команды. Конфликт не перезаписывает локальную форму:
+пользователь сверяет изменения с серверной версией. Backend реализует эти endpoints и
+проверяет permissions независимо от frontend guards.
 
 Маршрут `/admin/jobs` дополнительно защищён administrator UX guard и ожидает
 `GET /api/v1/admin/jobs` и CSRF-protected `POST /api/v1/admin/jobs/{id}/retry`. Backend RBAC
