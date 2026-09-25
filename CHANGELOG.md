@@ -13,6 +13,8 @@ All notable changes to this project are documented here. Versions follow semanti
   brand and build metadata width, with unchanged chips and mobile stacking.
 - Preserved responsive behavior, keyboard focus, and local width limits for search,
   authentication forms, legal content and the editorial guide.
+- Refreshed both READMEs with current capabilities, provenance-aware setup commands
+  and the mandatory production verification gate; regenerated deterministic UI screenshots.
 
 ### Compatibility
 

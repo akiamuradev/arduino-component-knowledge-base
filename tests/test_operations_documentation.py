@@ -1,4 +1,4 @@
-"""Static contracts for the ACKB 1.0.0 operator guide."""
+"""Static contracts for the current ACKB operator guide."""
 
 from __future__ import annotations
 
@@ -53,10 +53,11 @@ def test_operator_commands_match_repository_interfaces() -> None:
         "ackb_restore_incident",
         "ackb-reconcile-jobs",
         "git checkout --detach",
-        "20260721_16",
+        "<verified-pre-upgrade-alembic-revision>",
     )
     for token in required_tokens:
         assert token in guide
+    assert "alembic downgrade 20260721_16" not in guide
     for service in (
         "postgres",
         "redis",

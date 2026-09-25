@@ -95,8 +95,10 @@ Production overlay разделяет полномочия автоматиче�
 Запуск и обновление состояния:
 
 ```bash
+python3 scripts/build_images.py --env-file .env.production \
+  -f compose.yaml -f compose.production.yaml
 docker compose --env-file .env.production \
-  -f compose.yaml -f compose.production.yaml up --build -d
+  -f compose.yaml -f compose.production.yaml up --no-build -d
 docker compose --env-file .env.production \
   -f compose.yaml -f compose.production.yaml ps
 ```
@@ -181,15 +183,16 @@ immutable artifact через read-only volume.
 ```fish
 set KICAD_REVISION (git -C /absolute/path/to/kicad-symbols rev-parse HEAD)
 set KICAD_ARTIFACT "index-$KICAD_REVISION.json"
+set ACKB_IMAGE_VERSION (python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
 
-docker compose --env-file .env.production \
-  -f compose.yaml -f compose.production.yaml build backend
+python3 scripts/build_images.py --env-file .env.production \
+  -f compose.yaml -f compose.production.yaml backend
 docker volume create arduino-component-kb_kicad-index-data
 docker run --rm --network none --read-only --user 0:0 \
   --cap-drop ALL --security-opt no-new-privileges \
   --mount type=bind,src=/absolute/path/to/kicad-symbols,dst=/snapshot,readonly \
   --mount type=volume,src=arduino-component-kb_kicad-index-data,dst=/output \
-  arduino-component-kb/backend:1.0.0 \
+  arduino-component-kb/backend:$ACKB_IMAGE_VERSION \
   ackb-build-kicad-index \
   --snapshot-root /snapshot \
   --revision "$KICAD_REVISION" \

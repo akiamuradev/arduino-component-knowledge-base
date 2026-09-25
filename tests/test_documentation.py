@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import tomllib
 
 from scripts.docs_contract import (
     DOCS,
@@ -127,6 +128,42 @@ def test_readme_badges_describe_current_license_stack_and_test_availability() ->
             "Docker Compose",
         ):
             assert f"![{technology}]" in content
+
+
+def test_readmes_share_current_commands_screenshots_and_release_contract() -> None:
+    english = (ROOT / "README.md").read_text(encoding="utf-8")
+    russian = (ROOT / "README.ru.md").read_text(encoding="utf-8")
+    version = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["version"]
+    assert "## Current capabilities" in english
+    assert "## Возможности ACKB" in russian
+    assert re.findall(r"```bash\n(.*?)```", english, re.DOTALL) == re.findall(
+        r"```bash\n(.*?)```", russian, re.DOTALL
+    )
+    screenshots = {
+        f"docs/screenshots/frontend-{theme}-{viewport}.png"
+        for theme in ("light", "dark")
+        for viewport in ("desktop", "mobile")
+    }
+    for content in (english, russian):
+        assert f"**{version}**" in content
+        assert "v1.0.0" not in content
+        assert not re.search(r"compose[^\n]*up[^\n]*--build", content)
+        assert set(re.findall(r"docs/screenshots/[^)]+\.png", content)) == screenshots
+        for token in (
+            "scripts/build_images.py",
+            "up --no-build --detach",
+            "ACKB_UPDATE_SCREENSHOTS=1",
+            "edit tokens",
+            "RGB/HEX",
+            "ZIP/XLSX",
+            "disabled/shadow",
+            "Argon2id",
+            "docs/LEGACY_IMPORTER.md",
+            "full commit SHA",
+            "/build-info.json",
+            "production smoke",
+        ):
+            assert token in content
 
 
 def test_media_limits_are_unambiguous() -> None:

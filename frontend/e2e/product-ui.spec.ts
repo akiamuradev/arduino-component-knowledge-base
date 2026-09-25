@@ -562,19 +562,30 @@ test("editor navigation remains usable at 320px and hides administrator tools", 
 
 test("captures approved responsive theme views", async ({ page }) => {
   test.skip(process.env.ACKB_UPDATE_SCREENSHOTS !== "1", "visual artifacts are updated explicitly");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const capture = async (path: string) => {
+    // Load off-screen institution logos before a full-page capture, without production data.
+    await page.locator(".app-footer, .login-footer").scrollIntoViewIfNeeded();
+    await page.evaluate(() => document.fonts.ready);
+    for (const image of await page.locator("img").all()) {
+      await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.naturalWidth)).toBeGreaterThan(0);
+    }
+    await page.evaluate(() => { window.scrollTo(0, 0); });
+    await page.screenshot({ fullPage: true, animations: "disabled", path });
+  };
   const items = Array.from({ length: 12 }, (_, index) => ({ ...component, id: String(index), slug: `part-${String(index)}` }));
   await mockCatalog(page, editor, items);
   await page.setViewportSize({ width: 1920, height: 1080 });
   await page.goto("/");
   await selectTheme(page, "Светлое");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
-  await page.screenshot({ fullPage: true, path: "../docs/screenshots/frontend-light-desktop.png" });
+  await capture("../docs/screenshots/frontend-light-desktop.png");
   await selectTheme(page, "Тёмное");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await expect(page.getByRole("heading", { name: "Каталог компонентов" })).toBeVisible();
-  await page.screenshot({ fullPage: true, path: "../docs/screenshots/frontend-dark-desktop.png" });
+  await capture("../docs/screenshots/frontend-dark-desktop.png");
 
   await page.unrouteAll({ behavior: "wait" });
   await mockLoggedOut(page);
@@ -582,11 +593,11 @@ test("captures approved responsive theme views", async ({ page }) => {
   await page.goto("/login");
   await selectTheme(page, "Светлое");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
-  await page.screenshot({ fullPage: true, path: "../docs/screenshots/frontend-light-mobile.png" });
+  await capture("../docs/screenshots/frontend-light-mobile.png");
   await selectTheme(page, "Тёмное");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await expect(page.getByRole("heading", { name: "Вход в систему" })).toBeVisible();
-  await page.screenshot({ fullPage: true, path: "../docs/screenshots/frontend-dark-mobile.png" });
+  await capture("../docs/screenshots/frontend-dark-mobile.png");
 });
