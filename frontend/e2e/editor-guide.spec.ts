@@ -3,6 +3,29 @@ import { expectNoAccessibilityViolations, expectNoHorizontalOverflow } from "./s
 
 const student = { id: "10000000-0000-4000-8000-000000000001", login: "student", display_name: "Студент", roles: ["student"], permissions: ["components.view", "components.create", "components.edit"] };
 
+test("editor preview fills its workspace while copy stays readable", async ({ page }) => {
+  await page.route("**/api/v1/**", (route) => {
+    const path = new URL(route.request().url()).pathname;
+    return route.fulfill({ json: path.endsWith("/auth/me") ? student
+      : path.endsWith("/workspace/categories") ? [{ id: "20000000-0000-4000-8000-000000000001", slug: "sensors", name: "Датчики" }] : [] });
+  });
+  await page.goto("/admin/components/new");
+  await page.getByRole("textbox", { name: "Название", exact: true }).fill("Датчик — предпросмотр");
+  await page.getByRole("tab", { name: /Предпросмотр/ }).click();
+  for (const width of [2560, 1920, 1440, 1024, 768, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    const preview = page.locator(".component-preview");
+    await expect(preview).toBeVisible();
+    const geometry = await preview.evaluate((element) => ({
+      width: element.getBoundingClientRect().width,
+      parentWidth: element.parentElement!.clientWidth,
+    }));
+    expect(geometry.width).toBeCloseTo(geometry.parentWidth, 0);
+    await expect(preview.locator(".preview-body p").first()).not.toHaveCSS("max-width", "none");
+    await expectNoHorizontalOverflow(page, `editor preview ${String(width)}`);
+  }
+});
+
 test("the editorial guide is not public", async ({ page }) => {
   await page.route("**/api/v1/auth/me", (route) => route.fulfill({ status: 401, json: { detail: { code: "authentication_required" } } }));
   await page.goto("/editor-guide");

@@ -298,14 +298,18 @@ test("inactive source cards keep names, badges and facts inside responsive colum
   await expectNoAccessibilityViolations(page, "inactive sources dark mobile");
 });
 
-test("catalog uses a wide desktop workspace without changing other page widths", async ({ page }) => {
+test("catalog and application pages use the full desktop workspace", async ({ page }) => {
   const items = Array.from({ length: 18 }, (_, index) => ({ ...component, id: String(index), slug: `part-${String(index)}` }));
   await mockCatalog(page, editor, items);
   for (const [width, height] of [[1366, 768], [1440, 900], [1920, 1080], [2560, 1440], [1100, 900], [1024, 900], [768, 900], [360, 800], [320, 800]]) {
     await page.setViewportSize({ width, height });
     await page.goto("/");
     await expect(page.getByRole("heading", { name: "Каталог компонентов", exact: true })).toBeVisible();
-    expect(await page.locator("main").evaluate((main) => main.getBoundingClientRect().width)).toBe(Math.min(width, 2000));
+    expect(await page.locator("main").evaluate((main) => main.getBoundingClientRect().width)).toBe(width);
+    if (width >= 1366) {
+      const gutter = await page.locator("main").evaluate((main) => parseFloat(getComputedStyle(main).paddingLeft));
+      expect(gutter).toBeCloseTo(width * 0.02, 1);
+    }
     await expect(page.getByRole("searchbox")).toHaveCount(1);
     await expect(page.getByRole("link", { name: /Добавить компонент/ })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -320,7 +324,31 @@ test("catalog uses a wide desktop workspace without changing other page widths",
   }
   await page.goto("/about");
   await expect(page.locator("main")).not.toHaveClass(/page--catalog/);
-  expect(await page.locator("main").evaluate((main) => main.getBoundingClientRect().width)).toBeLessThanOrEqual(1440);
+  await page.setViewportSize({ width: 2560, height: 1440 });
+  expect(await page.locator("main").evaluate((main) => main.getBoundingClientRect().width)).toBe(2560);
+});
+
+test("detail and dashboard retain full width and natural heading actions", async ({ page }) => {
+  await mockCatalog(page, editor);
+  for (const width of [2560, 1920, 1440, 1366, 1024, 768, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/components/dht22");
+    await expect(page.locator(".student-card")).toBeVisible();
+    const card = await page.locator(".student-card").boundingBox();
+    expect(card?.width).toBeGreaterThan(width * 0.9);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.goto("/admin");
+    const heading = page.locator(".admin-dashboard-heading");
+    const button = heading.getByRole("link", { name: "Новая карточка" });
+    await expect(button).toBeVisible();
+    const bounds = await heading.boundingBox();
+    const action = await button.boundingBox();
+    const title = await heading.locator("h2").boundingBox();
+    if (!bounds || !action || !title) throw new Error("Dashboard heading missing");
+    expect(Math.abs(action.x + action.width - bounds.x - bounds.width)).toBeLessThan(1);
+    expect(action.x >= title.x + title.width || action.y >= title.y + title.height).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
 });
 
 test("compact hardware intro responds to a pointer and respects reduced motion", async ({ page }) => {
