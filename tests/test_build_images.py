@@ -16,7 +16,7 @@ def test_release_builder_uses_project_version_and_actual_head(
     root = Path(__file__).resolve().parents[1]
     with patch("scripts.build_images.subprocess.check_output", side_effect=["", "a" * 40]):
         env = build_environment(root)
-    assert env["ACKB_APP_VERSION"] == "1.7.4"
+    assert env["ACKB_APP_VERSION"] == "1.7.5"
     assert env["ACKB_BUILD_GIT_SHA"] == "a" * 40
 
 
