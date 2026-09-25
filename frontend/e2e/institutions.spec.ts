@@ -6,7 +6,7 @@ test("footer is compact without resizing institution chips or losing content", a
   const footer = page.locator("footer");
   // The three-column layout keeps a strict height budget, but not a machine-specific text height.
   for (const [width, maxHeight, chipHeight] of [
-    [1440, 145, 74], [768, 205, 74], [390, 395, 90], [320, 415, 90],
+    [2560, 145, 74], [1920, 145, 74], [1440, 145, 74], [1024, 205, 74], [768, 205, 74], [390, 395, 90], [320, 415, 90],
   ]) {
     await page.setViewportSize({ width, height: 900 });
     for (const theme of ["Светлое", "Тёмное"]) {
@@ -33,6 +33,7 @@ test("footer is compact without resizing institution chips or losing content", a
       const institutions = await footer.locator(".institutions").boundingBox();
       const services = await footer.locator(".app-footer__services").boundingBox();
       if (!brand || !institutions || !services) throw new Error("Footer columns missing");
+      expect(Math.abs(institutions.x + institutions.width / 2 - width / 2)).toBeLessThan(1);
       if (width >= 768) {
         expect(brand.x + brand.width).toBeLessThanOrEqual(institutions.x);
         expect(institutions.x + institutions.width).toBeLessThanOrEqual(services.x);
@@ -54,6 +55,19 @@ test("footer is compact without resizing institution chips or losing content", a
       await expectNoHorizontalOverflow(page, `compact footer ${String(width)} ${theme}`);
       await expectNoAccessibilityViolations(page, `compact footer ${String(width)} ${theme}`);
     }
+  }
+});
+
+test("long build metadata cannot move the footer center", async ({ page }) => {
+  await page.goto("/license");
+  await page.locator("footer .build-info").evaluate((element) => {
+    element.textContent = "v1.7.5 · " + "a".repeat(40) + " · 2026-09-25T12:00:00Z";
+  });
+  for (const width of [2560, 1920, 1440, 1024, 768, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    const center = await page.locator("footer .institutions").boundingBox();
+    expect(Math.abs((center?.x ?? 0) + (center?.width ?? 0) / 2 - width / 2)).toBeLessThan(1);
+    await expectNoHorizontalOverflow(page, `long footer metadata ${String(width)}`);
   }
 });
 
