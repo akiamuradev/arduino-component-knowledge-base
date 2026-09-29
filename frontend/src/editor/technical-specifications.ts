@@ -39,6 +39,9 @@ export function specificationKey(label: string): string {
   const normalized = label.normalize("NFKD").toLocaleLowerCase("ru-RU").trim()
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[а-яё]/g, (character) => CYRILLIC_TRANSLITERATION[character] ?? "")
+    .replace(/-(?=\s*$)/g, "-minus-")
+    .replace(/\+/g, "-plus-")
+    .replace(/[−﹣－]/g, "-minus-")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
   if (normalized === "") return `spec-${stableHash(label.normalize("NFKC").trim())}`;
@@ -55,8 +58,8 @@ export function numericSpecificationMetadata(
   value: string,
 ): NumericSpecificationMetadata | null {
   const normalized = value.trim().replace(/\s+/g, " ");
-  const match = /^([+-]?\d{1,16}(?:[.,]\d{1,8})?)\s+([^\s]{1,32})$/u.exec(normalized);
-  if (match === null) return null;
+  const match = /^([+-]?\d{1,16}(?:[.,]\d{1,8})?)\s*([\p{L}%°Ωµμ][\p{L}%°Ωµμ/²³^0-9.-]{0,31})$/u.exec(normalized);
+  if (match === null || /[xх]\s*\d/iu.test(match[2] ?? "")) return null;
   const valueNumber = match[1];
   const unit = match[2];
   if (valueNumber === undefined || unit === undefined || !/[\p{L}%°Ωµμ]/u.test(unit)) {

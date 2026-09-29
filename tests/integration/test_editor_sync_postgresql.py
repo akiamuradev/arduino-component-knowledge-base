@@ -328,12 +328,6 @@ async def exercise_diagnostics(database: Database, base: DraftData, actor_id: UU
     for index, replacement, code, field in (
         (0, replace(converted[0], value_text="4 мс", unit="мс"), "incompatible_unit", "value_text"),
         (
-            2,
-            replace(converted[2], value_text="80 / 160 МГц", value_number=None, unit=None),
-            "expected_numeric_value",
-            "value_text",
-        ),
-        (
             0,
             replace(converted[0], label="Conflicting label"),
             "specification_definition_conflict",
@@ -381,6 +375,37 @@ async def exercise_diagnostics(database: Database, base: DraftData, actor_id: UU
         detail: object = public.detail
         assert isinstance(detail, dict)
         assert detail["issues"] == [{"path": ["slug"], "code": "slug_already_exists", "meta": {}}]
+
+    # A third card may use text for a previously numeric definition. Reload both
+    # cards to ensure their values survive and text does not inherit numeric units.
+    async with database.sessions() as session:
+        service = CatalogService(session)
+        mixed = await service.create(
+            replace(
+                base,
+                slug="diagnostic-mixed",
+                specifications=(
+                    replace(original[1], value_text="2.5–3.6 V", value_number=None, unit=None),
+                ),
+            ),
+            actor_id,
+        )
+        await session.commit()
+        mixed_id = mixed.id
+    async with database.sessions() as session:
+        service = CatalogService(session)
+        textual = (await service.get_card(mixed_id)).data.specifications[0]
+        assert textual.value_text == "2.5–3.6 V"
+        assert textual.value_number is None
+        assert textual.unit is None
+        numeric = (await service.get_card(second_id)).data.specifications[1]
+        assert numeric.value_text == "5000 мВ"
+        assert Decimal(numeric.value_number or "0") == Decimal(5)
+        assert numeric.unit == "В"
+        definition = await session.scalar(
+            select(PropertyDefinition).where(PropertyDefinition.key == original[1].key)
+        )
+        assert definition is not None and definition.value_type == "mixed"
 
 
 def test_editor_sync_disposable_postgresql(

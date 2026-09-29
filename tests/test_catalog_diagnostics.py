@@ -15,7 +15,12 @@ from starlette.exceptions import HTTPException
 
 from arduino_component_kb.api.catalog import DraftRequest, _error
 from arduino_component_kb.catalog.domain import CatalogValidationError, TechnicalSpecification
-from arduino_component_kb.catalog.models import ComponentProperty, PropertyDefinition, Unit
+from arduino_component_kb.catalog.models import (
+    Component,
+    ComponentProperty,
+    PropertyDefinition,
+    Unit,
+)
 from arduino_component_kb.catalog.service import CatalogService
 from arduino_component_kb.catalog.units import (
     convert_numeric_value,
@@ -128,8 +133,6 @@ async def test_existing_definition_keeps_unit_and_converts_metadata(
     ("value_type", "human", "number", "unit", "code"),
     [
         ("number", "4 мс", "4", "мс", "incompatible_unit"),
-        ("number", "80 / 160 МГц", None, None, "expected_numeric_value"),
-        ("text", "4 КБ", "4", "КБ", "expected_text_value"),
         ("number", "0.00000001 Б", "0.00000001", "Б", "numeric_value_out_of_range"),
     ],
 )
@@ -279,3 +282,108 @@ async def test_invalid_category_has_an_actionable_code() -> None:
     session.get = AsyncMock(return_value=None)
     with pytest.raises(CatalogValidationError, match="category_unavailable"):
         await service.create_category("valid", "Name", uuid4(), None, 0)
+
+
+@pytest.mark.parametrize("initial_type", ["text", "number", "mixed"])
+@pytest.mark.parametrize("canonical_symbol", [None, "В"])
+async def test_mixed_definitions_preserve_values_and_numeric_units(
+    initial_type: str,
+    canonical_symbol: str | None,
+) -> None:
+    session = Mock(spec=AsyncSession)
+    canonical = Unit(id=uuid4(), key="voltage", symbol="В", name="В")
+    definition = PropertyDefinition(
+        id=uuid4(),
+        key="power",
+        label="Питание",
+        value_type=initial_type,
+        unit_id=canonical.id if canonical_symbol else None,
+        is_multivalue=False,
+    )
+    service = CatalogService(cast(AsyncSession, session))
+    session.scalar = AsyncMock(return_value=definition)
+    session.get = AsyncMock(return_value=canonical)
+    if initial_type == "text" and canonical_symbol is None:
+        session.scalar = AsyncMock(side_effect=[definition, canonical, definition, definition])
+    draft = DraftRequest(
+        slug="mixed",
+        title="Mixed",
+        primary_category_id=uuid4(),
+        summary="",
+        description="",
+        difficulty="beginner",
+        manual_original=True,
+    ).domain()
+    # Unitless numeric definitions remain unitless, including after becoming mixed.
+    unitless = canonical_symbol is None and initial_type != "text"
+    numeric = TechnicalSpecification(
+        "power",
+        "Питание",
+        "3300mV" if not unitless else "3300",
+        "3300",
+        "mV" if not unitless else None,
+        0,
+    )
+    textual = TechnicalSpecification("power", "Питание", "2.5–3.6 V", None, None, 0)
+    items = (numeric, textual, numeric) if initial_type == "text" else (textual, numeric, textual)
+    for item in items:
+        await service._replace_technical(uuid4(), replace(draft, specifications=(item,)))
+    stored = [
+        call.args[0]
+        for call in session.add.call_args_list
+        if isinstance(call.args[0], ComponentProperty)
+    ]
+    assert definition.value_type == "mixed"
+    assert [row.value_text for row in stored] == [item.value_text for item in items]
+    assert [row.value_number for row in stored] == [
+        None if item.value_number is None else Decimal("3300" if unitless else "3.3")
+        for item in items
+    ]
+    assert all(row.definition_id == definition.id for row in stored)
+    assert definition.unit_id == (None if unitless else canonical.id)
+
+
+async def test_mixed_definition_still_rejects_incompatible_numeric_units() -> None:
+    await test_definition_errors_target_value_at_payload_index(
+        "mixed",
+        "4 мс",
+        "4",
+        "мс",
+        "incompatible_unit",
+    )
+
+
+async def test_mixed_card_read_does_not_append_canonical_unit_to_text() -> None:
+    session = Mock(spec=AsyncSession)
+    component = Component(
+        id=uuid4(),
+        slug="mixed",
+        title="Mixed",
+        difficulty="beginner",
+        primary_category_id=uuid4(),
+        summary="",
+        description="",
+        manual_original=True,
+    )
+    unit = Unit(id=uuid4(), key="voltage", symbol="В", name="В")
+    definition = PropertyDefinition(
+        id=uuid4(),
+        key="power",
+        label="Питание",
+        value_type="mixed",
+        unit_id=unit.id,
+        is_multivalue=False,
+    )
+    row = ComponentProperty(
+        id=uuid4(),
+        component_id=component.id,
+        definition_id=definition.id,
+        value_text="2.5–3.6 V",
+        value_number=None,
+        position=0,
+    )
+    session.execute = AsyncMock(side_effect=[[], [], [(row, definition, unit)], [], []])
+    loaded = await CatalogService(cast(AsyncSession, session))._data(component)
+    assert loaded.specifications[0].value_text == row.value_text
+    assert loaded.specifications[0].value_number is None
+    assert loaded.specifications[0].unit is None
