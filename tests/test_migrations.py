@@ -19,7 +19,7 @@ def alembic_config() -> Config:
 
 def test_alembic_has_one_backend_head() -> None:
     scripts = ScriptDirectory.from_config(alembic_config())
-    assert scripts.get_heads() == ["20260911_31"]
+    assert scripts.get_heads() == ["20260929_32"]
 
 
 def test_alembic_upgrade_renders_offline_postgresql_sql(
@@ -399,3 +399,26 @@ def test_runtime_has_no_create_all_escape_hatch() -> None:
     ]
     runtime_source = "\n".join(path.read_text(encoding="utf-8") for path in source_files)
     assert ".create_all(" not in runtime_source
+
+
+@pytest.mark.parametrize("downgrade", [False, True])
+def test_mixed_property_migration_only_changes_type_constraint(
+    monkeypatch: MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    downgrade: bool,
+) -> None:
+    monkeypatch.setenv(
+        "ACKB_DATABASE_URL",
+        "postgresql+asyncpg://ackb:placeholder@localhost:5432/ackb",
+    )
+    if downgrade:
+        command.downgrade(alembic_config(), "20260929_32:20260911_31", sql=True)
+    else:
+        command.upgrade(alembic_config(), "20260911_31:20260929_32", sql=True)
+    sql = capsys.readouterr().out
+    assert "DROP CONSTRAINT ck_property_definitions_type" in sql
+    expected = "('text','number','boolean')" if downgrade else "('text','number','boolean','mixed')"
+    assert f"CHECK (value_type IN {expected})" in sql
+    assert "UPDATE property_definitions" not in sql
+    assert "DELETE FROM" not in sql
+    assert "DROP TABLE" not in sql

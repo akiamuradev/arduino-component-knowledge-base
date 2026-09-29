@@ -19,8 +19,9 @@ All notable changes to this project are documented here. Versions follow semanti
   use platform-aware test paths, and launch npm audit through its Node entry point.
 - Cover image storage download/upload failures with retry and terminal audit tests.
 
-No schema migration is required; existing nullable numeric values and the string
-property type support mixed definitions. No deployment is included.
+Migration `20260929_32` extends the property type check constraint to allow `mixed`
+without rewriting stored values. Apply `alembic upgrade head` before using 1.7.6.
+Downgrade is rejected while mixed definitions exist, preserving their data.
 
 ## [1.7.5] - 2026-09-25
 
