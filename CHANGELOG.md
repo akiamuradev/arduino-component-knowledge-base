@@ -15,6 +15,10 @@ All notable changes to this project are documented here. Versions follow semanti
 - Keep release versions synchronized at 1.7.6. Website metadata continues to use
   the full actual Git HEAD and the current UTC build time, never fixed overrides.
 
+- Make local checks portable to Windows: pin byte-sensitive parser fixtures to LF,
+  use platform-aware test paths, and launch npm audit through its Node entry point.
+- Cover image storage download/upload failures with retry and terminal audit tests.
+
 No schema migration is required; existing nullable numeric values and the string
 property type support mixed definitions. No deployment is included.
 

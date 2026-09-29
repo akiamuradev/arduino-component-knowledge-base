@@ -1,0 +1,4 @@
+# Byte-level parser fixtures must be identical across Windows and Linux checkouts.
+tests/fixtures/**/*.md text eol=lf
+tests/fixtures/**/*.mdx text eol=lf
+tests/fixtures/**/*.kicad_sym text eol=lf
