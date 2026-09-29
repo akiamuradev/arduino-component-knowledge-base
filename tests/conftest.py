@@ -36,6 +36,9 @@ def isolated_auth_settings(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setenv("ACKB_MINIO_ACCESS_KEY", "test-access")
     monkeypatch.setenv("ACKB_MINIO_SECRET_KEY", "test-secret-placeholder")
     monkeypatch.setenv("ACKB_MINIO_SECURE", "false")
+    monkeypatch.setenv(
+        "ACKB_KICAD_INDEX_ARTIFACT_PATH", str(Path(__file__).resolve().parent / "index.json")
+    )
 
 
 @pytest.fixture
