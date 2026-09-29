@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented here. Versions follow semantic versioning.
 
+## [1.7.6] - 2026-09-29
+
+### Fixed
+
+- Preserve polarity in generated technical specification keys: USB D+ and USB D−
+  no longer collide. Existing saved keys remain unchanged.
+- Recognize compact numeric units (20mA, 3.3V, 16MHz) as well as spaced values;
+  ranges and compound dimensions remain text.
+- Allow shared property definitions to become mixed when cards use both text and
+  numbers. Preserve stored values and canonical numeric unit conversion.
+- Keep release versions synchronized at 1.7.6. Website metadata continues to use
+  the full actual Git HEAD and the current UTC build time, never fixed overrides.
+
+No schema migration is required; existing nullable numeric values and the string
+property type support mixed definitions. No deployment is included.
+
 ## [1.7.5] - 2026-09-25
 
 ### Changed
