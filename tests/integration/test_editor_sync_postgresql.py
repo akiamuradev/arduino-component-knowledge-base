@@ -328,12 +328,6 @@ async def exercise_diagnostics(database: Database, base: DraftData, actor_id: UU
     for index, replacement, code, field in (
         (0, replace(converted[0], value_text="4 мс", unit="мс"), "incompatible_unit", "value_text"),
         (
-            2,
-            replace(converted[2], value_text="80 / 160 МГц", value_number=None, unit=None),
-            "expected_numeric_value",
-            "value_text",
-        ),
-        (
             0,
             replace(converted[0], label="Conflicting label"),
             "specification_definition_conflict",
@@ -382,6 +376,37 @@ async def exercise_diagnostics(database: Database, base: DraftData, actor_id: UU
         assert isinstance(detail, dict)
         assert detail["issues"] == [{"path": ["slug"], "code": "slug_already_exists", "meta": {}}]
 
+    # A third card may use text for a previously numeric definition. Reload both
+    # cards to ensure their values survive and text does not inherit numeric units.
+    async with database.sessions() as session:
+        service = CatalogService(session)
+        mixed = await service.create(
+            replace(
+                base,
+                slug="diagnostic-mixed",
+                specifications=(
+                    replace(original[1], value_text="2.5–3.6 V", value_number=None, unit=None),
+                ),
+            ),
+            actor_id,
+        )
+        await session.commit()
+        mixed_id = mixed.id
+    async with database.sessions() as session:
+        service = CatalogService(session)
+        textual = (await service.get_card(mixed_id)).data.specifications[0]
+        assert textual.value_text == "2.5–3.6 V"
+        assert textual.value_number is None
+        assert textual.unit is None
+        numeric = (await service.get_card(second_id)).data.specifications[1]
+        assert numeric.value_text == "5000 мВ"
+        assert Decimal(numeric.value_number or "0") == Decimal(5)
+        assert numeric.unit == "В"
+        definition = await session.scalar(
+            select(PropertyDefinition).where(PropertyDefinition.key == original[1].key)
+        )
+        assert definition is not None and definition.value_type == "mixed"
+
 
 def test_editor_sync_disposable_postgresql(
     integration_settings: Settings, monkeypatch: MonkeyPatch
@@ -395,5 +420,87 @@ def test_editor_sync_disposable_postgresql(
             environment.setenv("ACKB_DATABASE_URL", url)
             command.upgrade(Config("alembic.ini"), "head")
         asyncio.run(exercise(integration_settings.model_copy(update={"database_url": url})))
+    finally:
+        asyncio.run(database_command(base, name, drop=True))
+
+
+async def mixed_migration_data(url: str, *, seed: bool = False, mixed: bool = False) -> None:
+    engine = create_async_engine(url)
+    try:
+        async with engine.begin() as connection:
+            if seed:
+                for value_type in ("text", "number", "boolean"):
+                    await connection.execute(
+                        text(
+                            "INSERT INTO property_definitions "
+                            "(id, key, label, value_type, is_multivalue) "
+                            "VALUES (:id, :key, :label, :type, false)"
+                        ),
+                        {
+                            "id": uuid4(),
+                            "key": f"migration-{value_type}",
+                            "label": value_type,
+                            "type": value_type,
+                        },
+                    )
+            rows = (
+                await connection.execute(
+                    text(
+                        "SELECT key, label, value_type, unit_id, is_multivalue "
+                        "FROM property_definitions WHERE key LIKE 'migration-%' ORDER BY key"
+                    )
+                )
+            ).all()
+            assert [tuple(row) for row in rows] == [
+                (
+                    f"migration-{kind}",
+                    kind,
+                    "mixed" if mixed and kind == "text" else kind,
+                    None,
+                    False,
+                )
+                for kind in ("boolean", "number", "text")
+            ]
+    finally:
+        await engine.dispose()
+
+
+async def mark_migration_definition_mixed(url: str) -> None:
+    engine = create_async_engine(url)
+    try:
+        async with engine.begin() as connection:
+            await connection.execute(
+                text(
+                    "UPDATE property_definitions SET value_type = 'mixed' "
+                    "WHERE key = 'migration-text'"
+                )
+            )
+    finally:
+        await engine.dispose()
+
+
+def test_mixed_property_upgrade_preserves_existing_definitions(
+    integration_settings: Settings,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    base = make_url(integration_settings.database_url)
+    name = f"ackb_editor_test_{uuid4().hex[:12]}"
+    url = base.set(database=name).render_as_string(hide_password=False)
+    asyncio.run(database_command(base, name))
+    try:
+        with monkeypatch.context() as environment:
+            environment.setenv("ACKB_DATABASE_URL", url)
+            config = Config("alembic.ini")
+            command.upgrade(config, "20260911_31")
+            asyncio.run(mixed_migration_data(url, seed=True))
+            command.upgrade(config, "head")
+            asyncio.run(mixed_migration_data(url))
+            command.downgrade(config, "20260911_31")
+            asyncio.run(mixed_migration_data(url))
+            command.upgrade(config, "head")
+            asyncio.run(mark_migration_definition_mixed(url))
+            with pytest.raises(IntegrityError, match="ck_property_definitions_type"):
+                command.downgrade(config, "20260911_31")
+            asyncio.run(mixed_migration_data(url, mixed=True))
     finally:
         asyncio.run(database_command(base, name, drop=True))

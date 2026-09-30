@@ -1249,7 +1249,9 @@ class CatalogService:
         )
         for position, item in enumerate(data.specifications):
             definition = await self.session.scalar(
-                select(PropertyDefinition).where(PropertyDefinition.key == item.key)
+                select(PropertyDefinition)
+                .where(PropertyDefinition.key == item.key)
+                .with_for_update()
             )
             value_type = "number" if item.value_number is not None else "text"
             number = Decimal(item.value_number) if item.value_number is not None else None
@@ -1276,28 +1278,28 @@ class CatalogService:
                 if definition.label != item.label.strip() or definition.value_type not in {
                     "number",
                     "text",
+                    "mixed",
                 }:
                     raise CatalogValidationError.field(
                         ["specifications", position, "label"],
                         "specification_definition_conflict",
                         label=item.label,
                     )
-                if definition.value_type != value_type:
-                    raise CatalogValidationError.field(
-                        path,
-                        "expected_numeric_value"
-                        if definition.value_type == "number"
-                        else "expected_text_value",
-                        label=item.label,
-                        expected_unit=expected,
-                    )
                 if number is not None:
+                    # Only the first numeric value establishes numeric units. Text
+                    # without a unit must not lock later cards into unitless numbers.
+                    if definition.value_type == "text" and canonical is None:
+                        canonical = await self._unit(item.unit)
+                        definition.unit_id = canonical.id if canonical else None
+                        expected = canonical.symbol if canonical else None
                     number = convert_numeric_value(number, item.unit, expected)
                     incompatible = number is None
                 else:
-                    incompatible = normalize_unit_symbol(item.unit or "") != normalize_unit_symbol(
-                        expected or ""
-                    )
+                    # Ranges and dimensions are self-contained display text, not
+                    # numeric metadata constrained by another card's canonical unit.
+                    incompatible = False
+                if definition.value_type != value_type:
+                    definition.value_type = "mixed"
                 if incompatible:
                     raise CatalogValidationError.field(
                         path,
@@ -1446,7 +1448,14 @@ class CatalogService:
                         if property_row.value_number is not None
                         else None
                     ),
-                    unit=unit.symbol if unit is not None else None,
+                    unit=(
+                        unit.symbol
+                        if unit is not None
+                        and (
+                            property_row.value_number is not None or definition.value_type == "text"
+                        )
+                        else None
+                    ),
                     position=property_row.position,
                 )
             )

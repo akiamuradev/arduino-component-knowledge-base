@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parents[1]
 REQUIRED_SERVICES = {
@@ -142,7 +142,7 @@ def test_compose_isolates_data_and_media_processing_from_parser_egress() -> None
 def test_media_worker_has_a_bounded_runtime_profile() -> None:
     compose = (ROOT / "compose.yaml").read_text(encoding="utf-8")
     worker = compose.split("  worker:", 1)[1].split("\n  parser-worker:", 1)[0]
-    tmp_mount = f"{Path('/').joinpath('tmp')}:rw,noexec,nosuid,nodev,size=1g,mode=1777"
+    tmp_mount = f"{PurePosixPath('/').joinpath('tmp')}:rw,noexec,nosuid,nodev,size=1g,mode=1777"
     for control in (
         "read_only: true",
         "no-new-privileges:true",
@@ -246,7 +246,7 @@ def test_clean_stack_smoke_is_isolated_and_checks_empty_application_startup() ->
     assert "up_arguments=(--no-build --detach --wait)" in script
     assert 'python3 "$ROOT_DIR/scripts/build_images.py"' in script
     assert "up_arguments+=(--build)" not in script
-    assert "0|0|0|0|20260911_31" in script
+    assert "0|0|0|0|20260929_32" in script
     for endpoint in ("/health", "/ready", "/"):
         assert f"${{base_url}}{endpoint}" in script
     assert "--volumes --remove-orphans" in script

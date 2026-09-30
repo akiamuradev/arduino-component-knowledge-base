@@ -188,6 +188,12 @@ class Unit(Base):
 
 class PropertyDefinition(Base):
     __tablename__ = "property_definitions"
+    __table_args__ = (
+        CheckConstraint(
+            "value_type IN ('text','number','boolean','mixed')",
+            name="ck_property_definitions_type",
+        ),
+    )
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
     key: Mapped[str] = mapped_column(String(100), unique=True)
     label: Mapped[str] = mapped_column(String(160))
