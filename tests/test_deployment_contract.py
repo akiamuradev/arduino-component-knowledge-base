@@ -246,7 +246,7 @@ def test_clean_stack_smoke_is_isolated_and_checks_empty_application_startup() ->
     assert "up_arguments=(--no-build --detach --wait)" in script
     assert 'python3 "$ROOT_DIR/scripts/build_images.py"' in script
     assert "up_arguments+=(--build)" not in script
-    assert "0|0|0|0|20260911_31" in script
+    assert "0|0|0|0|20260929_32" in script
     for endpoint in ("/health", "/ready", "/"):
         assert f"${{base_url}}{endpoint}" in script
     assert "--volumes --remove-orphans" in script
