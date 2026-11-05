@@ -16,15 +16,18 @@ const severityRank = {
   high: 3,
   critical: 4,
 };
-const npm = process.platform === "win32" ? "npm.cmd" : "npm";
-const result = spawnSync(npm, ["audit", "--json"], {
-  encoding: "utf8",
-  maxBuffer: 16 * 1024 * 1024,
-});
+// npm supplies its JavaScript entry point to scripts. Invoking it through Node
+// also works on Windows, where spawnSync cannot execute a .cmd file directly.
+const npmCli = process.env.npm_execpath;
+const result = spawnSync(
+  npmCli === undefined ? "npm" : process.execPath,
+  npmCli === undefined ? ["audit", "--json"] : [npmCli, "audit", "--json"],
+  { encoding: "utf8", maxBuffer: 16 * 1024 * 1024 },
+);
 
-if (result.error !== undefined || result.stdout.trim() === "") {
-  warn("npm audit could not produce a report.");
-  if (result.stderr.trim() !== "") warn(result.stderr.trim());
+if (result.error !== undefined || (result.stdout ?? "").trim() === "") {
+  warn("npm audit could not produce a report. Run this check with npm run audit.");
+  if ((result.stderr ?? "").trim() !== "") warn(result.stderr.trim());
   process.exit(1);
 }
 

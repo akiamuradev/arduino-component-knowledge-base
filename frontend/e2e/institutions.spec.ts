@@ -61,7 +61,7 @@ test("footer is compact without resizing institution chips or losing content", a
 test("long build metadata cannot move the footer center", async ({ page }) => {
   await page.goto("/license");
   await page.locator("footer .build-info").evaluate((element) => {
-    element.textContent = "v1.7.5 · " + "a".repeat(40) + " · 2026-09-25T12:00:00Z";
+    element.textContent = "v1.7.6 · " + "a".repeat(40) + " · 2026-09-25T12:00:00Z";
   });
   for (const width of [2560, 1920, 1440, 1024, 768, 390]) {
     await page.setViewportSize({ width, height: 900 });

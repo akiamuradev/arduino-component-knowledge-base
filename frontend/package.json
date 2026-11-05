@@ -3,7 +3,7 @@
   "private": true,
   "license": "GPL-3.0-or-later",
   "author": "akiamuradev",
-  "version": "1.7.5",
+  "version": "1.7.6",
   "type": "module",
   "packageManager": "npm@11.13.0",
   "engines": {
@@ -47,7 +47,7 @@
     "jsdom": "30.0.1",
     "typescript": "6.0.3",
     "typescript-eslint": "8.68.0",
-    "vite": "8.2.2",
-    "vitest": "4.1.11"
+    "vite": "8.3.6",
+    "vitest": "4.1.12"
   }
 }
