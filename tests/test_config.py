@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from pydantic import SecretStr, ValidationError
 
@@ -239,7 +241,7 @@ def test_legacy_kicad_card_import_can_be_disabled() -> None:
         _adapter(settings, "kicad_symbols")
 
 
-def test_shadow_mode_requires_a_pinned_kicad_index() -> None:
+def test_shadow_mode_requires_a_pinned_kicad_index(tmp_path: Path) -> None:
     with pytest.raises(ValidationError, match="pinned KiCad index"):
         Settings(
             _env_file=None,
@@ -253,7 +255,7 @@ def test_shadow_mode_requires_a_pinned_kicad_index() -> None:
         environment="test",
         database_url="postgresql+asyncpg://ackb:placeholder@localhost/ackb",
         import_pipeline_mode="shadow",
-        kicad_index_artifact_path="/var/lib/ackb/kicad/index.json",
+        kicad_index_artifact_path=tmp_path / "index.json",
         kicad_index_expected_revision="B" * 40,
         kicad_index_expected_sha256="C" * 64,
     )

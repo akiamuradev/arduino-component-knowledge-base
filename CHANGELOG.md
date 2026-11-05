@@ -2,6 +2,27 @@
 
 All notable changes to this project are documented here. Versions follow semantic versioning.
 
+## [1.7.6] - 2026-09-29
+
+### Fixed
+
+- Preserve polarity in generated technical specification keys: USB D+ and USB D−
+  no longer collide. Existing saved keys remain unchanged.
+- Recognize compact numeric units (20mA, 3.3V, 16MHz) as well as spaced values;
+  ranges and compound dimensions remain text.
+- Allow shared property definitions to become mixed when cards use both text and
+  numbers. Preserve stored values and canonical numeric unit conversion.
+- Keep release versions synchronized at 1.7.6. Website metadata continues to use
+  the full actual Git HEAD and the current UTC build time, never fixed overrides.
+
+- Make local checks portable to Windows: pin byte-sensitive parser fixtures to LF,
+  use platform-aware test paths, and launch npm audit through its Node entry point.
+- Cover image storage download/upload failures with retry and terminal audit tests.
+
+Migration `20260929_32` extends the property type check constraint to allow `mixed`
+without rewriting stored values. Apply `alembic upgrade head` before using 1.7.6.
+Downgrade is rejected while mixed definitions exist, preserving their data.
+
 ## [1.7.5] - 2026-09-25
 
 ### Changed

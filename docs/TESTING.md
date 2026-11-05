@@ -153,3 +153,17 @@ Skipped, cancelled или failed обязательный job блокирует
 CI не заменяет нагрузочные и длительные тесты, реальный внешний импорт, Firefox/WebKit,
 физическое восстановление VM, настройки DNS/CA/firewall и согласованный PostgreSQL + MinIO
 backup. Эти проверки выполняются на приёмочном стенде по [QA checklist](QA_CHECKLIST.md).
+
+## Windows и байтовые fixtures
+
+Парсерные fixtures `.md`, `.mdx` и `.kicad_sym` закреплены как LF в `.gitattributes`:
+их исходные байты участвуют в provenance/hash-контрактах. Эталонные результаты нельзя
+перегенерировать только из-за преобразования переводов строк checkout-ом.
+Общие тестовые настройки задают абсолютный путь к KiCad index средствами текущей ОС;
+production default и его проверка безопасности остаются прежними.
+
+На native Windows проверку `scripts/backend_smoke.py` запускают с абсолютным
+`ACKB_KICAD_INDEX_ARTIFACT_PATH`. Полный production gate выполняется в Linux:
+KiCad publisher использует directory fsync и POSIX filesystem permissions, а проверки
+symlink требуют соответствующих прав. Windows-прогон не заменяет Compose/worker/MinIO
+проверки и не является основанием пропускать эти тесты в Linux CI.

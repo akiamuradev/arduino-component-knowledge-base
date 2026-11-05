@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { TechnicalSpecificationInput } from "../api/contracts";
 import {
+  duplicateSpecificationKeys,
   emptySpecification,
   insertPastedSpecifications,
   MAX_SPECIFICATIONS,
@@ -24,7 +25,24 @@ describe("technical specification mapping", () => {
     expect(specificationKey("电压")).toMatch(/^spec-[0-9a-f]{8}$/u);
   });
 
+  it("keeps signal polarity distinct without changing saved keys", () => {
+    expect(specificationKey("USB D+")).toBe("usb-d-plus");
+    expect(specificationKey("USB D−")).toBe("usb-d-minus");
+    expect(specificationKey("USB D-")).toBe("usb-d-minus");
+    expect(duplicateSpecificationKeys([row("USB D+", "1"), row("USB D−", "2")]).size).toBe(0);
+    expect(duplicateSpecificationKeys([row("USB D+", "1"), row("USB D+", "2")]).size).toBe(1);
+    const saved = { ...row("USB D−", "1"), key: "usb-d" };
+    expect(specificationInputs([saved], [saved])[0]?.key).toBe("usb-d");
+  });
+
   it.each([
+    ["20мА", { valueNumber: "20", unit: "мА" }],
+    ["20mA", { valueNumber: "20", unit: "mA" }],
+    ["20 mA", { valueNumber: "20", unit: "mA" }],
+    ["3.3V", { valueNumber: "3.3", unit: "V" }],
+    ["3.3 V", { valueNumber: "3.3", unit: "V" }],
+    ["16MHz", { valueNumber: "16", unit: "MHz" }],
+    ["16 MHz", { valueNumber: "16", unit: "MHz" }],
     ["5 В", { valueNumber: "5", unit: "В" }],
     ["16 МГц", { valueNumber: "16", unit: "МГц" }],
     ["32 КБ", { valueNumber: "32", unit: "КБ" }],
@@ -34,7 +52,7 @@ describe("technical specification mapping", () => {
     expect(numericSpecificationMetadata(value)).toEqual(expected);
   });
 
-  it.each(["ATmega328P", "8-bit AVR", "I2C / SPI", "3.3–5 В", "5 В / 3.3 В"])(
+  it.each(["ATmega328P", "8-bit AVR", "I2C / SPI", "3.3–5 В", "5 В / 3.3 В", "3.3–5V", "3.3-5 V", "45 × 18 mm", "45×18mm", "45x18mm", "45 x 18 mm", "12345678901234567V", "1.123456789V"])(
     "does not guess metadata for textual or compound value %s",
     (value) => { expect(numericSpecificationMetadata(value)).toBeNull(); },
   );
