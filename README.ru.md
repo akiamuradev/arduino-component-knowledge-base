@@ -32,13 +32,27 @@
 
 Arduino Component Knowledge Base (ACKB) предоставляет студентам каталог с поиском, а
 преподавателям, редакторам и администраторам — контролируемый процесс подготовки материалов.
-Текущая версия — **1.7.6**.
+Текущая версия — **1.7.6**. README описывает код в `main`; фактически обслуживаемая
+установкой версия определяется по метаданным её сборки.
 
 Автор и разработчик — [akiamuradev](https://github.com/akiamuradev).
 
 Чистая установка содержит категории и описания разрешённых источников, но не вымышленные и не
 автоматически опубликованные карточки. Импорт всегда начинает работу с черновика; материал
 становится видимым студентам только после проверки, одобрения и явной публикации.
+
+## Текущий выпуск: 1.7.6
+
+Технические характеристики поддерживают числа и свободный текст: одному свойству в разных
+карточках не обязательно иметь одинаковое представление. Общее определение свойства может
+иметь тип `mixed`, существующие значения сохраняются. Редактор распознаёт компактные единицы
+`20mA`, `3.3V`, `16MHz`, оставляет диапазоны и составные размеры текстом и различает создаваемые
+ключи USB D+ и USB D−. Преобразование единиц выполняется явно и только для совместимых величин.
+
+Перед запуском новой версии требуется миграция **`20260929_32`**. Она расширяет ограничение
+типов свойств без перезаписи значений. Понижение схемы блокируется, пока существуют определения
+с типом `mixed`. Изучите [историю изменений](CHANGELOG.md) и выполняйте
+[процедуру обновления](docs/OPERATIONS.md#9-обновление-с-предыдущей-версии) с проверенной резервной копией.
 
 ## Возможности ACKB
 
@@ -84,7 +98,8 @@ Arduino Component Knowledge Base (ACKB) предоставляет студен�
 | ![Страница входа ACKB на мобильном экране в светлой теме](docs/screenshots/frontend-light-mobile.png) | ![Страница входа ACKB на мобильном экране в тёмной теме](docs/screenshots/frontend-dark-mobile.png) |
 
 Скриншоты создаёт детерминированный Playwright-сценарий репозитория; production-код не содержит
-тестовых данных каталога.
+тестовых данных каталога. Изображения иллюстрируют интерфейс: видимые на них версия и коммит
+относятся к сборке во время съёмки и не определяют текущий deployment.
 
 ## Архитектура
 
@@ -131,11 +146,17 @@ Compose, собирает образы через `python3 scripts/build_images.
 docker compose ps -a
 curl -f http://127.0.0.1:8080/health
 curl -f http://127.0.0.1:8080/ready
+curl -f http://127.0.0.1:8080/build-info.json
 python3 scripts/compose_smoke.py
+docker compose exec backend alembic current
 ```
 
-`migrate` и `media-init` — одноразовые services; `Exited (0)` означает успех. Для существующей
-копии релиза сохраните её `.env` и volumes:
+Сверьте `/build-info.json` с версией checkout и `git rev-parse HEAD`: там записаны версия frontend,
+полный SHA и время сборки UTC. `/health` возвращает версию backend.
+Для 1.7.6 команда `alembic current` должна показывать `20260929_32 (head)`.
+
+`migrate` и `media-init` — одноразовые services; `Exited (0)` означает успех. Для чистой локальной
+копии, которую можно обновить до `origin/main` через fast-forward, сохраните `.env` и volumes:
 
 ```bash
 git pull --ff-only origin main
@@ -150,6 +171,9 @@ backup, restore и обновление описаны в [руководств�
 Команды выше относятся к локальному stack, а не заменяют production-процедуру. Сборщик требует
 чистый закоммиченный checkout, получает версию из project metadata и полный SHA из Git;
 старые значения `.env` не могут переопределить build metadata сайта.
+Compose запускает миграции до старта backend. Если Git не может выполнить fast-forward или
+миграции завершились ошибкой, сначала устраните причину и только потом запускайте приложение.
+Не обходите её через force push, Alembic stamp или ручную подстановку версии.
 
 ## Создание первого администратора
 
@@ -193,6 +217,8 @@ Docker.
 ```bash
 uv lock --check
 uv sync --frozen --extra dev
+uv run pip-audit --strict --requirement requirements.lock --require-hashes
+uv run bandit -r src/arduino_component_kb -q -ll
 uv run ruff check .
 uv run ruff format --check src scripts tests migrations
 uv run mypy --strict src scripts tests migrations
@@ -221,6 +247,9 @@ npm run test:e2e
 Container checks и окружение PostgreSQL/MinIO integration описаны в
 [документе о тестировании](docs/TESTING.md). Workflow `quality` запускает обязательные CI checks
 на каждый push и pull request; он не развёртывает и не проверяет production.
+Он включает шесть jobs: `backend`, `frontend`, `integration`, `e2e`, `containers` и
+`release-quality-gate`. Локальный `pytest` может пропускать integration-тесты без включённого
+одноразового окружения PostgreSQL/MinIO; это не заменяет отдельную integration job.
 
 Обновление четырёх README screenshots из детерминированных test-only fixtures (из `frontend`):
 
@@ -253,6 +282,8 @@ backend `/health` возвращает версию приложения (не S
 - [Тестирование](docs/TESTING.md)
 - [Контроли безопасности](docs/SECURITY.md) и [модель угроз](docs/THREAT_MODEL.md)
 - [Эксплуатация](docs/OPERATIONS.md) и [развёртывание](docs/DEPLOYMENT.md)
+- [История изменений](CHANGELOG.md) и [руководство по заполнению](frontend/src/content/editorial-guide.md)
+- [Импортёр legacy ZIP/XLSX](docs/LEGACY_IMPORTER.md)
 - [Проверка импорта](docs/IMPORT_VALIDATION.md) и [ROADMAP импорта](docs/imports/ROADMAP.md)
 - [Лицензирование данных](docs/DATA_LICENSING.md) и [сторонние материалы](THIRD_PARTY_NOTICES.md)
 - [Участие в разработке и fork](CONTRIBUTING.md)
